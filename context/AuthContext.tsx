@@ -28,7 +28,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const fetchProfile = useCallback(async (userId: string) => {
     try {
-      // Fetch with joined organisation name
       const { data: profile, error } = await supabase
           .from('profiles')
           .select(`
@@ -54,6 +53,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               organisationId: profile.organisation_id,
               organisationName: profile.organisations?.name || null,
               mobile: profile.mobile,
+              status: profile.status || 'Active'
           };
       }
     } catch (e) {
@@ -118,25 +118,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             password: password 
         });
 
-        if (authError) {
-            return { user: null, error: authError.message };
-        }
+        if (authError) return { user: null, error: authError.message };
 
         if (authData.user) {
-            // We give the DB trigger a moment or retry if RLS policy is being evaluated
-            const mappedUser = await fetchProfile(authData.user.id);
-            if (!mappedUser) {
-                // If profile is missing but auth succeeded, try one more time after a short delay
-                await new Promise(r => setTimeout(r, 500));
-                const retryUser = await fetchProfile(authData.user.id);
-                if (retryUser) {
-                    setUser(retryUser);
-                    return { user: retryUser };
-                }
-                return { user: null, error: "no Profile record found" };
+            // RETRY LOGIC: Try 3 times with increasing delays to handle trigger latency
+            let profile = await fetchProfile(authData.user.id);
+            
+            if (!profile) {
+                await new Promise(r => setTimeout(r, 600)); // First retry
+                profile = await fetchProfile(authData.user.id);
             }
-            setUser(mappedUser);
-            return { user: mappedUser };
+            
+            if (!profile) {
+                await new Promise(r => setTimeout(r, 1200)); // Second retry
+                profile = await fetchProfile(authData.user.id);
+            }
+
+            if (profile) {
+                setUser(profile);
+                return { user: profile };
+            }
+            return { user: null, error: "no Profile record found" };
         }
         return { user: null, error: "Authentication failed." };
     } catch (err: any) {
@@ -158,8 +160,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };

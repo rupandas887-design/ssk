@@ -11,8 +11,9 @@ export interface User {
   role: Role;
   email: string;
   organisationId?: string; 
-  organisationName?: string; // Added for display purposes
+  organisationName?: string;
   mobile?: string;
+  status?: 'Active' | 'Deactivated'; // Added status
 }
 
 export interface Organisation {
