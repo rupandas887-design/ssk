@@ -13,19 +13,11 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Improved role mapping to handle common database variations
 const mapToRole = (roleStr: any): Role => {
     if (!roleStr) return Role.Volunteer;
     const normalized = String(roleStr).toLowerCase().trim();
-    
-    if (normalized === 'masteradmin' || normalized === 'superadmin') {
-        return Role.MasterAdmin;
-    }
-    
-    if (normalized === 'organisation' || normalized === 'admin' || normalized === 'org') {
-        return Role.Organisation;
-    }
-    
+    if (normalized === 'masteradmin' || normalized === 'superadmin') return Role.MasterAdmin;
+    if (normalized === 'organisation' || normalized === 'admin' || normalized === 'org') return Role.Organisation;
     return Role.Volunteer;
 };
 
@@ -35,9 +27,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const fetchProfile = useCallback(async (userId: string) => {
     try {
+      // Fetch profile and optionally join with organisation to get the name
       const { data: profile, error } = await supabase
           .from('profiles')
-          .select('*')
+          .select(`
+            *,
+            organisations (
+              name
+            )
+          `)
           .eq('id', userId)
           .single();
 
@@ -53,6 +51,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               email: profile.email,
               role: mapToRole(profile.role),
               organisationId: profile.organisation_id,
+              organisationName: profile.organisations?.name || null,
               mobile: profile.mobile,
           };
       }

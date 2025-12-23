@@ -11,6 +11,7 @@ export interface User {
   role: Role;
   email: string;
   organisationId?: string; 
+  organisationName?: string; // Added for display purposes
   mobile?: string;
 }
 
@@ -24,7 +25,7 @@ export interface Organisation {
 
 export interface Volunteer extends User {
   organisationId: string;
-  enrollments: number; // This will likely be a calculated field
+  enrollments: number;
 }
 
 export enum Gender {

@@ -1,10 +1,10 @@
 
 import React from 'react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import Header from './Header';
 import { useAuth } from '../../context/AuthContext';
 import { Role } from '../../types';
-import { Shield, Users, BarChart2, UserPlus, FileDown, LogOut, User as UserIcon, LayoutDashboard } from 'lucide-react';
+import { Shield, Users, FileDown, UserPlus, LogOut, User as UserIcon, LayoutDashboard, Building2 } from 'lucide-react';
 
 interface NavItem {
   path: string;
@@ -95,14 +95,22 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
 
                     {/* Sidebar User Profile & Logout */}
                     <div className="p-4 border-t border-gray-800 bg-gray-900/50">
-                        <div className="flex items-center gap-3 mb-4 px-2">
-                            <div className="h-10 w-10 rounded-full bg-orange-600/10 border border-orange-500/20 flex items-center justify-center text-orange-500">
-                                <UserIcon size={20} />
+                        <div className="flex flex-col gap-3 mb-4 px-2">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 flex-shrink-0 rounded-full bg-orange-600/10 border border-orange-500/20 flex items-center justify-center text-orange-500">
+                                    <UserIcon size={20} />
+                                </div>
+                                <div className="overflow-hidden">
+                                    <p className="text-sm font-bold text-white truncate leading-tight">{user?.name}</p>
+                                    <p className={`text-[10px] font-bold uppercase tracking-wider ${roleColor}`}>{roleLabel}</p>
+                                </div>
                             </div>
-                            <div className="overflow-hidden">
-                                <p className="text-sm font-bold text-white truncate leading-tight">{user?.name}</p>
-                                <p className={`text-[10px] font-bold uppercase tracking-wider ${roleColor}`}>{roleLabel}</p>
-                            </div>
+                            {user?.organisationName && (
+                                <div className="flex items-center gap-2 px-2 py-1.5 bg-black/40 rounded border border-gray-800">
+                                    <Building2 size={12} className="text-gray-500" />
+                                    <span className="text-[9px] text-gray-400 font-black uppercase truncate tracking-widest">{user.organisationName}</span>
+                                </div>
+                            )}
                         </div>
                         <button 
                             onClick={handleLogout}
