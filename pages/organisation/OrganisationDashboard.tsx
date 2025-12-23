@@ -34,7 +34,7 @@ const OrganisationDashboard: React.FC = () => {
     }, [user]);
 
     return (
-        <DashboardLayout title={`${user?.name}'s Dashboard`}>
+        <DashboardLayout title="Admin Dashboard">
              {loading ? <p>Loading dashboard...</p> : (
             <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -55,8 +55,7 @@ const OrganisationDashboard: React.FC = () => {
             </div>
              <div className="mt-8">
                 <Card title="Your Volunteer Performance">
-                    {/* Placeholder for more detailed org charts */}
-                    <p className="text-gray-400">A list or chart of your top-performing volunteers will be displayed here.</p>
+                    <p className="text-gray-400">Performance insights for {user?.name} volunteers.</p>
                 </Card>
              </div>
              </>

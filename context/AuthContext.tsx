@@ -9,56 +9,82 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<{ user: User | null; error?: string }>;
   logout: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Helper to safely map database string to Role enum
+const mapToRole = (roleStr: string): Role => {
+    const normalized = roleStr?.toLowerCase();
+    if (normalized === 'masteradmin') return Role.MasterAdmin;
+    if (normalized === 'organisation') return Role.Organisation;
+    return Role.Volunteer;
+};
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const fetchProfile = async (userId: string) => {
+    const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+    if (error) {
+        console.error('Auth: Error fetching profile:', error.message);
+        return null;
+    }
+    
+    if (profile) {
+        return {
+            id: profile.id,
+            name: profile.name,
+            email: profile.email,
+            role: mapToRole(profile.role),
+            organisationId: profile.organisation_id,
+            mobile: profile.mobile,
+        };
+    }
+    return null;
+  };
+
+  const refreshProfile = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+          const updatedUser = await fetchProfile(session.user.id);
+          setUser(updatedUser);
+      }
+  };
+
   useEffect(() => {
     const getSession = async () => {
         const { data: { session } } = await supabase.auth.getSession();
-        await handleAuthChange('INITIAL_SESSION', session);
+        if (session?.user) {
+            const mapped = await fetchProfile(session.user.id);
+            setUser(mapped);
+        }
         setLoading(false);
     };
 
     getSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthChange);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (session?.user) {
+            const mapped = await fetchProfile(session.user.id);
+            setUser(mapped);
+        } else {
+            setUser(null);
+        }
+        if (event !== 'INITIAL_SESSION') setLoading(false);
+    });
 
     return () => {
       subscription?.unsubscribe();
     };
   }, []);
-
-  const handleAuthChange = async (event: AuthChangeEvent, session: Session | null) => {
-    if (session?.user) {
-        const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
-        if (error) {
-            console.error('AuthChange: Error fetching profile:', error.message);
-            setUser(null);
-        } else if (profile) {
-            setUser({
-                id: profile.id,
-                name: profile.name,
-                email: profile.email,
-                role: profile.role as Role,
-                organisationId: profile.organisation_id,
-                mobile: profile.mobile,
-            });
-        }
-    } else {
-        setUser(null);
-    }
-    if (event !== 'INITIAL_SESSION') setLoading(false);
-  };
 
   const login = async (email: string, password: string): Promise<{ user: User | null; error?: string }> => {
     try {
@@ -68,44 +94,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         });
 
         if (authError) {
-            console.error("Login: Auth error:", authError.message);
             let message = authError.message;
             if (message === 'Invalid login credentials') {
-                message = "Invalid Credentials. Ensure this user exists in 'Authentication -> Users' and that 'Confirm Email' is DISABLED in Supabase settings.";
+                message = "Invalid login credentials. Ensure 'Confirm Email' is OFF in Supabase Auth settings.";
             }
             return { user: null, error: message };
         }
 
         if (authData.user) {
-            const { data: profile, error: profileError } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', authData.user.id)
-                .single();
-
-            if (profileError || !profile) {
-                console.error("Login: Profile missing in database for ID:", authData.user.id);
+            const mappedUser = await fetchProfile(authData.user.id);
+            if (!mappedUser) {
                 return { 
                     user: null, 
-                    error: "Auth successful, but no matching Profile record found. Run the SQL to insert this ID into the 'profiles' table." 
+                    error: "Auth successful, but no Profile record found. Check your SQL trigger 'handle_new_user'." 
                 };
             }
-
-            const mappedUser: User = {
-                id: profile.id,
-                name: profile.name,
-                email: profile.email,
-                role: profile.role as Role,
-                organisationId: profile.organisation_id,
-                mobile: profile.mobile
-            };
-            
             setUser(mappedUser);
             return { user: mappedUser };
         }
         return { user: null, error: "An unknown authentication error occurred." };
     } catch (err: any) {
-        console.error("Login: Unexpected error:", err);
         return { user: null, error: err.message || "An unexpected error occurred" };
     }
   };
@@ -116,7 +124,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshProfile }}>
       {!loading && children}
     </AuthContext.Provider>
   );

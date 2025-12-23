@@ -72,7 +72,7 @@ const VolunteerDashboard: React.FC = () => {
     }, [mySubmissions, filters]);
 
     return (
-        <DashboardLayout title="My Submissions">
+        <DashboardLayout title="Volunteer Dashboard">
             <div className="flex justify-end mb-6">
                 <Button onClick={() => navigate('/volunteer/new-member')}>
                     Add New Member
