@@ -9,6 +9,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<{ user: User | null; error?: string }>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  updatePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,7 +28,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const fetchProfile = useCallback(async (userId: string) => {
     try {
-      // Fetch profile and optionally join with organisation to get the name
+      // Fetch with joined organisation name
       const { data: profile, error } = await supabase
           .from('profiles')
           .select(`
@@ -37,10 +38,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             )
           `)
           .eq('id', userId)
-          .single();
+          .maybeSingle();
 
       if (error) {
-          console.error('Auth: Profile fetch failed:', error.message);
+          console.error('Auth: Profile fetch error:', error.message);
           return null;
       }
       
@@ -67,6 +68,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           const updatedUser = await fetchProfile(session.user.id);
           setUser(updatedUser);
       }
+  };
+
+  const updatePassword = async (newPassword: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+      if (error) return { success: false, error: error.message };
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
   };
 
   useEffect(() => {
@@ -110,8 +123,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
 
         if (authData.user) {
+            // We give the DB trigger a moment or retry if RLS policy is being evaluated
             const mappedUser = await fetchProfile(authData.user.id);
             if (!mappedUser) {
+                // If profile is missing but auth succeeded, try one more time after a short delay
+                await new Promise(r => setTimeout(r, 500));
+                const retryUser = await fetchProfile(authData.user.id);
+                if (retryUser) {
+                    setUser(retryUser);
+                    return { user: retryUser };
+                }
                 return { user: null, error: "no Profile record found" };
             }
             setUser(mappedUser);
@@ -129,7 +150,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, refreshProfile }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshProfile, updatePassword }}>
       {!loading && children}
     </AuthContext.Provider>
   );

@@ -43,7 +43,9 @@ const ManageOrganisations: React.FC = () => {
   };
 
   const handleAddOrganisation = async () => {
-    if (!newOrg.email || !newOrg.password || !newOrg.name || !newOrg.mobile || !newOrg.secretaryName) {
+    const trimmedEmail = newOrg.email.trim().toLowerCase();
+    
+    if (!trimmedEmail || !newOrg.password || !newOrg.name || !newOrg.mobile || !newOrg.secretaryName) {
         addNotification("All fields are required.", 'error');
         return;
     }
@@ -54,37 +56,42 @@ const ManageOrganisations: React.FC = () => {
     const { data: orgData, error: orgError } = await supabase
       .from('organisations')
       .insert({ 
-        name: newOrg.name, 
-        mobile: newOrg.mobile, 
-        secretary_name: newOrg.secretaryName 
+        name: newOrg.name.trim(), 
+        mobile: newOrg.mobile.trim(), 
+        secretary_name: newOrg.secretaryName.trim() 
       })
       .select().single();
 
     if (orgError) {
-      addNotification(`Failed to create organisation record: ${orgError.message}`, 'error');
+      addNotification(`Failed to create organisation: ${orgError.message}`, 'error');
       setIsSubmitting(false);
       return;
     }
 
-    // 2. Create Auth User with Exact Metadata for the Trigger
-    // The trigger public.handle_new_user() will automatically create the profile
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: newOrg.email.trim(),
+    // 2. Create Auth User with Explicit Metadata
+    // Note: We force organisation_id to a string to ensure it's passed correctly to the trigger
+    const { error: authError } = await supabase.auth.signUp({
+      email: trimmedEmail,
       password: newOrg.password,
       options: {
         data: {
-          name: newOrg.secretaryName,
-          role: 'Organisation', // Case-sensitive matching for the trigger
-          organisation_id: orgData.id,
-          mobile: newOrg.mobile
+          name: newOrg.secretaryName.trim(),
+          role: 'Organisation', 
+          organisation_id: String(orgData.id),
+          mobile: newOrg.mobile.trim()
         }
       }
     });
 
     if (authError) {
-      addNotification(`Identity creation failed: ${authError.message}`, 'error');
-      // Cleanup the abandoned org record
+      // If auth fails, try to clean up the orphaned organisation record
       await supabase.from('organisations').delete().eq('id', orgData.id);
+      
+      let msg = authError.message;
+      if (msg.includes("Database error saving new user")) {
+          msg = "Critical database sync error. Please check your SQL Trigger configuration.";
+      }
+      addNotification(msg, 'error');
       setIsSubmitting(false);
       return;
     }
@@ -149,22 +156,22 @@ const ManageOrganisations: React.FC = () => {
         </div>
         <div className="lg:col-span-2">
           <Card title="Existing Organisations">
-            {loading ? <p>Loading registry...</p> : (
+            {loading ? <p className="p-8 text-center animate-pulse">Scanning Registry...</p> : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead className="border-b border-gray-700">
                     <tr>
-                      <th className="p-2">Name</th>
-                      <th className="p-2">Mobile</th>
-                      <th className="p-2">Status</th>
-                      <th className="p-2">Actions</th>
+                      <th className="p-2 text-[10px] uppercase tracking-widest text-gray-500">Name</th>
+                      <th className="p-2 text-[10px] uppercase tracking-widest text-gray-500">Mobile</th>
+                      <th className="p-2 text-[10px] uppercase tracking-widest text-gray-500">Status</th>
+                      <th className="p-2 text-[10px] uppercase tracking-widest text-gray-500">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {organisations.map(org => (
                       <tr key={org.id} className="border-b border-gray-800 hover:bg-gray-800 transition-colors">
                         <td className="p-2 font-medium">{org.name}</td>
-                        <td className="p-2">{org.mobile}</td>
+                        <td className="p-2 text-sm text-gray-400 font-mono">{org.mobile}</td>
                         <td className="p-2">
                            <span className={`px-2 py-1 text-[10px] font-black uppercase tracking-widest rounded-full ${ org.status === 'Active' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20' }`}>
                                {org.status}
