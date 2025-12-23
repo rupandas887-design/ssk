@@ -22,14 +22,34 @@ const ManageVolunteers: React.FC = () => {
     if (!user?.organisationId) return;
     setLoading(true);
 
+    // This RPC is expected to exist in your Supabase to get counts efficiently
     const { data, error } = await supabase
       .rpc('get_volunteers_with_enrollment_counts', {
           org_id: user.organisationId
       });
 
     if (error) {
-      console.error("Error fetching volunteers:", error);
-      addNotification("Could not fetch volunteers.", 'error');
+      // Fallback if RPC doesn't exist yet
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*, members(id)')
+        .eq('role', Role.Volunteer)
+        .eq('organisation_id', user.organisationId);
+
+      if (profileError) {
+        console.error("Error fetching volunteers:", profileError);
+        addNotification("Could not fetch volunteers.", 'error');
+      } else {
+        setVolunteers(profileData.map((v: any) => ({
+            id: v.id,
+            name: v.name,
+            email: v.email,
+            mobile: v.mobile,
+            role: Role.Volunteer,
+            organisationId: v.organisation_id,
+            enrollments: v.members?.length || 0
+        })) || []);
+      }
     } else {
       setVolunteers(data.map((v: any) => ({
           id: v.id,
@@ -55,53 +75,40 @@ const ManageVolunteers: React.FC = () => {
 
   const handleAddVolunteer = async () => {
     if (!user?.organisationId) {
-        addNotification("Cannot register volunteer: your organisation is not identified.", 'error');
+        addNotification("Organisation identity missing.", 'error');
         return;
     }
     if (!newVol.email || !newVol.password || !newVol.name || !newVol.mobile) {
-        addNotification("All fields are required.", 'error');
+        addNotification("Please fill in all volunteer details.", 'error');
         return;
     }
 
-    // FIX: `signUp` call is correct for v1, the error was likely a cascade from type issues in AuthContext. No change needed here.
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    // Use metadata options - the SQL trigger will handle the 'profiles' table entry
+    const { error: authError } = await supabase.auth.signUp({
       email: newVol.email,
       password: newVol.password,
+      options: {
+        data: {
+          name: newVol.name,
+          mobile: newVol.mobile,
+          role: Role.Volunteer,
+          organisation_id: user.organisationId
+        }
+      }
     });
 
     if (authError) {
-      console.error('Error creating volunteer user:', authError);
-      addNotification(`Failed to create user: ${authError.message}`, 'error');
+      addNotification(`Failed to register volunteer: ${authError.message}`, 'error');
       return;
     }
     
-    if (authData.user) {
-        const { error: profileError } = await supabase.from('profiles').insert({
-          id: authData.user.id,
-          name: newVol.name,
-          email: newVol.email,
-          mobile: newVol.mobile,
-          role: Role.Volunteer,
-          organisation_id: user.organisationId,
-        });
-
-        if (profileError) {
-            console.error('Error creating volunteer profile:', profileError);
-            addNotification(`Failed to create profile: ${profileError.message}`, 'error');
-            // CRITICAL SECURITY NOTE: The following line is insecure and requires admin privileges not available on the client.
-            // It is commented out. In a real app, use a server-side function to clean up orphaned auth users.
-            // await supabase.auth.admin.deleteUser(authData.user.id);
-            return;
-        }
-    }
-
-    addNotification('New volunteer registered successfully.', 'success');
+    addNotification('Volunteer registered! Profile is being created automatically.', 'success');
     setNewVol({ name: '', mobile: '', email: '', password: '' });
-    fetchVolunteers(); // Refresh the list
+    fetchVolunteers(); 
   };
   
   const handleToggleAccess = (volunteerId: string) => {
-      addNotification(`Toggled access for volunteer (simulated).`, 'info');
+      addNotification(`Access controls for volunteers coming soon.`, 'info');
   }
 
   return (
@@ -112,38 +119,43 @@ const ManageVolunteers: React.FC = () => {
             <div className="space-y-4">
               <Input label="Volunteer Name" name="name" value={newVol.name} onChange={handleInputChange} />
               <Input label="Mobile Number" name="mobile" type="tel" value={newVol.mobile} onChange={handleInputChange} />
-              <Input label="Email" name="email" type="email" value={newVol.email} onChange={handleInputChange} />
-              <Input label="Password" name="password" type="password" value={newVol.password} onChange={handleInputChange} />
+              <Input label="Email Address" name="email" type="email" value={newVol.email} onChange={handleInputChange} />
+              <Input label="Create Password" name="password" type="password" value={newVol.password} onChange={handleInputChange} />
               <Button type="button" onClick={handleAddVolunteer} className="w-full">Register Volunteer</Button>
             </div>
           </Card>
         </div>
         <div className="lg:col-span-2">
-          <Card title="Your Volunteers">
-            {loading ? <p>Loading...</p> : (
+          <Card title="Your Volunteer Team">
+            {loading ? <p>Loading volunteers...</p> : (
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="border-b border-gray-700">
                   <tr>
                     <th className="p-2">Name</th>
                     <th className="p-2">Email</th>
-                    <th className="p-2">Mobile</th>
                     <th className="p-2">Enrollments</th>
                     <th className="p-2">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {volunteers.map(vol => (
-                    <tr key={vol.id} className="border-b border-gray-800 hover:bg-gray-800">
-                      <td className="p-2">{vol.name}</td>
-                      <td className="p-2">{vol.email}</td>
-                      <td className="p-2">{vol.mobile}</td>
-                      <td className="p-2 font-bold text-orange-400">{vol.enrollments}</td>
+                    <tr key={vol.id} className="border-b border-gray-800 hover:bg-gray-800 transition-colors">
+                      <td className="p-2 font-medium">{vol.name}</td>
+                      <td className="p-2 text-sm text-gray-400">{vol.email}</td>
+                      <td className="p-2 text-center">
+                        <span className="bg-orange-500/10 text-orange-400 px-2 py-1 rounded font-bold">{vol.enrollments}</span>
+                      </td>
                       <td className="p-2">
-                        <Button variant="secondary" size="sm" onClick={() => handleToggleAccess(vol.id)}>Toggle Access</Button>
+                        <Button variant="secondary" size="sm" onClick={() => handleToggleAccess(vol.id)}>Manage</Button>
                       </td>
                     </tr>
                   ))}
+                  {volunteers.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="p-8 text-center text-gray-500">No volunteers registered yet.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

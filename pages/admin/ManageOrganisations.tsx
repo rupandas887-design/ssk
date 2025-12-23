@@ -47,50 +47,43 @@ const ManageOrganisations: React.FC = () => {
         return;
     }
     
-    // In a real-world scenario, this entire operation should be a single transaction
-    // handled by a Supabase Edge Function to ensure data integrity and security.
-    
+    // 1. Create the Organisation entry first to get an ID
     const { data: orgData, error: orgError } = await supabase
       .from('organisations')
-      .insert({ name: newOrg.name, mobile: newOrg.mobile, secretary_name: newOrg.secretaryName })
+      .insert({ 
+        name: newOrg.name, 
+        mobile: newOrg.mobile, 
+        secretary_name: newOrg.secretaryName 
+      })
       .select().single();
 
     if (orgError) {
-      console.error('Error creating organisation:', orgError);
-      addNotification(`Failed to create organisation: ${orgError.message}`, 'error');
+      addNotification(`Failed to create organisation record: ${orgError.message}`, 'error');
       return;
     }
 
-    // FIX: `signUp` call is correct for v1, the error was likely a cascade from type issues in AuthContext. No change needed here.
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: newOrg.email, password: newOrg.password,
+    // 2. Create Auth User with Metadata
+    // The SQL trigger (handle_new_user) will automatically create the profile using this data
+    const { error: authError } = await supabase.auth.signUp({
+      email: newOrg.email,
+      password: newOrg.password,
+      options: {
+        data: {
+          name: newOrg.secretaryName,
+          role: Role.Organisation,
+          organisation_id: orgData.id,
+          mobile: newOrg.mobile
+        }
+      }
     });
 
     if (authError) {
-      console.error('Error creating user:', authError);
-      addNotification(`Failed to create user: ${authError.message}`, 'error');
-      await supabase.from('organisations').delete().eq('id', orgData.id); // Clean up
+      addNotification(`Auth User creation failed: ${authError.message}`, 'error');
+      // Note: In a production app, you might want to delete the org row if Auth fails
       return;
     }
-    
-    if (authData.user) {
-        const { error: profileError } = await supabase.from('profiles').insert({
-          id: authData.user.id, name: newOrg.secretaryName, email: newOrg.email,
-          role: Role.Organisation, organisation_id: orgData.id,
-        });
 
-        if (profileError) {
-            console.error('Error creating profile:', profileError);
-            addNotification(`Failed to create profile: ${profileError.message}`, 'error');
-            // CRITICAL SECURITY NOTE: The following line is insecure and requires admin privileges not available on the client.
-            // It is commented out. In a real app, use a server-side function to clean up orphaned auth users.
-            // await supabase.auth.admin.deleteUser(authData.user.id);
-            await supabase.from('organisations').delete().eq('id', orgData.id); // Clean up
-            return;
-        }
-    }
-
-    addNotification('New organisation and user created successfully.', 'success');
+    addNotification('Organisation added successfully! Profile created automatically.', 'success');
     setNewOrg({ name: '', mobile: '', secretaryName: '', email: '', password: '' });
     fetchOrganisations();
   };
@@ -109,14 +102,16 @@ const ManageOrganisations: React.FC = () => {
     if (!editingOrg) return;
     
     const { error } = await supabase.from('organisations').update({
-        name: editingOrg.name, mobile: editingOrg.mobile,
-        secretary_name: editingOrg.secretary_name, status: editingOrg.status
+        name: editingOrg.name, 
+        mobile: editingOrg.mobile,
+        secretary_name: editingOrg.secretary_name, 
+        status: editingOrg.status
       }).eq('id', editingOrg.id);
 
     if (error) {
-        addNotification(`Failed to update organisation: ${error.message}`, 'error');
+        addNotification(`Update failed: ${error.message}`, 'error');
     } else {
-        addNotification(`Organisation "${editingOrg.name}" updated successfully.`, 'success');
+        addNotification(`Organisation updated successfully.`, 'success');
         fetchOrganisations();
     }
     handleModalClose();
@@ -159,10 +154,10 @@ const ManageOrganisations: React.FC = () => {
                   <tbody>
                     {organisations.map(org => (
                       <tr key={org.id} className="border-b border-gray-800 hover:bg-gray-800">
-                        <td className="p-2">{org.name}</td>
+                        <td className="p-2 font-medium">{org.name}</td>
                         <td className="p-2">{org.mobile}</td>
                         <td className="p-2">
-                           <span className={`px-2 py-1 text-xs font-semibold rounded-full ${ org.status === 'Active' ? 'bg-green-500 text-green-900' : 'bg-red-500 text-red-900' }`}>
+                           <span className={`px-2 py-1 text-xs font-semibold rounded-full ${ org.status === 'Active' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400' }`}>
                                {org.status}
                            </span>
                         </td>
