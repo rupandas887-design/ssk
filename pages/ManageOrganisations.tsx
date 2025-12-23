@@ -66,15 +66,14 @@ const ManageOrganisations: React.FC = () => {
       return;
     }
 
-    // 2. Create Auth User with Exact Metadata for the Trigger
-    // The trigger public.handle_new_user() will automatically create the profile
+    // 2. Create Auth User with Explicit Metadata
     const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: newOrg.email.trim(),
+      email: newOrg.email,
       password: newOrg.password,
       options: {
         data: {
           name: newOrg.secretaryName,
-          role: 'Organisation', // Case-sensitive matching for the trigger
+          role: 'Organisation', // Explicit string for reliability
           organisation_id: orgData.id,
           mobile: newOrg.mobile
         }
@@ -82,14 +81,24 @@ const ManageOrganisations: React.FC = () => {
     });
 
     if (authError) {
-      addNotification(`Identity creation failed: ${authError.message}`, 'error');
-      // Cleanup the abandoned org record
-      await supabase.from('organisations').delete().eq('id', orgData.id);
+      addNotification(`Auth User creation failed: ${authError.message}`, 'error');
       setIsSubmitting(false);
       return;
     }
 
-    addNotification('Organisation identity established successfully!', 'success');
+    // 3. Forced Profile Creation (Backup in case Trigger fails)
+    if (authData.user) {
+        await supabase.from('profiles').upsert({
+            id: authData.user.id,
+            name: newOrg.secretaryName,
+            email: newOrg.email,
+            role: 'Organisation',
+            organisation_id: orgData.id,
+            mobile: newOrg.mobile
+        });
+    }
+
+    addNotification('Organisation added successfully!', 'success');
     setNewOrg({ name: '', mobile: '', secretaryName: '', email: '', password: '' });
     fetchOrganisations();
     setIsSubmitting(false);
@@ -142,14 +151,14 @@ const ManageOrganisations: React.FC = () => {
               <Input label="Login Email" name="email" type="email" value={newOrg.email} onChange={handleInputChange} />
               <Input label="Predefined Password" name="password" type="password" value={newOrg.password} onChange={handleInputChange} />
               <Button type="button" onClick={handleAddOrganisation} disabled={isSubmitting} className="w-full">
-                {isSubmitting ? 'ESTABLISHING...' : 'Add Organisation'}
+                {isSubmitting ? 'Processing...' : 'Add Organisation'}
               </Button>
             </div>
           </Card>
         </div>
         <div className="lg:col-span-2">
           <Card title="Existing Organisations">
-            {loading ? <p>Loading registry...</p> : (
+            {loading ? <p>Loading...</p> : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead className="border-b border-gray-700">
@@ -162,11 +171,11 @@ const ManageOrganisations: React.FC = () => {
                   </thead>
                   <tbody>
                     {organisations.map(org => (
-                      <tr key={org.id} className="border-b border-gray-800 hover:bg-gray-800 transition-colors">
+                      <tr key={org.id} className="border-b border-gray-800 hover:bg-gray-800">
                         <td className="p-2 font-medium">{org.name}</td>
                         <td className="p-2">{org.mobile}</td>
                         <td className="p-2">
-                           <span className={`px-2 py-1 text-[10px] font-black uppercase tracking-widest rounded-full ${ org.status === 'Active' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20' }`}>
+                           <span className={`px-2 py-1 text-xs font-semibold rounded-full ${ org.status === 'Active' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400' }`}>
                                {org.status}
                            </span>
                         </td>

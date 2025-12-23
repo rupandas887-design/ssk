@@ -1,6 +1,5 @@
 
-import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
-import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
+import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 import { User, Role } from '../types';
 import { supabase } from '../supabase/client';
 
@@ -14,11 +13,19 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Helper to safely map database string to Role enum
-const mapToRole = (roleStr: string): Role => {
-    const normalized = roleStr?.toLowerCase();
-    if (normalized === 'masteradmin') return Role.MasterAdmin;
-    if (normalized === 'organisation') return Role.Organisation;
+// Improved role mapping to handle common database variations
+const mapToRole = (roleStr: any): Role => {
+    if (!roleStr) return Role.Volunteer;
+    const normalized = String(roleStr).toLowerCase().trim();
+    
+    if (normalized === 'masteradmin' || normalized === 'superadmin') {
+        return Role.MasterAdmin;
+    }
+    
+    if (normalized === 'organisation' || normalized === 'admin' || normalized === 'org') {
+        return Role.Organisation;
+    }
+    
     return Role.Volunteer;
 };
 
@@ -26,30 +33,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string) => {
-    const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
+  const fetchProfile = useCallback(async (userId: string) => {
+    try {
+      const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
 
-    if (error) {
-        console.error('Auth: Error fetching profile:', error.message);
-        return null;
-    }
-    
-    if (profile) {
-        return {
-            id: profile.id,
-            name: profile.name,
-            email: profile.email,
-            role: mapToRole(profile.role),
-            organisationId: profile.organisation_id,
-            mobile: profile.mobile,
-        };
+      if (error) {
+          console.error('Auth: Profile fetch failed:', error.message);
+          return null;
+      }
+      
+      if (profile) {
+          return {
+              id: profile.id,
+              name: profile.name,
+              email: profile.email,
+              role: mapToRole(profile.role),
+              organisationId: profile.organisation_id,
+              mobile: profile.mobile,
+          };
+      }
+    } catch (e) {
+      console.error('Auth: Unexpected fetch error', e);
     }
     return null;
-  };
+  }, []);
 
   const refreshProfile = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -60,31 +71,33 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   useEffect(() => {
-    const getSession = async () => {
+    let mounted = true;
+
+    const initializeAuth = async () => {
         const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
+        if (session?.user && mounted) {
             const mapped = await fetchProfile(session.user.id);
             setUser(mapped);
         }
-        setLoading(false);
+        if (mounted) setLoading(false);
     };
 
-    getSession();
+    initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (session?.user) {
+        if (event === 'SIGNED_OUT') {
+            setUser(null);
+        } else if (session?.user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
             const mapped = await fetchProfile(session.user.id);
             setUser(mapped);
-        } else {
-            setUser(null);
         }
-        if (event !== 'INITIAL_SESSION') setLoading(false);
     });
 
     return () => {
+      mounted = false;
       subscription?.unsubscribe();
     };
-  }, []);
+  }, [fetchProfile]);
 
   const login = async (email: string, password: string): Promise<{ user: User | null; error?: string }> => {
     try {
@@ -94,25 +107,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         });
 
         if (authError) {
-            let message = authError.message;
-            if (message === 'Invalid login credentials') {
-                message = "Invalid login credentials. Ensure 'Confirm Email' is OFF in Supabase Auth settings.";
-            }
-            return { user: null, error: message };
+            return { user: null, error: authError.message };
         }
 
         if (authData.user) {
             const mappedUser = await fetchProfile(authData.user.id);
             if (!mappedUser) {
-                return { 
-                    user: null, 
-                    error: "Auth successful, but no Profile record found. Check your SQL trigger 'handle_new_user'." 
-                };
+                return { user: null, error: "no Profile record found" };
             }
             setUser(mappedUser);
             return { user: mappedUser };
         }
-        return { user: null, error: "An unknown authentication error occurred." };
+        return { user: null, error: "Authentication failed." };
     } catch (err: any) {
         return { user: null, error: err.message || "An unexpected error occurred" };
     }

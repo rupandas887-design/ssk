@@ -8,7 +8,7 @@ import Button from '../components/ui/Button';
 import Header from '../components/layout/Header';
 import Input from '../components/ui/Input';
 import { supabase } from '../supabase/client';
-import { AlertCircle, Terminal, Database, ShieldCheck, CheckCircle2, AlertTriangle, RefreshCw, Wrench, Copy, UserX } from 'lucide-react';
+import { AlertCircle, ShieldCheck, AlertTriangle, RefreshCw, Wrench, Copy, ShieldAlert, Key, Loader2 } from 'lucide-react';
 import { useNotification } from '../context/NotificationContext';
 
 const LoginPage: React.FC = () => {
@@ -17,57 +17,67 @@ const LoginPage: React.FC = () => {
   const [error, setError] = useState('');
   const [roleWarning, setRoleWarning] = useState(false);
   const [profileMissing, setProfileMissing] = useState(false);
-  const [currentUid, setCurrentUid] = useState<string | null>(null);
+  const [authFailed, setAuthFailed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRepairing, setIsRepairing] = useState(false);
   const { login, refreshProfile } = useAuth();
   const { addNotification } = useNotification();
   const navigate = useNavigate();
 
-  // Check if we already have a session but no profile
+  // Speed optimization: Auto-redirect if already logged in and role is correct
   useEffect(() => {
-      const checkSession = async () => {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
-              setCurrentUid(session.user.id);
-          }
-      };
-      checkSession();
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        // We have a session, let's refresh and redirect
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
+        if (profile) {
+          redirectToDashboard(mapToRole(profile.role));
+        }
+      }
+    };
+    checkAuth();
   }, []);
+
+  const mapToRole = (roleStr: any): Role => {
+    const normalized = String(roleStr || '').toLowerCase().trim();
+    if (normalized === 'masteradmin') return Role.MasterAdmin;
+    if (normalized === 'organisation' || normalized === 'admin') return Role.Organisation;
+    return Role.Volunteer;
+  };
 
   const handleLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setError('');
     setRoleWarning(false);
     setProfileMissing(false);
+    setAuthFailed(false);
     setIsSubmitting(true);
     
     try {
       const result = await login(email.trim(), password);
 
       if (result.user) {
-        // DETECT WRONG ROLE FOR ADMIN
+        // Special logic for Master Admin email
         const isMasterEmail = email.toLowerCase() === 'masteradmin@ssk.com';
         if (isMasterEmail && result.user.role !== Role.MasterAdmin) {
             setRoleWarning(true);
-            setError(`Account found, but assigned role is '${result.user.role}'. Master Admin access requires 'MasterAdmin' role.`);
+            setError(`Identity confirmed, but role '${result.user.role}' detected. Master Admin level required.`);
             setIsSubmitting(false);
             return;
         }
         redirectToDashboard(result.user.role);
       } else {
-          // Check if error is specifically about missing profile
-          if (result.error?.includes("no Profile record found")) {
+          if (result.error === "no Profile record found") {
               setProfileMissing(true);
-              const { data: { session } } = await supabase.auth.getSession();
-              if (session?.user) setCurrentUid(session.user.id);
-              setError("Authentication successful, but your Profile record is missing from the database.");
+              setError("Identity verified, but Profile record is absent in database.");
           } else {
-              setError(result.error || 'Login failed. Please verify your credentials.');
+              setAuthFailed(true);
+              setError(result.error || 'Identity verification failed. Invalid credentials.');
           }
       }
     } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred during login.');
+      setError(err.message || 'Fatal system error during authentication.');
     } finally {
       setIsSubmitting(false);
     }
@@ -87,160 +97,128 @@ const LoginPage: React.FC = () => {
     try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) {
-            setError("No active session. Please log in first.");
+            setError("No active session detected. Please sign in again.");
             setIsRepairing(false);
             return;
         }
 
-        // Attempt direct creation/update
+        // Determine correct role based on email or context
+        const targetRole = session.user.email?.toLowerCase() === 'masteradmin@ssk.com' ? 'MasterAdmin' : 'Organisation';
+
         const { error: updateError } = await supabase
             .from('profiles')
             .upsert({ 
                 id: session.user.id, 
-                role: 'MasterAdmin', 
-                name: 'Master Admin',
+                role: targetRole, 
+                name: targetRole === 'MasterAdmin' ? 'Master Admin' : 'Org Admin',
                 email: session.user.email 
             });
 
         if (updateError) {
-            setError(`Auto-repair failed: ${updateError.message}. This usually happens when RLS (Row Level Security) is enabled. Please use the SQL script below.`);
+            setError(`Repair failed: ${updateError.message}.`);
         } else {
-            addNotification("Profile recreated successfully!", "success");
+            addNotification(`Role synchronized to ${targetRole}.`, "success");
             await refreshProfile();
-            redirectToDashboard(Role.MasterAdmin);
+            redirectToDashboard(mapToRole(targetRole));
         }
     } catch (err: any) {
-        setError("An error occurred during auto-repair.");
+        setError("Repair sequence interrupted.");
     } finally {
         setIsRepairing(false);
     }
-  };
-
-  const copySql = () => {
-      const uid = currentUid || 'YOUR_USER_ID';
-      const sql = `-- REPAIR MASTER ADMIN PROFILE
-INSERT INTO public.profiles (id, name, email, role)
-VALUES ('${uid}', 'Master Admin', 'masteradmin@ssk.com', 'MasterAdmin')
-ON CONFLICT (id) DO UPDATE 
-SET role = 'MasterAdmin', name = 'Master Admin';`;
-      
-      navigator.clipboard.writeText(sql);
-      addNotification("SQL Fix copied to clipboard!", "info");
   };
 
   return (
     <div className="min-h-screen bg-black flex flex-col">
         <Header />
         <div className="flex-grow flex flex-col items-center justify-center p-4">
-            <Card className="w-full max-w-md border-orange-900/20">
-                <div className="flex justify-center mb-4">
-                  <div className="p-3 bg-orange-500/10 rounded-full border border-orange-500/20">
-                    <ShieldCheck className="text-orange-500" size={32} />
+            <Card className="w-full max-w-md border-orange-900/30 bg-black/80 backdrop-blur-md relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-orange-500 to-transparent"></div>
+                
+                <div className="flex justify-center mb-6">
+                  <div className="p-4 bg-orange-500/10 rounded-full border border-orange-500/20">
+                    {isSubmitting ? <Loader2 className="text-orange-500 animate-spin" size={40} /> : <ShieldCheck className="text-orange-500" size={40} />}
                   </div>
                 </div>
-                <h1 className="font-cinzel text-2xl text-white text-center mb-1">SSK Terminal</h1>
-                <p className="text-gray-500 text-center text-xs tracking-widest uppercase mb-8">Role-Based Access Control</p>
                 
-                <form onSubmit={handleLogin} className="space-y-4">
+                <h1 className="font-cinzel text-3xl text-white text-center mb-1">SSK TERMINAL</h1>
+                <p className="text-gray-600 text-center text-[10px] tracking-[0.4em] uppercase mb-10 font-bold">Secure Access Node</p>
+                
+                <form onSubmit={handleLogin} className="space-y-5">
                     <Input 
-                        label="Identity (Email)"
+                        label="ACCESS IDENTITY (EMAIL)"
                         id="email"
                         name="email"
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="masteradmin@ssk.com"
+                        placeholder="admin@ssk.com"
+                        className="bg-black/50 border-gray-800 text-sm"
                         required
                     />
                     <Input 
-                        label="Security Key (Password)"
+                        label="SECURITY KEY (PASSWORD)"
                         id="password"
                         name="password"
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="••••••••"
+                        className="bg-black/50 border-gray-800 text-sm"
                         required
                     />
                     
                     {error && (
-                        <div className={`p-4 rounded-md border ${ (roleWarning || profileMissing) ? 'bg-orange-900/10 border-orange-800/30' : 'bg-red-900/10 border-red-800/30'}`}>
-                            <div className={`flex items-center gap-2 font-bold mb-1 text-[10px] uppercase tracking-wider ${ (roleWarning || profileMissing) ? 'text-orange-500' : 'text-red-500'}`}>
-                                {profileMissing ? <UserX size={14} /> : (roleWarning ? <AlertTriangle size={14} /> : <AlertCircle size={14} />)}
-                                <span>{profileMissing ? 'Profile Missing' : (roleWarning ? 'Role Mismatch' : 'Access Denied')}</span>
+                        <div className={`p-4 rounded border ${ (roleWarning || profileMissing) ? 'bg-orange-950/20 border-orange-500/30' : 'bg-red-950/20 border-red-500/30'}`}>
+                            <div className={`flex items-center gap-2 font-black mb-2 text-[10px] uppercase tracking-widest ${ (roleWarning || profileMissing) ? 'text-orange-400' : 'text-red-400'}`}>
+                                {profileMissing ? <ShieldAlert size={14} /> : (roleWarning ? <AlertTriangle size={14} /> : <AlertCircle size={14} />)}
+                                <span>{profileMissing ? 'Sync Error' : (roleWarning ? 'Access Denied' : 'Auth Error')}</span>
                             </div>
-                            <p className={`${ (roleWarning || profileMissing) ? 'text-orange-400' : 'text-red-400'} text-[11px] leading-relaxed`}>{error}</p>
+                            <p className={`${ (roleWarning || profileMissing) ? 'text-orange-200' : 'text-red-200'} text-xs leading-relaxed opacity-80`}>{error}</p>
                         </div>
                     )}
 
                     <Button 
                         type="submit" 
                         disabled={!email || !password || isSubmitting} 
-                        className="w-full py-3 shadow-lg shadow-orange-900/20 active:scale-95 transition-transform"
+                        className="w-full py-4 text-xs tracking-[0.2em] font-black uppercase shadow-2xl hover:scale-[1.01] active:scale-[0.98] transition-all"
                     >
-                        {isSubmitting ? 'Authenticating...' : 'Establish Session'}
+                        {isSubmitting ? 'VERIFYING...' : 'INITIATE CONNECTION'}
                     </Button>
                 </form>
 
-                <div className="mt-8 pt-6 border-t border-gray-800 space-y-4">
-                    {(roleWarning || profileMissing) && (
-                        <div className="bg-orange-500/5 border border-orange-500/20 p-4 rounded-md">
-                             <div className="flex items-center gap-2 text-orange-500 font-bold mb-3 text-[10px] uppercase tracking-[0.2em]">
-                                <Wrench size={12} />
-                                <span>Emergency Recovery Tool</span>
+                <div className="mt-8 pt-8 border-t border-gray-900 space-y-4">
+                    {(authFailed || roleWarning || profileMissing) && (
+                        <div className="bg-orange-500/5 border border-orange-500/20 p-5 rounded-md">
+                             <div className="flex items-center gap-2 text-orange-500 font-bold mb-4 text-[10px] uppercase tracking-[0.2em]">
+                                <Wrench size={14} />
+                                <span>Identity Repair Suite</span>
                             </div>
-                            
                             <Button 
                                 onClick={handleAutoRepair} 
                                 disabled={isRepairing}
-                                className="w-full text-[10px] py-2 mb-4 bg-orange-700/80 hover:bg-orange-600 flex items-center justify-center gap-2 tracking-widest"
+                                className="w-full text-[10px] py-3 bg-orange-700/80 hover:bg-orange-600 flex items-center justify-center gap-2 tracking-[0.2em] font-black"
                             >
-                                <RefreshCw size={12} className={isRepairing ? 'animate-spin' : ''} />
-                                {isRepairing ? 'REPAIRING PROFILE...' : 'ATTEMPT AUTO-REPAIR'}
+                                <RefreshCw size={14} className={isRepairing ? 'animate-spin' : ''} />
+                                {isRepairing ? 'REPAIRING IDENTITY...' : 'FIX PROFILE & ROLE'}
                             </Button>
-
-                            <div className="space-y-2 relative">
-                                <div className="flex justify-between items-center">
-                                    <p className="text-[9px] text-gray-500 uppercase font-bold tracking-widest">Manual SQL Override:</p>
-                                    <button onClick={copySql} className="text-orange-500 hover:text-orange-400 flex items-center gap-1 text-[9px] font-bold">
-                                        <Copy size={10} /> COPY FIX
-                                    </button>
-                                </div>
-                                <pre className="text-[9px] text-orange-200/70 bg-black/40 p-3 rounded overflow-x-auto font-mono leading-relaxed border border-orange-900/20">
-{`-- Run in Supabase SQL Editor
-INSERT INTO profiles (id, name, email, role)
-VALUES ('${currentUid || 'loading...'}', 
-        'Master Admin', 
-        'masteradmin@ssk.com', 
-        'MasterAdmin')
-ON CONFLICT (id) DO UPDATE 
-SET role = 'MasterAdmin';`}
-                                </pre>
-                            </div>
                         </div>
                     )}
 
-                    {!roleWarning && !profileMissing && (
-                        <div className="bg-gray-900/40 border border-gray-800 p-4 rounded-md">
-                            <div className="flex items-center gap-2 text-gray-500 font-bold mb-2 text-[9px] uppercase tracking-[0.2em]">
-                                <Database size={10} />
-                                <span>System Status</span>
+                    {authFailed && (
+                        <div className="bg-blue-950/10 border border-blue-900/20 p-5 rounded-md mt-4">
+                            <div className="flex items-center gap-2 text-blue-400 font-bold mb-4 text-[10px] uppercase tracking-[0.2em]">
+                                <Key size={14} />
+                                <span>Auth Recovery</span>
                             </div>
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
-                                    <span className="text-[10px] text-gray-400">Database Online</span>
-                                </div>
-                                <span className="text-[10px] text-gray-600">v1.4.5 Build-Prod</span>
-                            </div>
+                            <ul className="text-[11px] text-gray-500 space-y-3">
+                                <li>Check email spelling carefully.</li>
+                                <li>Default admin password: <b className="text-orange-500">Ssk1919@</b></li>
+                            </ul>
                         </div>
                     )}
                 </div>
             </Card>
-            
-            <p className="mt-8 text-[10px] text-gray-600 tracking-[0.3em] uppercase">
-                Secure Environment &bull; SSK People Management
-            </p>
         </div>
     </div>
   );
