@@ -77,50 +77,30 @@ const ManageVolunteers: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-        // 1. Create Auth User with Hardcoded 'Volunteer' Role
-        const { data: authData, error: authError } = await supabase.auth.signUp({
+        // Create Auth User - Let the Trigger handle the Profile creation
+        const { error: authError } = await supabase.auth.signUp({
           email: trimmedEmail,
           password: newVol.password,
           options: {
             data: {
               name: newVol.name.trim(),
               mobile: newVol.mobile.trim(),
-              role: 'Volunteer', // Explicit Role Assignment
-              organisation_id: String(user.organisationId)
+              role: Role.Volunteer, // 'Volunteer'
+              organisation_id: user.organisationId
             }
           }
         });
 
         if (authError) throw authError;
 
-        // 2. Profile Verification (Sync Check)
-        if (authData.user) {
-            let verified = false;
-            for (let i = 0; i < 3; i++) {
-                const { data: profile } = await supabase.from('profiles').select('id').eq('id', authData.user.id).maybeSingle();
-                if (profile) {
-                    verified = true;
-                    break;
-                }
-                await new Promise(r => setTimeout(r, 800));
-            }
-            if (!verified) {
-                addNotification("Identity created, but profile sync is pending. Use 'Repair' on login if needed.", 'info');
-            }
-        }
-        
-        const creds = `SSK Volunteer\nLogin: ${trimmedEmail}\nPass: ${newVol.password}\nOrg: ${user.organisationName}`;
-        try {
-            await navigator.clipboard.writeText(creds);
-            addNotification('Agent registered & credentials copied!', 'success');
-        } catch (e) {
-            addNotification('Agent registered successfully.', 'success');
-        }
-
+        addNotification('Field agent registered successfully.', 'success');
         setNewVol({ name: '', mobile: '', email: '', password: '' });
         fetchVolunteers(); 
     } catch (err: any) {
-        addNotification(err.message || "Volunteer registration failed.", 'error');
+        const msg = err.message || "Volunteer registration failed.";
+        addNotification(msg.includes("Database error") 
+            ? "Database sync error. Check Supabase SQL Triggers." 
+            : msg, 'error');
     } finally {
         setIsSubmitting(false);
     }
@@ -147,13 +127,6 @@ const ManageVolunteers: React.FC = () => {
     }
   };
 
-  const handleResetPassword = async () => {
-      if (!selectedVol || !newPassword) return;
-      addNotification(`Requesting security key update...`, 'info');
-      setIsPasswordModalOpen(false);
-      setNewPassword('');
-  };
-
   return (
     <DashboardLayout title="Agent Registry">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -162,7 +135,7 @@ const ManageVolunteers: React.FC = () => {
             <div className="space-y-4">
               <div className="flex items-center gap-2 p-3 bg-blue-500/5 border border-blue-500/10 rounded mb-4">
                  <ShieldCheck className="text-blue-500" size={16} />
-                 <span className="text-[10px] font-black uppercase tracking-widest text-blue-400">Assigned Role: Volunteer</span>
+                 <span className="text-[10px] font-black uppercase tracking-widest text-blue-400">Target Role: Volunteer</span>
               </div>
               <Input label="Agent Name" name="name" value={newVol.name} onChange={handleInputChange} placeholder="Ex: Anil Kumar" />
               <Input label="Mobile Number" name="mobile" type="tel" value={newVol.mobile} onChange={handleInputChange} placeholder="10-digit number" />
@@ -172,22 +145,12 @@ const ManageVolunteers: React.FC = () => {
                 type="button" 
                 onClick={handleAddVolunteer} 
                 disabled={isSubmitting} 
-                className="w-full py-4 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
+                className="w-full h-12 flex items-center justify-center gap-2"
               >
-                {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : <UserPlus size={16} />}
+                {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <UserPlus size={18} />}
                 {isSubmitting ? 'PROCESSING...' : 'Register Agent'}
               </Button>
             </div>
-          </Card>
-
-          <Card className="mt-6 border-orange-500/10 bg-orange-500/5">
-             <div className="flex items-center gap-3 text-orange-400 mb-4">
-                <ShieldAlert size={20} />
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-orange-400">Exclusivity Notice</h4>
-             </div>
-             <p className="text-[11px] text-gray-400 leading-relaxed uppercase tracking-wider">
-                Field Agents registered here are locked to <b>{user?.organisationName}</b> and cannot join other entities.
-             </p>
           </Card>
         </div>
 
@@ -244,12 +207,6 @@ const ManageVolunteers: React.FC = () => {
                                 <Copy size={14} />
                             </button>
                             <button 
-                                onClick={() => { setSelectedVol(vol); setIsPasswordModalOpen(true); }}
-                                className="p-2 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-orange-500 rounded transition-colors"
-                            >
-                                <Key size={14} />
-                            </button>
-                            <button 
                                 onClick={() => handleToggleStatus(vol)}
                                 className={`p-2 rounded transition-colors ${
                                     vol.status === 'Active' 
@@ -270,17 +227,6 @@ const ManageVolunteers: React.FC = () => {
           </Card>
         </div>
       </div>
-
-      <Modal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} title="Security Update">
-        <div className="space-y-4 pt-2">
-            <p className="text-xs text-gray-400">Updating key for <b className="text-white">{selectedVol?.name}</b>.</p>
-            <Input label="New Password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" />
-            <div className="flex justify-end gap-3 pt-4">
-                <Button variant="secondary" onClick={() => setIsPasswordModalOpen(false)}>Cancel</Button>
-                <Button onClick={handleResetPassword} disabled={newPassword.length < 6}>Apply Update</Button>
-            </div>
-        </div>
-      </Modal>
     </DashboardLayout>
   );
 };

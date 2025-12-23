@@ -53,7 +53,7 @@ const ManageOrganisations: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-        // 1. Create the Organisation entry
+        // 1. Create the Organisation entry first to get the ID
         const { data: orgData, error: orgError } = await supabase
           .from('organisations')
           .insert({ 
@@ -65,44 +65,37 @@ const ManageOrganisations: React.FC = () => {
 
         if (orgError) throw orgError;
 
-        // 2. Create Auth User - explicitly use 'Organisation'
-        const { data: authData, error: authError } = await supabase.auth.signUp({
+        // 2. Create Auth User
+        // The SQL Trigger handle_new_user() will catch this and create the profile.
+        // We pass the exact 'Organisation' string which matches the DB ENUM.
+        const { error: authError } = await supabase.auth.signUp({
           email: trimmedEmail,
           password: newOrg.password,
           options: {
             data: {
               name: newOrg.secretaryName.trim(),
-              role: 'Organisation', // Explicit string
-              organisation_id: String(orgData.id),
+              role: Role.Organisation, // 'Organisation'
+              organisation_id: orgData.id,
               mobile: newOrg.mobile.trim()
             }
           }
         });
 
         if (authError) {
+          // Cleanup org record if auth fails
           await supabase.from('organisations').delete().eq('id', orgData.id);
           throw authError;
         }
 
-        // 3. Immediately upsert profile to ensure role is correct
-        if (authData.user) {
-            const { error: profileError } = await supabase.from('profiles').upsert({
-                id: authData.user.id,
-                name: newOrg.secretaryName.trim(),
-                role: 'Organisation', // Must match mapStringToRole
-                organisation_id: orgData.id,
-                email: trimmedEmail,
-                mobile: newOrg.mobile.trim(),
-                status: 'Active'
-            });
-            if (profileError) console.error("Profile sync error:", profileError);
-        }
-
-        addNotification('Organisation established successfully.', 'success');
+        addNotification('Organisation terminal access established.', 'success');
         setNewOrg({ name: '', mobile: '', secretaryName: '', email: '', password: '' });
         fetchOrganisations();
     } catch (err: any) {
-        addNotification(err.message || "Registration failed.", 'error');
+        // If it's a "Database error saving new user", it's the Trigger failing.
+        const msg = err.message || "Registration failed.";
+        addNotification(msg.includes("Database error") 
+            ? "Sync Error: Please ensure the SQL Trigger is updated in Supabase." 
+            : msg, 'error');
     } finally {
         setIsSubmitting(false);
     }
@@ -147,20 +140,19 @@ const ManageOrganisations: React.FC = () => {
     <DashboardLayout title="Entity Registry">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1">
-          <Card title="Add New Entity">
+          <Card title="Register New Entity">
             <div className="space-y-4">
               <div className="flex items-center gap-2 p-3 bg-orange-500/5 border border-orange-500/10 rounded mb-4">
                  <ShieldCheck className="text-orange-500" size={16} />
-                 <span className="text-[10px] font-black uppercase tracking-widest text-orange-400">Assigned Role: Organisation</span>
+                 <span className="text-[10px] font-black uppercase tracking-widest text-orange-400">Target Role: Organisation</span>
               </div>
-              <Input label="Organisation Name" name="name" value={newOrg.name} onChange={handleInputChange} placeholder="SSK Samaj..." />
+              <Input label="Organisation Name" name="name" value={newOrg.name} onChange={handleInputChange} placeholder="Ex: SSK Hubli" />
               <Input label="Contact Mobile" name="mobile" value={newOrg.mobile} onChange={handleInputChange} placeholder="9876543210" />
-              <Input label="Secretary Name" name="secretaryName" value={newOrg.secretaryName} onChange={handleInputChange} placeholder="Full Name" />
-              <Input label="Access Email" name="email" type="email" value={newOrg.email} onChange={handleInputChange} placeholder="admin@org.com" />
-              <Input label="Access Password" name="password" type="password" value={newOrg.password} onChange={handleInputChange} placeholder="••••••••" />
-              <Button type="button" onClick={handleAddOrganisation} disabled={isSubmitting} className="w-full py-4">
-                {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : <UserPlus size={16} />}
-                {isSubmitting ? 'PROCESSING...' : 'Register Entity'}
+              <Input label="Secretary/Admin" name="secretaryName" value={newOrg.secretaryName} onChange={handleInputChange} placeholder="Full Name" />
+              <Input label="System Email" name="email" type="email" value={newOrg.email} onChange={handleInputChange} placeholder="admin@entity.com" />
+              <Input label="Initial Password" name="password" type="password" value={newOrg.password} onChange={handleInputChange} placeholder="••••••••" />
+              <Button type="button" onClick={handleAddOrganisation} disabled={isSubmitting} className="w-full h-12">
+                {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : 'Register Organisation'}
               </Button>
             </div>
           </Card>
@@ -169,14 +161,14 @@ const ManageOrganisations: React.FC = () => {
           <Card>
             <div className="flex justify-between items-center mb-6">
                  <h3 className="font-cinzel text-xl text-orange-500">Organisation Registry</h3>
-                 <Building2 className="text-gray-800" size={24} />
+                 <Building2 className="text-gray-400" size={24} />
             </div>
-            {loading ? <p className="p-8 text-center animate-pulse text-xs uppercase font-black text-gray-500">Syncing...</p> : (
+            {loading ? <p className="p-8 text-center animate-pulse text-xs uppercase font-black text-gray-500">Accessing Registry...</p> : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead className="border-b border-gray-800">
                     <tr>
-                      <th className="p-3 text-[10px] uppercase tracking-widest text-gray-500">Name</th>
+                      <th className="p-3 text-[10px] uppercase tracking-widest text-gray-500">Entity Name</th>
                       <th className="p-3 text-[10px] uppercase tracking-widest text-gray-500">Contact</th>
                       <th className="p-3 text-[10px] uppercase tracking-widest text-gray-500">Status</th>
                       <th className="p-3 text-[10px] uppercase tracking-widest text-gray-500 text-right">Actions</th>
