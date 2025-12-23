@@ -1,0 +1,7 @@
+{
+  "name": "Final Project SSK",
+  "description": "ssk",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
