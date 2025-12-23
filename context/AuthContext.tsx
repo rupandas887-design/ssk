@@ -14,11 +14,31 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const mapToRole = (roleStr: any): Role => {
+/**
+ * SOURCE OF TRUTH FOR ROLE MAPPING
+ * Ensures database strings are correctly mapped to our Role Enum
+ */
+export const mapStringToRole = (roleStr: any): Role => {
     if (!roleStr) return Role.Volunteer;
     const normalized = String(roleStr).toLowerCase().trim();
-    if (normalized === 'masteradmin' || normalized === 'superadmin') return Role.MasterAdmin;
-    if (normalized === 'organisation' || normalized === 'admin' || normalized === 'org') return Role.Organisation;
+    
+    // Master Admin Checks
+    if (normalized === 'masteradmin' || normalized === 'superadmin' || normalized === 'master_admin') {
+        return Role.MasterAdmin;
+    }
+    
+    // Organisation Checks - Added more aliases to prevent fallback to Volunteer
+    if (
+        normalized === 'organisation' || 
+        normalized === 'organization' || 
+        normalized === 'admin' || 
+        normalized === 'org' ||
+        normalized === 'organisation_admin' ||
+        normalized === 'org_admin'
+    ) {
+        return Role.Organisation;
+    }
+    
     return Role.Volunteer;
 };
 
@@ -49,7 +69,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               id: profile.id,
               name: profile.name,
               email: profile.email,
-              role: mapToRole(profile.role),
+              role: mapStringToRole(profile.role),
               organisationId: profile.organisation_id,
               organisationName: profile.organisations?.name || null,
               mobile: profile.mobile,
@@ -121,19 +141,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (authError) return { user: null, error: authError.message };
 
         if (authData.user) {
-            // RETRY LOGIC: Try 3 times with increasing delays to handle trigger latency
+            // Aggressive retry logic for sync
             let profile = await fetchProfile(authData.user.id);
             
             if (!profile) {
-                await new Promise(r => setTimeout(r, 600)); // First retry
+                await new Promise(r => setTimeout(r, 1000)); // Increased wait
                 profile = await fetchProfile(authData.user.id);
             }
             
-            if (!profile) {
-                await new Promise(r => setTimeout(r, 1200)); // Second retry
-                profile = await fetchProfile(authData.user.id);
-            }
-
             if (profile) {
                 setUser(profile);
                 return { user: profile };

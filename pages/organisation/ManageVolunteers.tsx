@@ -9,7 +9,7 @@ import { Volunteer, Role } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../supabase/client';
 import { useNotification } from '../../context/NotificationContext';
-import { Key, Power, Download, UserPlus, UserCheck, ShieldAlert, Copy, ExternalLink } from 'lucide-react';
+import { Key, Power, Download, UserPlus, UserCheck, ShieldAlert, Copy, ShieldCheck, Loader2 } from 'lucide-react';
 
 type VolunteerWithEnrollments = Volunteer & { enrollments: number };
 
@@ -70,49 +70,66 @@ const ManageVolunteers: React.FC = () => {
         return;
     }
     if (!trimmedEmail || !newVol.password || !newVol.name || !newVol.mobile) {
-        addNotification("Name, Mobile, Email and Password are all required.", 'error');
+        addNotification("All fields are required.", 'error');
         return;
     }
 
     setIsSubmitting(true);
 
-    const { error: authError } = await supabase.auth.signUp({
-      email: trimmedEmail,
-      password: newVol.password,
-      options: {
-        data: {
-          name: newVol.name.trim(),
-          mobile: newVol.mobile.trim(),
-          role: 'Volunteer',
-          organisation_id: String(user.organisationId)
-        }
-      }
-    });
-
-    if (authError) {
-      addNotification(authError.message, 'error');
-      setIsSubmitting(false);
-      return;
-    }
-    
-    // Copy credentials to clipboard automatically for convenience
-    const creds = `SSK Volunteer Login\nEmail: ${trimmedEmail}\nPassword: ${newVol.password}\nPortal: sskpeople.com`;
     try {
-        await navigator.clipboard.writeText(creds);
-        addNotification('Volunteer registered & credentials copied to clipboard!', 'success');
-    } catch (e) {
-        addNotification('Volunteer registered successfully.', 'success');
-    }
+        // 1. Create Auth User with Hardcoded 'Volunteer' Role
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: trimmedEmail,
+          password: newVol.password,
+          options: {
+            data: {
+              name: newVol.name.trim(),
+              mobile: newVol.mobile.trim(),
+              role: 'Volunteer', // Explicit Role Assignment
+              organisation_id: String(user.organisationId)
+            }
+          }
+        });
 
-    setNewVol({ name: '', mobile: '', email: '', password: '' });
-    fetchVolunteers(); 
-    setIsSubmitting(false);
+        if (authError) throw authError;
+
+        // 2. Profile Verification (Sync Check)
+        if (authData.user) {
+            let verified = false;
+            for (let i = 0; i < 3; i++) {
+                const { data: profile } = await supabase.from('profiles').select('id').eq('id', authData.user.id).maybeSingle();
+                if (profile) {
+                    verified = true;
+                    break;
+                }
+                await new Promise(r => setTimeout(r, 800));
+            }
+            if (!verified) {
+                addNotification("Identity created, but profile sync is pending. Use 'Repair' on login if needed.", 'info');
+            }
+        }
+        
+        const creds = `SSK Volunteer\nLogin: ${trimmedEmail}\nPass: ${newVol.password}\nOrg: ${user.organisationName}`;
+        try {
+            await navigator.clipboard.writeText(creds);
+            addNotification('Agent registered & credentials copied!', 'success');
+        } catch (e) {
+            addNotification('Agent registered successfully.', 'success');
+        }
+
+        setNewVol({ name: '', mobile: '', email: '', password: '' });
+        fetchVolunteers(); 
+    } catch (err: any) {
+        addNotification(err.message || "Volunteer registration failed.", 'error');
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   const copyVolunteerCreds = (v: VolunteerWithEnrollments) => {
-      const text = `Name: ${v.name}\nMobile: ${v.mobile}\nLogin: ${v.email}\nOrganisation: ${user?.organisationName}`;
+      const text = `Agent: ${v.name}\nLogin: ${v.email}\nOrg: ${user?.organisationName}`;
       navigator.clipboard.writeText(text);
-      addNotification("Contact info copied.", "success");
+      addNotification("Agent info copied.", "success");
   };
 
   const handleToggleStatus = async (vol: VolunteerWithEnrollments) => {
@@ -125,53 +142,39 @@ const ManageVolunteers: React.FC = () => {
     if (error) {
         addNotification("Failed to update status.", 'error');
     } else {
-        addNotification(`Volunteer ${vol.name} ${newStatus === 'Active' ? 'Activated' : 'Deactivated'}.`, 'success');
+        addNotification(`Volunteer ${newStatus}.`, 'success');
         fetchVolunteers();
     }
   };
 
   const handleResetPassword = async () => {
       if (!selectedVol || !newPassword) return;
-      addNotification(`Password update initialized for ${selectedVol.name}.`, 'info');
+      addNotification(`Requesting security key update...`, 'info');
       setIsPasswordModalOpen(false);
       setNewPassword('');
   };
 
-  const downloadRegistry = () => {
-      const csv = [
-          ['Name', 'Email', 'Mobile', 'Status', 'Enrollments'],
-          ...volunteers.map(v => [v.name, v.email, v.mobile, v.status, v.enrollments])
-      ].map(e => e.join(",")).join("\n");
-
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.setAttribute('hidden', '');
-      a.setAttribute('href', url);
-      a.setAttribute('download', `volunteers_${user?.organisationName || 'registry'}.csv`);
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      addNotification("Registry exported.", "success");
-  };
-
   return (
-    <DashboardLayout title="Volunteer Management">
+    <DashboardLayout title="Agent Registry">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1">
           <Card title="Register Field Agent">
             <div className="space-y-4">
-              <Input label="Agent Full Name" name="name" value={newVol.name} onChange={handleInputChange} placeholder="Ex: Anil Kumar" />
+              <div className="flex items-center gap-2 p-3 bg-blue-500/5 border border-blue-500/10 rounded mb-4">
+                 <ShieldCheck className="text-blue-500" size={16} />
+                 <span className="text-[10px] font-black uppercase tracking-widest text-blue-400">Assigned Role: Volunteer</span>
+              </div>
+              <Input label="Agent Name" name="name" value={newVol.name} onChange={handleInputChange} placeholder="Ex: Anil Kumar" />
               <Input label="Mobile Number" name="mobile" type="tel" value={newVol.mobile} onChange={handleInputChange} placeholder="10-digit number" />
-              <Input label="Login Identity (Email)" name="email" type="email" value={newVol.email} onChange={handleInputChange} placeholder="volunteer@ssk.com" />
+              <Input label="Agent Email" name="email" type="email" value={newVol.email} onChange={handleInputChange} placeholder="agent@ssk.com" />
               <Input label="Initial Password" name="password" type="password" value={newVol.password} onChange={handleInputChange} placeholder="••••••••" />
               <Button 
                 type="button" 
                 onClick={handleAddVolunteer} 
                 disabled={isSubmitting} 
-                className="w-full py-4 text-xs tracking-widest uppercase font-black flex items-center justify-center gap-2"
+                className="w-full py-4 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
               >
-                <UserPlus size={16} />
+                {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : <UserPlus size={16} />}
                 {isSubmitting ? 'PROCESSING...' : 'Register Agent'}
               </Button>
             </div>
@@ -180,24 +183,24 @@ const ManageVolunteers: React.FC = () => {
           <Card className="mt-6 border-orange-500/10 bg-orange-500/5">
              <div className="flex items-center gap-3 text-orange-400 mb-4">
                 <ShieldAlert size={20} />
-                <h4 className="text-[10px] font-black uppercase tracking-widest">Administrative Notice</h4>
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-orange-400">Exclusivity Notice</h4>
              </div>
              <p className="text-[11px] text-gray-400 leading-relaxed uppercase tracking-wider">
-                Volunteers registered under <b>{user?.organisationName}</b> are exclusive to this entity and cannot be onboarded to another organization.
+                Field Agents registered here are locked to <b>{user?.organisationName}</b> and cannot join other entities.
              </p>
           </Card>
         </div>
 
         <div className="lg:col-span-2">
           <Card>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                <h3 className="font-cinzel text-xl text-orange-500">Active Registry</h3>
-                <Button variant="secondary" size="sm" onClick={downloadRegistry} className="flex items-center gap-2 text-[10px] font-black tracking-widest uppercase">
-                    <Download size={14} /> Export CSV
-                </Button>
+            <div className="flex justify-between items-center mb-6">
+                <h3 className="font-cinzel text-xl text-orange-500">Active Field Force</h3>
+                <button onClick={fetchVolunteers} className="text-gray-600 hover:text-white transition-colors">
+                    <Download size={18} />
+                </button>
             </div>
 
-            {loading ? <p className="p-12 text-center animate-pulse text-gray-500 uppercase tracking-widest font-black text-xs">Syncing...</p> : (
+            {loading ? <p className="p-12 text-center animate-pulse text-gray-500 uppercase tracking-widest font-black text-xs">Syncing Registry...</p> : (
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="border-b border-gray-800">
@@ -237,14 +240,12 @@ const ManageVolunteers: React.FC = () => {
                             <button 
                                 onClick={() => copyVolunteerCreds(vol)}
                                 className="p-2 bg-gray-800 hover:bg-gray-700 text-gray-400 rounded transition-colors"
-                                title="Copy Info"
                             >
                                 <Copy size={14} />
                             </button>
                             <button 
                                 onClick={() => { setSelectedVol(vol); setIsPasswordModalOpen(true); }}
                                 className="p-2 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-orange-500 rounded transition-colors"
-                                title="Reset Password"
                             >
                                 <Key size={14} />
                             </button>
@@ -252,10 +253,9 @@ const ManageVolunteers: React.FC = () => {
                                 onClick={() => handleToggleStatus(vol)}
                                 className={`p-2 rounded transition-colors ${
                                     vol.status === 'Active' 
-                                    ? 'bg-red-900/10 text-red-400 hover:bg-red-900/20' 
-                                    : 'bg-green-900/10 text-green-400 hover:bg-green-900/20'
+                                    ? 'bg-red-900/10 text-red-400' 
+                                    : 'bg-green-900/10 text-green-400'
                                 }`}
-                                title={vol.status === 'Active' ? 'Deactivate' : 'Activate'}
                             >
                                 <Power size={14} />
                             </button>
@@ -274,13 +274,7 @@ const ManageVolunteers: React.FC = () => {
       <Modal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} title="Security Update">
         <div className="space-y-4 pt-2">
             <p className="text-xs text-gray-400">Updating key for <b className="text-white">{selectedVol?.name}</b>.</p>
-            <Input 
-                label="New Password" 
-                type="password" 
-                value={newPassword} 
-                onChange={(e) => setNewPassword(e.target.value)} 
-                placeholder="••••••••"
-            />
+            <Input label="New Password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" />
             <div className="flex justify-end gap-3 pt-4">
                 <Button variant="secondary" onClick={() => setIsPasswordModalOpen(false)}>Cancel</Button>
                 <Button onClick={handleResetPassword} disabled={newPassword.length < 6}>Apply Update</Button>
