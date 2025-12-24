@@ -21,10 +21,6 @@ const ManageVolunteers: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { addNotification } = useNotification();
 
-  const [selectedVol, setSelectedVol] = useState<VolunteerWithEnrollments | null>(null);
-  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-
   const fetchVolunteers = useCallback(async () => {
     if (!user?.organisationId) return;
     setLoading(true);
@@ -88,15 +84,15 @@ const ManageVolunteers: React.FC = () => {
             data: {
               name: name,
               mobile: mobile,
-              role: 'Volunteer', // Use string for consistent trigger mapping
-              organisation_id: String(user.organisationId)
+              role: 'Volunteer', 
+              organisation_id: String(user.organisationId) // Cast to string for metadata
             }
           }
         });
 
         if (authError) throw authError;
 
-        // Forced Profile Sync for reliability
+        // Forced Profile Sync for reliability against trigger failure
         if (authData.user) {
             await supabase.from('profiles').upsert({
                 id: authData.user.id,
@@ -147,19 +143,19 @@ const ManageVolunteers: React.FC = () => {
   };
 
   return (
-    <DashboardLayout title="Field Agent Registry">
+    <DashboardLayout title="Field Force Registry">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
         <div className="lg:col-span-1">
           <Card title="Authorize New Agent">
             <div className="space-y-4">
               <div className="flex items-center gap-3 p-4 bg-blue-500/5 border border-blue-500/10 rounded-xl mb-4">
                  <ShieldCheck className="text-blue-500" size={20} />
-                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400/80 leading-tight">Identity Tier: Field Agent (Volunteer)</span>
+                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400/80 leading-tight">Identity Tier: Field Agent</span>
               </div>
               <Input label="Agent Full Name" name="name" value={newVol.name} onChange={handleInputChange} placeholder="Ex: Anil Kumar" />
               <Input label="Registry Mobile" name="mobile" type="tel" value={newVol.mobile} onChange={handleInputChange} placeholder="98XXXXXXXX" />
               <Input label="Access Email" name="email" type="email" value={newVol.email} onChange={handleInputChange} placeholder="agent@entity.com" />
-              <Input label="Initial Security Key" name="password" type="password" value={newVol.password} onChange={handleInputChange} placeholder="••••••••" />
+              <Input label="Security Key" name="password" type="password" value={newVol.password} onChange={handleInputChange} placeholder="••••••••" />
               <Button 
                 type="button" 
                 onClick={handleAddVolunteer} 
@@ -167,7 +163,7 @@ const ManageVolunteers: React.FC = () => {
                 className="w-full py-4 flex items-center justify-center gap-2 text-xs font-black tracking-widest uppercase mt-4"
               >
                 {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <UserPlus size={18} />}
-                {isSubmitting ? 'PROCESSING...' : 'Establish Identity'}
+                {isSubmitting ? 'ESTABLISHING...' : 'Authorize Agent'}
               </Button>
             </div>
           </Card>
@@ -193,7 +189,7 @@ const ManageVolunteers: React.FC = () => {
                 <thead className="border-b border-gray-800">
                   <tr>
                     <th className="p-4 text-[10px] uppercase tracking-[0.2em] text-gray-500 font-black">Agent Details</th>
-                    <th className="p-4 text-[10px] uppercase tracking-[0.2em] text-gray-500 font-black">Security</th>
+                    <th className="p-4 text-[10px] uppercase tracking-[0.2em] text-gray-500 font-black">Status</th>
                     <th className="p-4 text-[10px] uppercase tracking-[0.2em] text-gray-500 font-black text-center">Enrollments</th>
                     <th className="p-4 text-[10px] uppercase tracking-[0.2em] text-gray-500 font-black text-right">Actions</th>
                   </tr>
@@ -204,7 +200,7 @@ const ManageVolunteers: React.FC = () => {
                       <td className="p-4">
                         <div className="flex flex-col">
                             <span className="font-bold text-white text-sm">{vol.name}</span>
-                            <span className="text-[10px] text-gray-600 font-mono tracking-tighter uppercase">{vol.email}</span>
+                            <span className="text-[10px] text-gray-600 font-mono uppercase">{vol.email}</span>
                         </div>
                       </td>
                       <td className="p-4">
@@ -248,7 +244,7 @@ const ManageVolunteers: React.FC = () => {
                   ))}
                   {volunteers.length === 0 && (
                       <tr>
-                        <td colSpan={4} className="p-32 text-center text-gray-700 uppercase tracking-[0.3em] font-black text-[10px]">Registry Empty. No agents authorized for this entity.</td>
+                        <td colSpan={4} className="p-32 text-center text-gray-700 uppercase tracking-[0.3em] font-black text-[10px]">No agents found.</td>
                       </tr>
                   )}
                 </tbody>
