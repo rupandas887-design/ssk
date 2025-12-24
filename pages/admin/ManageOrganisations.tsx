@@ -8,7 +8,7 @@ import Modal from '../../components/ui/Modal';
 import { Organisation, Role } from '../../types';
 import { supabase } from '../../supabase/client';
 import { useNotification } from '../../context/NotificationContext';
-import { ShieldCheck, UserPlus, Building2, Loader2, AlertCircle, Terminal, Copy, Info, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, UserPlus, Building2, Loader2, AlertCircle, Terminal, Copy, Info, CheckCircle2, ChevronRight, Database } from 'lucide-react';
 
 const ManageOrganisations: React.FC = () => {
   const [organisations, setOrganisations] = useState<Organisation[]>([]);
@@ -43,7 +43,7 @@ const ManageOrganisations: React.FC = () => {
     setNewOrg(prev => ({ ...prev, [name]: value }));
   };
 
-  const sqlFixCode = `-- REPAIR SCRIPT FOR UUID CASTING ERROR
+  const sqlFixCode = `-- REPAIR SCRIPT: FIX UUID CASTING IN AUTH TRIGGER
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -53,7 +53,7 @@ BEGIN
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'name', 'User'),
     (COALESCE(NEW.raw_user_meta_data->>'role', 'Volunteer'))::user_role,
-    (NULLIF(NEW.raw_user_meta_data->>'organisation_id', ''))::uuid, -- FIX: Explicit cast
+    (NULLIF(NEW.raw_user_meta_data->>'organisation_id', ''))::uuid, -- CRITICAL: Explicit UUID cast
     NEW.raw_user_meta_data->>'mobile',
     'Active'
   )
@@ -68,7 +68,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;`;
 
   const copySql = () => {
     navigator.clipboard.writeText(sqlFixCode);
-    addNotification("SQL Fix Code copied! Execute in Supabase SQL Editor.", "success");
+    addNotification("SQL Script copied. Paste it in your Supabase SQL Editor.", "success");
   };
 
   const handleAddOrganisation = async () => {
@@ -79,7 +79,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;`;
     const secretaryName = newOrg.secretaryName.trim();
 
     if (!email || !password || !name || !mobile || !secretaryName) {
-        addNotification("All fields are required.", 'error');
+        addNotification("All fields are mandatory.", 'error');
         return;
     }
     
@@ -110,11 +110,12 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;`;
         });
 
         if (authError) {
+          // Attempt cleanup if auth fails
           await supabase.from('organisations').delete().eq('id', orgData.id);
           throw authError;
         }
 
-        // 3. Forced Profile Creation as safety net
+        // 3. Redundant Profile Upsert for safety (Trigger backup)
         if (authData.user) {
             const { error: profileError } = await supabase.from('profiles').upsert({
                 id: authData.user.id,
@@ -125,23 +126,24 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;`;
                 mobile,
                 status: 'Active'
             });
+
             if (profileError && profileError.message.includes("uuid")) {
                 setShowSqlFix(true);
-                throw new Error("Database Sync Conflict: UUID casting failed.");
+                throw new Error("Database Sync Error: Manual UUID cast required.");
             }
         }
 
-        addNotification('Organisation terminal successfully authorized.', 'success');
+        addNotification('Entity authorized and registered.', 'success');
         setNewOrg({ name: '', mobile: '', secretaryName: '', email: '', password: '' });
         fetchOrganisations();
     } catch (err: any) {
-        console.error("Critical Registration Error:", err);
+        console.error("Registration Error:", err);
         const msg = err.message || "";
-        if (msg.includes("Database error") || msg.includes("UUID")) {
+        if (msg.includes("Database error") || msg.includes("uuid")) {
             setShowSqlFix(true);
-            addNotification("Database Trigger failure. Please run the SQL Repair script.", 'error');
+            addNotification("Database Sync Conflict detected.", 'error');
         } else {
-            addNotification(msg || "Registration sequence interrupted.", 'error');
+            addNotification(msg || "Registration sequence failed.", 'error');
         }
     } finally {
         setIsSubmitting(false);
@@ -173,28 +175,32 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;`;
 
   return (
     <DashboardLayout title="Entity Administration">
-      <div className="space-y-8">
+      <div className="space-y-10">
         {showSqlFix && (
-          <div className="bg-red-950/20 border border-red-500/30 rounded-2xl p-8 animate-in fade-in slide-in-from-top-4 duration-500 shadow-2xl">
-             <div className="flex items-start gap-6">
-                <div className="p-4 bg-red-500/10 rounded-2xl text-red-500 border border-red-500/20">
-                    <Terminal size={32} />
+          <div className="bg-[#0a0505] border border-red-500/30 rounded-[2rem] p-10 animate-in fade-in slide-in-from-top-6 duration-700 shadow-[0_0_60px_-15px_rgba(239,68,68,0.2)]">
+             <div className="flex items-start gap-8">
+                <div className="p-5 bg-red-500/10 rounded-3xl text-red-500 border border-red-500/20 shadow-lg">
+                    <Database size={40} strokeWidth={1.5} />
                 </div>
                 <div className="flex-1">
-                    <h3 className="text-red-400 font-cinzel text-lg tracking-wider mb-2">Supabase Trigger Fix Required</h3>
-                    <p className="text-gray-400 text-sm leading-relaxed mb-6">
-                        The "Database error" occurred because the <code>handle_new_user</code> function in your Supabase project is trying to save the <code>organisation_id</code> as a string into a UUID column. Execute the following script in your <b>SQL Editor</b> to fix this permanently.
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse"></div>
+                        <h3 className="text-red-400 font-cinzel text-xl tracking-[0.1em]">Trigger Sync Error Detected</h3>
+                    </div>
+                    <p className="text-gray-400 text-sm leading-relaxed mb-8 max-w-2xl">
+                        The <b>Database Error</b> on user creation is caused by a type mismatch in your Supabase <code>handle_new_user</code> trigger. It is attempting to insert a string into a UUID column without casting. Run this script in your <b>SQL Editor</b> to repair the terminal permanently.
                     </p>
                     <div className="relative group">
-                        <pre className="bg-black/80 p-6 rounded-xl border border-gray-800 font-mono text-[11px] text-orange-400/80 overflow-x-auto whitespace-pre-wrap max-h-64">
+                        <div className="absolute inset-0 bg-red-500/5 blur-xl group-hover:bg-red-500/10 transition-all duration-700"></div>
+                        <pre className="relative bg-black/90 p-8 rounded-2xl border border-gray-800 font-mono text-[11px] text-red-400/80 overflow-x-auto whitespace-pre-wrap max-h-72 scrollbar-hide shadow-inner">
                             {sqlFixCode}
                         </pre>
                         <button 
                             onClick={copySql}
-                            className="absolute top-4 right-4 p-3 bg-gray-800 hover:bg-orange-600 text-white rounded-xl transition-all shadow-2xl flex items-center gap-2 text-xs font-black uppercase tracking-widest border border-white/5"
+                            className="absolute top-6 right-6 p-4 bg-gray-800 hover:bg-red-600 text-white rounded-2xl transition-all shadow-2xl flex items-center gap-3 text-[10px] font-black uppercase tracking-widest border border-white/5 active:scale-95"
                         >
-                            <Copy size={14} />
-                            <span>Copy Fix</span>
+                            <Copy size={16} />
+                            <span>Copy Repair Script</span>
                         </button>
                     </div>
                 </div>
@@ -202,21 +208,21 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;`;
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
             <div className="lg:col-span-1">
-                <Card title="Register New Entity">
-                    <div className="space-y-4">
-                        <div className="p-4 bg-orange-500/5 border border-orange-500/10 rounded-xl mb-4 flex items-center gap-3">
-                             <ShieldCheck className="text-orange-500" size={20} />
-                             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400/80 leading-tight">Tier 1 Identity: Organisation</span>
+                <Card title="Establish New Entity">
+                    <div className="space-y-6">
+                        <div className="p-5 bg-orange-500/5 border border-orange-500/10 rounded-2xl mb-2 flex items-center gap-4">
+                             <ShieldCheck className="text-orange-500" size={24} />
+                             <span className="text-[11px] font-black uppercase tracking-[0.2em] text-orange-400/80 leading-tight">Identity Tier: Organisation Master</span>
                         </div>
-                        <Input label="Organisation Name" name="name" value={newOrg.name} onChange={handleInputChange} placeholder="SSK Samaj..." />
-                        <Input label="Primary Contact" name="mobile" value={newOrg.mobile} onChange={handleInputChange} placeholder="98XXXXXXXX" />
-                        <Input label="Secretary Name" name="secretaryName" value={newOrg.secretaryName} onChange={handleInputChange} placeholder="Admin Full Name" />
-                        <Input label="Login Email" name="email" type="email" value={newOrg.email} onChange={handleInputChange} placeholder="admin@entity.com" />
+                        <Input label="Organisation Name" name="name" value={newOrg.name} onChange={handleInputChange} placeholder="SSK Samaj Bangalore" />
+                        <Input label="Registry Mobile" name="mobile" value={newOrg.mobile} onChange={handleInputChange} placeholder="98XXXXXXXX" />
+                        <Input label="Admin / Secretary Name" name="secretaryName" value={newOrg.secretaryName} onChange={handleInputChange} placeholder="Full Name" />
+                        <Input label="Access Email" name="email" type="email" value={newOrg.email} onChange={handleInputChange} placeholder="admin@entity.com" />
                         <Input label="Security Key" name="password" type="password" value={newOrg.password} onChange={handleInputChange} placeholder="••••••••" />
-                        <Button type="button" onClick={handleAddOrganisation} disabled={isSubmitting} className="w-full py-4 flex items-center justify-center gap-2 text-xs font-black tracking-widest uppercase mt-4">
-                            {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <UserPlus size={18} />}
+                        <Button type="button" onClick={handleAddOrganisation} disabled={isSubmitting} className="w-full py-5 flex items-center justify-center gap-3 text-[11px] font-black tracking-[0.2em] uppercase mt-4">
+                            {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <UserPlus size={20} />}
                             {isSubmitting ? 'AUTHORIZING...' : 'Authorize Entity'}
                         </Button>
                     </div>
@@ -225,48 +231,56 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;`;
 
             <div className="lg:col-span-2">
                 <Card>
-                    <div className="flex justify-between items-center mb-8">
-                        <h3 className="font-cinzel text-2xl text-white">Authorized Registry</h3>
-                        <Building2 className="text-orange-500/20" size={32} />
+                    <div className="flex justify-between items-center mb-10">
+                        <h3 className="font-cinzel text-3xl text-white">Authorized Registry</h3>
+                        <div className="flex items-center gap-3 px-4 py-2 bg-white/5 rounded-full border border-white/5">
+                            <div className="h-1.5 w-1.5 rounded-full bg-green-500"></div>
+                            <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">Live Database Sync</span>
+                        </div>
                     </div>
                     {loading ? (
-                        <div className="p-32 flex flex-col items-center justify-center gap-4">
-                            <Loader2 className="animate-spin text-orange-500" size={40} />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-600">Accessing Storage...</span>
+                        <div className="p-40 flex flex-col items-center justify-center gap-6">
+                            <div className="w-12 h-12 border-4 border-orange-500/20 border-t-orange-500 rounded-full animate-spin"></div>
+                            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-600">Accessing High-Tier Storage...</span>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-left">
                                 <thead className="border-b border-gray-800">
                                     <tr>
-                                        <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black">Identity</th>
-                                        <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black">Mobile</th>
-                                        <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black text-right">Verification</th>
-                                        <th className="p-4 text-right"></th>
+                                        <th className="p-5 text-[10px] uppercase tracking-[0.3em] text-gray-500 font-black">Identity Parameters</th>
+                                        <th className="p-5 text-[10px] uppercase tracking-[0.3em] text-gray-500 font-black">Contact Node</th>
+                                        <th className="p-5 text-[10px] uppercase tracking-[0.3em] text-gray-500 font-black text-right">Clearance</th>
+                                        <th className="p-5"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {organisations.map(org => (
-                                    <tr key={org.id} className="border-b border-gray-900/50 hover:bg-white/5 transition-all duration-300">
-                                        <td className="p-4">
+                                    <tr key={org.id} className="group border-b border-gray-900/50 hover:bg-white/5 transition-all duration-500">
+                                        <td className="p-5">
                                             <div className="flex flex-col">
-                                                <span className="font-bold text-sm text-white">{org.name}</span>
-                                                <span className="text-[10px] text-gray-600 uppercase tracking-widest">{org.secretary_name}</span>
+                                                <span className="font-bold text-base text-white group-hover:text-orange-500 transition-colors">{org.name}</span>
+                                                <span className="text-[10px] text-gray-600 uppercase tracking-widest mt-0.5">{org.secretary_name}</span>
                                             </div>
                                         </td>
-                                        <td className="p-4">
-                                            <span className="text-xs text-gray-400 font-mono">{org.mobile}</span>
+                                        <td className="p-5">
+                                            <span className="text-xs text-gray-400 font-mono bg-black/40 px-3 py-1.5 rounded-xl border border-white/5">{org.mobile}</span>
                                         </td>
-                                        <td className="p-4 text-right">
-                                            <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-full border ${ org.status === 'Active' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20' }`}>
+                                        <td className="p-5 text-right">
+                                            <span className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-full border shadow-sm ${ org.status === 'Active' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20' }`}>
                                                 {org.status}
                                             </span>
                                         </td>
-                                        <td className="p-4 text-right">
-                                            <Button size="sm" variant="secondary" onClick={() => handleEditClick(org)} className="text-[10px] font-black uppercase tracking-widest">Edit</Button>
+                                        <td className="p-5 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Button size="sm" variant="secondary" onClick={() => handleEditClick(org)} className="text-[9px] font-black uppercase tracking-widest px-4 py-2">Edit</Button>
                                         </td>
                                     </tr>
                                     ))}
+                                    {organisations.length === 0 && (
+                                        <tr>
+                                            <td colSpan={4} className="p-40 text-center text-gray-700 uppercase tracking-[0.5em] font-black text-[10px]">Registry Empty. No authorized entities found.</td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -278,17 +292,17 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;`;
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Modify Entity Parameters">
           {editingOrg && (
-            <div className="space-y-4">
+            <div className="space-y-6 p-2">
                 <Input label="Organisation Name" name="name" value={editingOrg.name} onChange={(e) => setEditingOrg({...editingOrg, name: e.target.value})} />
                 <Input label="Registry Mobile" name="mobile" value={editingOrg.mobile} onChange={(e) => setEditingOrg({...editingOrg, mobile: e.target.value})} />
                 <Input label="Secretary Name" name="secretary_name" value={editingOrg.secretary_name} onChange={(e) => setEditingOrg({...editingOrg, secretary_name: e.target.value})} />
                 <Select label="Security Status" name="status" value={editingOrg.status} onChange={(e) => setEditingOrg({...editingOrg, status: e.target.value as any})}>
-                    <option value="Active">Active</option>
-                    <option value="Deactivated">Deactivated</option>
+                    <option value="Active">Operational - Active</option>
+                    <option value="Deactivated">Locked - Deactivated</option>
                 </Select>
-                <div className="flex justify-end space-x-4 pt-6">
-                    <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>Abort</Button>
-                    <Button type="button" onClick={handleUpdateOrganisation}>Commit Changes</Button>
+                <div className="flex justify-end space-x-4 pt-8">
+                    <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)} className="text-[10px] font-black uppercase tracking-widest">Abort</Button>
+                    <Button type="button" onClick={handleUpdateOrganisation} className="text-[10px] font-black uppercase tracking-widest">Commit Changes</Button>
                 </div>
             </div>
           )}

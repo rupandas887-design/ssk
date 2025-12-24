@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
@@ -9,7 +8,7 @@ import { Volunteer, Role } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../supabase/client';
 import { useNotification } from '../../context/NotificationContext';
-import { Key, Power, Download, UserPlus, UserCheck, ShieldAlert, Copy, ShieldCheck, Loader2 } from 'lucide-react';
+import { Key, Power, Download, UserPlus, UserCheck, ShieldAlert, Copy, ShieldCheck, Loader2, UserCircle } from 'lucide-react';
 
 type VolunteerWithEnrollments = Volunteer & { enrollments: number };
 
@@ -25,28 +24,33 @@ const ManageVolunteers: React.FC = () => {
     if (!user?.organisationId) return;
     setLoading(true);
 
-    const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .select('*, members(id)')
-      .eq('role', Role.Volunteer)
-      .eq('organisation_id', user.organisationId);
+    try {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*, members(id)')
+          .eq('role', Role.Volunteer)
+          .eq('organisation_id', user.organisationId);
 
-    if (profileError) {
-      addNotification("Could not fetch volunteers.", 'error');
-    } else {
-      setVolunteers(profileData.map((v: any) => ({
-          id: v.id,
-          name: v.name,
-          email: v.email,
-          mobile: v.mobile,
-          role: Role.Volunteer,
-          organisationId: v.organisation_id,
-          organisationName: user.organisationName,
-          status: v.status || 'Active',
-          enrollments: v.members?.length || 0
-      })) || []);
+        if (profileError) {
+          addNotification("Could not sync force registry.", 'error');
+        } else {
+          setVolunteers(profileData.map((v: any) => ({
+              id: v.id,
+              name: v.name,
+              email: v.email,
+              mobile: v.mobile,
+              role: Role.Volunteer,
+              organisationId: v.organisation_id,
+              organisationName: user.organisationName,
+              status: v.status || 'Active',
+              enrollments: v.members?.length || 0
+          })) || []);
+        }
+    } catch (e) {
+        console.error("Fetch Error:", e);
+    } finally {
+        setLoading(false);
     }
-    setLoading(false);
   }, [user, addNotification]);
 
   useEffect(() => {
@@ -65,11 +69,11 @@ const ManageVolunteers: React.FC = () => {
     const mobile = newVol.mobile.trim();
     
     if (!user?.organisationId) {
-        addNotification("Organisation context missing.", 'error');
+        addNotification("Organisation context error.", 'error');
         return;
     }
     if (!email || !password || !name || !mobile) {
-        addNotification("All fields are required.", 'error');
+        addNotification("All fields are mandatory for authorization.", 'error');
         return;
     }
 
@@ -85,14 +89,14 @@ const ManageVolunteers: React.FC = () => {
               name: name,
               mobile: mobile,
               role: 'Volunteer', 
-              organisation_id: String(user.organisationId) // Cast to string for metadata
+              organisation_id: String(user.organisationId) // Cast to string to prevent UUID error in trigger
             }
           }
         });
 
         if (authError) throw authError;
 
-        // Forced Profile Sync for reliability against trigger failure
+        // Forced Profile Backup: Ensure record exists even if trigger has latency or fails
         if (authData.user) {
             await supabase.from('profiles').upsert({
                 id: authData.user.id,
@@ -105,16 +109,16 @@ const ManageVolunteers: React.FC = () => {
             });
         }
 
-        addNotification('Field agent successfully authorized.', 'success');
+        addNotification('Agent identity established successfully.', 'success');
         setNewVol({ name: '', mobile: '', email: '', password: '' });
         fetchVolunteers(); 
     } catch (err: any) {
-        console.error("Volunteer Authorization Error:", err);
+        console.error("Authorization Error:", err);
         const msg = err.message || "";
-        if (msg.includes("Database error")) {
-            addNotification("Database Sync Failure: Please notify the Master Admin to run the SQL Repair script.", 'error');
+        if (msg.includes("Database error") || msg.includes("uuid")) {
+            addNotification("Database Sync Error: Contact Master Admin for SQL Repair.", 'error');
         } else {
-            addNotification(msg || "Volunteer registration failed.", 'error');
+            addNotification(msg || "Agent registration failed.", 'error');
         }
     } finally {
         setIsSubmitting(false);
@@ -122,9 +126,9 @@ const ManageVolunteers: React.FC = () => {
   };
 
   const copyVolunteerCreds = (v: VolunteerWithEnrollments) => {
-      const text = `Agent: ${v.name}\nLogin: ${v.email}\nOrg: ${user?.organisationName}`;
+      const text = `Agent: ${v.name}\nIdentity: ${v.email}\nOrganisation: ${user?.organisationName}`;
       navigator.clipboard.writeText(text);
-      addNotification("Agent credentials copied.", "success");
+      addNotification("Identity parameters copied to clipboard.", "success");
   };
 
   const handleToggleStatus = async (vol: VolunteerWithEnrollments) => {
@@ -135,34 +139,34 @@ const ManageVolunteers: React.FC = () => {
         .eq('id', vol.id);
 
     if (error) {
-        addNotification("Failed to update status.", 'error');
+        addNotification("Identity modification failed.", 'error');
     } else {
-        addNotification(`Volunteer identity ${newStatus === 'Active' ? 'Restored' : 'Locked'}.`, 'success');
+        addNotification(`Agent identity ${newStatus === 'Active' ? 'Restored' : 'Locked'}.`, 'success');
         fetchVolunteers();
     }
   };
 
   return (
     <DashboardLayout title="Field Force Registry">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
         <div className="lg:col-span-1">
           <Card title="Authorize New Agent">
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 p-4 bg-blue-500/5 border border-blue-500/10 rounded-xl mb-4">
-                 <ShieldCheck className="text-blue-500" size={20} />
-                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400/80 leading-tight">Identity Tier: Field Agent</span>
+            <div className="space-y-6">
+              <div className="flex items-center gap-4 p-5 bg-blue-500/5 border border-blue-500/10 rounded-2xl mb-4">
+                 <ShieldCheck className="text-blue-500" size={24} />
+                 <span className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-400/80 leading-tight">Clearance Level: Field Agent</span>
               </div>
               <Input label="Agent Full Name" name="name" value={newVol.name} onChange={handleInputChange} placeholder="Ex: Anil Kumar" />
               <Input label="Registry Mobile" name="mobile" type="tel" value={newVol.mobile} onChange={handleInputChange} placeholder="98XXXXXXXX" />
               <Input label="Access Email" name="email" type="email" value={newVol.email} onChange={handleInputChange} placeholder="agent@entity.com" />
-              <Input label="Security Key" name="password" type="password" value={newVol.password} onChange={handleInputChange} placeholder="••••••••" />
+              <Input label="Initial Security Key" name="password" type="password" value={newVol.password} onChange={handleInputChange} placeholder="••••••••" />
               <Button 
                 type="button" 
                 onClick={handleAddVolunteer} 
                 disabled={isSubmitting} 
-                className="w-full py-4 flex items-center justify-center gap-2 text-xs font-black tracking-widest uppercase mt-4"
+                className="w-full py-5 flex items-center justify-center gap-3 text-[11px] font-black tracking-[0.2em] uppercase mt-4"
               >
-                {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <UserPlus size={18} />}
+                {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <UserPlus size={20} />}
                 {isSubmitting ? 'ESTABLISHING...' : 'Authorize Agent'}
               </Button>
             </div>
@@ -171,40 +175,45 @@ const ManageVolunteers: React.FC = () => {
 
         <div className="lg:col-span-2">
           <Card>
-            <div className="flex justify-between items-center mb-8">
-                <h3 className="font-cinzel text-2xl text-white">Active Field Force</h3>
-                <button onClick={fetchVolunteers} className="text-gray-600 hover:text-white transition-colors p-2 bg-white/5 rounded-lg border border-white/5">
-                    <Download size={18} />
+            <div className="flex justify-between items-center mb-10">
+                <div className="flex items-center gap-4">
+                    <div className="p-3 bg-white/5 rounded-2xl text-gray-400">
+                        <UserCircle size={24} />
+                    </div>
+                    <h3 className="font-cinzel text-3xl text-white">Active Force</h3>
+                </div>
+                <button onClick={fetchVolunteers} className="text-gray-600 hover:text-white transition-all p-3 bg-white/5 rounded-2xl border border-white/5 hover:border-orange-500/30">
+                    <Download size={20} />
                 </button>
             </div>
 
             {loading ? (
-                <div className="p-32 flex flex-col items-center justify-center gap-4">
-                    <Loader2 className="animate-spin text-orange-500" size={40} />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-600">Syncing Force Registry...</span>
+                <div className="p-40 flex flex-col items-center justify-center gap-6">
+                    <div className="w-12 h-12 border-4 border-orange-500/20 border-t-orange-500 rounded-full animate-spin"></div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-600">Syncing Agent Metadata...</span>
                 </div>
             ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="border-b border-gray-800">
                   <tr>
-                    <th className="p-4 text-[10px] uppercase tracking-[0.2em] text-gray-500 font-black">Agent Details</th>
-                    <th className="p-4 text-[10px] uppercase tracking-[0.2em] text-gray-500 font-black">Status</th>
-                    <th className="p-4 text-[10px] uppercase tracking-[0.2em] text-gray-500 font-black text-center">Enrollments</th>
-                    <th className="p-4 text-[10px] uppercase tracking-[0.2em] text-gray-500 font-black text-right">Actions</th>
+                    <th className="p-5 text-[10px] uppercase tracking-[0.3em] text-gray-500 font-black">Agent Profile</th>
+                    <th className="p-5 text-[10px] uppercase tracking-[0.3em] text-gray-500 font-black">Clearance</th>
+                    <th className="p-5 text-[10px] uppercase tracking-[0.3em] text-gray-500 font-black text-center">Enrollments</th>
+                    <th className="p-5 text-[10px] uppercase tracking-[0.3em] text-gray-500 font-black text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {volunteers.map(vol => (
-                    <tr key={vol.id} className="border-b border-gray-900/50 hover:bg-white/5 transition-all duration-300">
-                      <td className="p-4">
+                    <tr key={vol.id} className="group border-b border-gray-900/50 hover:bg-white/5 transition-all duration-500">
+                      <td className="p-5">
                         <div className="flex flex-col">
-                            <span className="font-bold text-white text-sm">{vol.name}</span>
-                            <span className="text-[10px] text-gray-600 font-mono uppercase">{vol.email}</span>
+                            <span className="font-bold text-white text-base group-hover:text-blue-400 transition-colors">{vol.name}</span>
+                            <span className="text-[11px] text-gray-600 font-mono uppercase tracking-tighter mt-0.5">{vol.email}</span>
                         </div>
                       </td>
-                      <td className="p-4">
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                      <td className="p-5">
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm ${
                             vol.status === 'Active' 
                             ? 'bg-green-500/10 text-green-400 border-green-500/20' 
                             : 'bg-red-500/10 text-red-400 border-red-500/20'
@@ -212,31 +221,31 @@ const ManageVolunteers: React.FC = () => {
                             {vol.status}
                         </span>
                       </td>
-                      <td className="p-4 text-center">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 rounded-lg">
-                            <UserCheck size={12} className="text-orange-500" />
-                            <span className="font-black text-xs text-white">{vol.enrollments}</span>
+                      <td className="p-5 text-center">
+                        <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/10 rounded-2xl">
+                            <UserCheck size={14} className="text-orange-500" />
+                            <span className="font-black text-sm text-white">{vol.enrollments}</span>
                         </div>
                       </td>
-                      <td className="p-4 text-right">
-                        <div className="flex justify-end gap-3">
+                      <td className="p-5 text-right">
+                        <div className="flex justify-end gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button 
                                 onClick={() => copyVolunteerCreds(vol)}
-                                className="p-2 bg-gray-900 border border-white/5 hover:border-orange-500/30 text-gray-500 hover:text-orange-500 rounded-lg transition-all"
-                                title="Copy Credentials"
+                                className="p-3 bg-gray-900 border border-white/10 hover:border-orange-500/50 text-gray-500 hover:text-orange-500 rounded-xl transition-all shadow-xl"
+                                title="Copy Access Tokens"
                             >
-                                <Copy size={14} />
+                                <Copy size={16} />
                             </button>
                             <button 
                                 onClick={() => handleToggleStatus(vol)}
-                                className={`p-2 rounded-lg border transition-all ${
+                                className={`p-3 rounded-xl border transition-all shadow-xl ${
                                     vol.status === 'Active' 
                                     ? 'bg-red-900/10 text-red-400 border-red-900/20 hover:bg-red-900/20' 
                                     : 'bg-green-900/10 text-green-400 border-green-900/20 hover:bg-green-900/20'
                                 }`}
-                                title={vol.status === 'Active' ? 'Lock Identity' : 'Unlock Identity'}
+                                title={vol.status === 'Active' ? 'Revoke Access' : 'Restore Access'}
                             >
-                                <Power size={14} />
+                                <Power size={16} />
                             </button>
                         </div>
                       </td>
@@ -244,7 +253,7 @@ const ManageVolunteers: React.FC = () => {
                   ))}
                   {volunteers.length === 0 && (
                       <tr>
-                        <td colSpan={4} className="p-32 text-center text-gray-700 uppercase tracking-[0.3em] font-black text-[10px]">No agents found.</td>
+                        <td colSpan={4} className="p-40 text-center text-gray-700 uppercase tracking-[0.5em] font-black text-[10px]">Registry Empty. No authorized field agents.</td>
                       </tr>
                   )}
                 </tbody>
