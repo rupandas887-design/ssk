@@ -8,7 +8,7 @@ import { Volunteer, Role } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../supabase/client';
 import { useNotification } from '../../context/NotificationContext';
-import { Key, Power, Download, UserPlus, UserCheck, ShieldAlert, Copy, ShieldCheck, Loader2, UserCircle } from 'lucide-react';
+import { Key, Power, Download, UserPlus, UserCheck, Copy, ShieldCheck, Loader2, UserCircle } from 'lucide-react';
 
 type VolunteerWithEnrollments = Volunteer & { enrollments: number };
 
@@ -73,7 +73,7 @@ const ManageVolunteers: React.FC = () => {
         return;
     }
     if (!email || !password || !name || !mobile) {
-        addNotification("All fields are mandatory for authorization.", 'error');
+        addNotification("All fields are mandatory.", 'error');
         return;
     }
 
@@ -81,6 +81,7 @@ const ManageVolunteers: React.FC = () => {
 
     try {
         // Create Auth User
+        // Note: 'Database error saving new user' is thrown if the backend trigger crashes
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: email,
           password: password,
@@ -89,14 +90,14 @@ const ManageVolunteers: React.FC = () => {
               name: name,
               mobile: mobile,
               role: 'Volunteer', 
-              organisation_id: String(user.organisationId) // Cast to string to prevent UUID error in trigger
+              organisation_id: String(user.organisationId) // Explicit cast to string
             }
           }
         });
 
         if (authError) throw authError;
 
-        // Forced Profile Backup: Ensure record exists even if trigger has latency or fails
+        // Fallback Upsert: Ensure record exists if trigger fails or has latency
         if (authData.user) {
             await supabase.from('profiles').upsert({
                 id: authData.user.id,
@@ -109,16 +110,16 @@ const ManageVolunteers: React.FC = () => {
             });
         }
 
-        addNotification('Agent identity established successfully.', 'success');
+        addNotification('Agent identity authorized.', 'success');
         setNewVol({ name: '', mobile: '', email: '', password: '' });
         fetchVolunteers(); 
     } catch (err: any) {
-        console.error("Authorization Error:", err);
+        console.error("Authorization Failure:", err);
         const msg = err.message || "";
         if (msg.includes("Database error") || msg.includes("uuid")) {
-            addNotification("Database Sync Error: Contact Master Admin for SQL Repair.", 'error');
+            addNotification("Database Conflict: Ask Master Admin to run the SQL Repair script.", 'error');
         } else {
-            addNotification(msg || "Agent registration failed.", 'error');
+            addNotification(msg || "Volunteer registration failed.", 'error');
         }
     } finally {
         setIsSubmitting(false);
@@ -126,9 +127,9 @@ const ManageVolunteers: React.FC = () => {
   };
 
   const copyVolunteerCreds = (v: VolunteerWithEnrollments) => {
-      const text = `Agent: ${v.name}\nIdentity: ${v.email}\nOrganisation: ${user?.organisationName}`;
+      const text = `Agent: ${v.name}\nEmail: ${v.email}\nOrg: ${user?.organisationName}`;
       navigator.clipboard.writeText(text);
-      addNotification("Identity parameters copied to clipboard.", "success");
+      addNotification("Credentials copied to clipboard.", "success");
   };
 
   const handleToggleStatus = async (vol: VolunteerWithEnrollments) => {
@@ -139,7 +140,7 @@ const ManageVolunteers: React.FC = () => {
         .eq('id', vol.id);
 
     if (error) {
-        addNotification("Identity modification failed.", 'error');
+        addNotification("Update failed.", 'error');
     } else {
         addNotification(`Agent identity ${newStatus === 'Active' ? 'Restored' : 'Locked'}.`, 'success');
         fetchVolunteers();
@@ -147,19 +148,19 @@ const ManageVolunteers: React.FC = () => {
   };
 
   return (
-    <DashboardLayout title="Field Force Registry">
+    <DashboardLayout title="Field Force Management">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
         <div className="lg:col-span-1">
           <Card title="Authorize New Agent">
             <div className="space-y-6">
               <div className="flex items-center gap-4 p-5 bg-blue-500/5 border border-blue-500/10 rounded-2xl mb-4">
                  <ShieldCheck className="text-blue-500" size={24} />
-                 <span className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-400/80 leading-tight">Clearance Level: Field Agent</span>
+                 <span className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-400/80 leading-tight">Identity Tier: Field Agent</span>
               </div>
               <Input label="Agent Full Name" name="name" value={newVol.name} onChange={handleInputChange} placeholder="Ex: Anil Kumar" />
               <Input label="Registry Mobile" name="mobile" type="tel" value={newVol.mobile} onChange={handleInputChange} placeholder="98XXXXXXXX" />
               <Input label="Access Email" name="email" type="email" value={newVol.email} onChange={handleInputChange} placeholder="agent@entity.com" />
-              <Input label="Initial Security Key" name="password" type="password" value={newVol.password} onChange={handleInputChange} placeholder="••••••••" />
+              <Input label="Security Key" name="password" type="password" value={newVol.password} onChange={handleInputChange} placeholder="••••••••" />
               <Button 
                 type="button" 
                 onClick={handleAddVolunteer} 
@@ -167,7 +168,7 @@ const ManageVolunteers: React.FC = () => {
                 className="w-full py-5 flex items-center justify-center gap-3 text-[11px] font-black tracking-[0.2em] uppercase mt-4"
               >
                 {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <UserPlus size={20} />}
-                {isSubmitting ? 'ESTABLISHING...' : 'Authorize Agent'}
+                {isSubmitting ? 'AUTHORIZING...' : 'Establish Agent'}
               </Button>
             </div>
           </Card>
@@ -180,7 +181,7 @@ const ManageVolunteers: React.FC = () => {
                     <div className="p-3 bg-white/5 rounded-2xl text-gray-400">
                         <UserCircle size={24} />
                     </div>
-                    <h3 className="font-cinzel text-3xl text-white">Active Force</h3>
+                    <h3 className="font-cinzel text-3xl text-white">Operational Force</h3>
                 </div>
                 <button onClick={fetchVolunteers} className="text-gray-600 hover:text-white transition-all p-3 bg-white/5 rounded-2xl border border-white/5 hover:border-orange-500/30">
                     <Download size={20} />
@@ -190,7 +191,7 @@ const ManageVolunteers: React.FC = () => {
             {loading ? (
                 <div className="p-40 flex flex-col items-center justify-center gap-6">
                     <div className="w-12 h-12 border-4 border-orange-500/20 border-t-orange-500 rounded-full animate-spin"></div>
-                    <span className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-600">Syncing Agent Metadata...</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-600">Accessing Registry...</span>
                 </div>
             ) : (
             <div className="overflow-x-auto">
@@ -198,7 +199,6 @@ const ManageVolunteers: React.FC = () => {
                 <thead className="border-b border-gray-800">
                   <tr>
                     <th className="p-5 text-[10px] uppercase tracking-[0.3em] text-gray-500 font-black">Agent Profile</th>
-                    <th className="p-5 text-[10px] uppercase tracking-[0.3em] text-gray-500 font-black">Clearance</th>
                     <th className="p-5 text-[10px] uppercase tracking-[0.3em] text-gray-500 font-black text-center">Enrollments</th>
                     <th className="p-5 text-[10px] uppercase tracking-[0.3em] text-gray-500 font-black text-right">Actions</th>
                   </tr>
@@ -209,17 +209,8 @@ const ManageVolunteers: React.FC = () => {
                       <td className="p-5">
                         <div className="flex flex-col">
                             <span className="font-bold text-white text-base group-hover:text-blue-400 transition-colors">{vol.name}</span>
-                            <span className="text-[11px] text-gray-600 font-mono uppercase tracking-tighter mt-0.5">{vol.email}</span>
+                            <span className="text-[11px] text-gray-600 font-mono uppercase tracking-tighter mt-0.5">{vol.email} • {vol.status}</span>
                         </div>
-                      </td>
-                      <td className="p-5">
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm ${
-                            vol.status === 'Active' 
-                            ? 'bg-green-500/10 text-green-400 border-green-500/20' 
-                            : 'bg-red-500/10 text-red-400 border-red-500/20'
-                        }`}>
-                            {vol.status}
-                        </span>
                       </td>
                       <td className="p-5 text-center">
                         <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/10 rounded-2xl">
@@ -251,11 +242,6 @@ const ManageVolunteers: React.FC = () => {
                       </td>
                     </tr>
                   ))}
-                  {volunteers.length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="p-40 text-center text-gray-700 uppercase tracking-[0.5em] font-black text-[10px]">Registry Empty. No authorized field agents.</td>
-                      </tr>
-                  )}
                 </tbody>
               </table>
             </div>

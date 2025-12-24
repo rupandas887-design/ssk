@@ -48,7 +48,6 @@ const OrganisationDashboard: React.FC = () => {
             <div className="space-y-12">
                 {/* Premium High-Impact Identity Banner */}
                 <div className="relative overflow-hidden p-8 lg:p-14 rounded-[3rem] border border-white/10 bg-[#050505] shadow-[0_0_80px_-20px_rgba(255,100,0,0.15)] group">
-                    {/* Dynamic Lighting Effects */}
                     <div className="absolute top-0 right-0 w-[700px] h-[700px] bg-orange-500/[0.03] blur-[160px] -mr-80 -mt-80 rounded-full pointer-events-none group-hover:bg-orange-500/[0.05] transition-all duration-1000"></div>
                     <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-blue-500/[0.03] blur-[130px] -ml-40 -mb-40 rounded-full pointer-events-none transition-all duration-1000"></div>
                     
@@ -65,7 +64,7 @@ const OrganisationDashboard: React.FC = () => {
                                         <div className="h-2 w-2 rounded-full bg-orange-500 animate-pulse"></div>
                                         <p className="text-[11px] font-black uppercase tracking-[0.5em] text-orange-500/80 leading-none">Registered Primary Entity Node</p>
                                     </div>
-                                    <h2 className="font-cinzel text-4xl lg:text-7xl text-white tracking-tighter leading-none mb-4 group-hover:text-orange-500/10 transition-colors duration-1000">
+                                    <h2 className="font-cinzel text-4xl lg:text-7xl text-white tracking-tighter leading-none mb-4 transition-colors duration-1000">
                                         {orgDetails?.name || user?.organisationName}
                                     </h2>
                                 </div>
@@ -132,10 +131,7 @@ const OrganisationDashboard: React.FC = () => {
                                 <p className="text-gray-500 text-[12px] font-black uppercase tracking-[0.5em] mb-5">Authorized Field Force</p>
                                 <div className="flex items-baseline gap-6">
                                     <p className="text-8xl font-black text-white leading-none tracking-tighter">{myVolunteers.length}</p>
-                                    <div className="flex flex-col">
-                                        <span className="text-[12px] font-black text-orange-500 uppercase tracking-widest leading-none">Active</span>
-                                        <span className="text-[10px] font-bold text-gray-700 uppercase tracking-widest mt-1">Personnel</span>
-                                    </div>
+                                    <span className="text-[12px] font-black text-orange-500 uppercase tracking-widest leading-none ml-4">Active Nodes</span>
                                 </div>
                             </div>
                         </div>
@@ -153,10 +149,7 @@ const OrganisationDashboard: React.FC = () => {
                                 <p className="text-gray-500 text-[12px] font-black uppercase tracking-[0.5em] mb-5">Master Enrollment</p>
                                 <div className="flex items-baseline gap-6">
                                     <p className="text-8xl font-black text-white leading-none tracking-tighter">{myMembers.length}</p>
-                                    <div className="flex flex-col">
-                                        <span className="text-[12px] font-black text-blue-500 uppercase tracking-widest leading-none">Verified</span>
-                                        <span className="text-[10px] font-bold text-gray-700 uppercase tracking-widest mt-1">Database Records</span>
-                                    </div>
+                                    <span className="text-[12px] font-black text-blue-500 uppercase tracking-widest leading-none ml-4">Verified</span>
                                 </div>
                             </div>
                         </div>
@@ -180,12 +173,12 @@ const OrganisationDashboard: React.FC = () => {
                     <div className="relative z-10 grid lg:grid-cols-3 gap-20">
                         <div className="lg:col-span-2 space-y-10">
                             <p className="text-gray-400 text-2xl leading-relaxed font-light">
-                                The SSK People master registry for <b className="text-white font-black">{orgDetails?.name || user?.organisationName}</b> is currently synchronizing high-priority data nodes. 
-                                Your established network of <b className="text-orange-500 font-bold">{myVolunteers.length}</b> field agents has successfully verified <b className="text-orange-500 font-bold">{myMembers.length}</b> community members in the active operational window.
+                                The SSK People master registry for <b className="text-white font-black">{orgDetails?.name || user?.organisationName}</b> is successfully synchronizing data nodes. 
+                                Your network of <b className="text-orange-500 font-bold">{myVolunteers.length}</b> field agents has cataloged <b className="text-orange-500 font-bold">{myMembers.length}</b> community members in the current window.
                             </p>
                             <div className="flex items-center gap-5 p-6 bg-white/[0.03] rounded-2xl border border-white/5 w-fit shadow-xl">
                                 <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
-                                <p className="text-[12px] text-gray-400 font-bold uppercase tracking-[0.3em] leading-none">Terminal Status: Active & Operational</p>
+                                <p className="text-[12px] text-gray-400 font-bold uppercase tracking-[0.3em] leading-none">System Status: Active & Operational</p>
                             </div>
                         </div>
                         
