@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 import { User, Role } from '../types';
 import { supabase } from '../supabase/client';
@@ -36,8 +37,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = useCallback(async (userId: string) => {
+  // Fix: Explicitly typed fetchProfile return type to Promise<User | null> to resolve setUser type errors.
+  const fetchProfile = useCallback(async (userId: string, authUser?: any): Promise<User | null> => {
     try {
+      // Step 1: Try to get role from Auth Metadata (Fastest, Bypass RLS issues)
+      const metadataRole = authUser?.app_metadata?.role || authUser?.user_metadata?.role;
+      
       const { data: profile, error } = await supabase
           .from('profiles')
           .select(`*, organisations (name)`)
@@ -45,10 +50,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           .maybeSingle();
 
       if (error) {
-          if (error.message.includes('recursion')) {
-              throw new Error('infinite recursion detected in policy for relation "profiles"');
+          const msg = error.message.toLowerCase();
+          if (msg.includes('recursion') || msg.includes('infinite loop')) {
+              // If recursion happens, we fallback strictly to Auth Metadata
+              if (metadataRole && authUser) {
+                  return {
+                      id: authUser.id,
+                      name: authUser.user_metadata?.name || 'Authorized User',
+                      email: authUser.email || '',
+                      role: mapStringToRole(metadataRole),
+                      status: 'Active'
+                  };
+              }
+              throw new Error('RLS_RECURSION_ERROR');
           }
-          console.error('Profile fetch error:', error.message);
           return null;
       }
       
@@ -57,111 +72,56 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               id: profile.id,
               name: profile.name,
               email: profile.email,
-              role: mapStringToRole(profile.role),
+              role: mapStringToRole(profile.role || metadataRole),
               organisationId: profile.organisation_id,
-              organisationName: profile.organisations?.name || null,
+              organisationName: profile.organisations?.name || undefined,
               mobile: profile.mobile,
-              status: profile.status || 'Active'
+              status: (profile.status as 'Active' | 'Deactivated') || 'Active'
+          };
+      } else if (authUser) {
+          // Fallback if profile row doesn't exist yet but user is authenticated
+          return {
+              id: authUser.id,
+              name: authUser.user_metadata?.name || 'Authorized User',
+              email: authUser.email || '',
+              role: mapStringToRole(metadataRole),
+              status: 'Active'
           };
       }
     } catch (e: any) {
-      if (e.message?.includes('recursion')) throw e;
+      if (e.message === 'RLS_RECURSION_ERROR') throw e;
+      console.error("Profile sync fault:", e);
     }
     return null;
   }, []);
 
-  const refreshProfile = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-          try {
-              const updatedUser = await fetchProfile(session.user.id);
-              setUser(updatedUser);
-          } catch (e) {
-              console.error("Refresh recursion error");
-          }
-      }
-  };
-
-  const updatePassword = async (newPassword: string): Promise<{ success: boolean; error?: string }> => {
-    try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) return { success: false, error: error.message };
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
-  };
-
-  useEffect(() => {
-    let mounted = true;
-    const initializeAuth = async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user && mounted) {
-            try {
-                const mapped = await fetchProfile(session.user.id);
-                setUser(mapped);
-            } catch (e) {
-                console.error("Init recursion error");
-            }
-        }
-        if (mounted) setLoading(false);
-    };
-    initializeAuth();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'SIGNED_OUT') {
-            setUser(null);
-        } else if (session?.user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
-            try {
-                const mapped = await fetchProfile(session.user.id);
-                setUser(mapped);
-            } catch (e) {
-                console.error("Auth change recursion error");
-            }
-        }
-    });
-
-    return () => {
-      mounted = false;
-      subscription?.unsubscribe();
-    };
-  }, [fetchProfile]);
-
   const login = async (email: string, password: string): Promise<{ user: User | null; error?: string; code?: string }> => {
     try {
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ 
-            email: email.trim(), 
-            password: password 
+        const { data, error: authError } = await supabase.auth.signInWithPassword({ 
+            email: email.trim().toLowerCase(), 
+            password 
         });
 
-        if (authError) {
-            return { 
-                user: null, 
-                error: authError.message, 
-                code: authError.message.includes('confirm') ? 'EMAIL_NOT_CONFIRMED' : 'AUTH_FAILED' 
-            };
-        }
+        if (authError) return { user: null, error: authError.message };
 
-        if (authData.user) {
+        if (data.user) {
             try {
-                let profile = await fetchProfile(authData.user.id);
-                if (!profile) {
-                    await new Promise(r => setTimeout(r, 1000));
-                    profile = await fetchProfile(authData.user.id);
-                }
-                
+                const profile = await fetchProfile(data.user.id, data.user);
                 if (profile) {
                     setUser(profile);
                     return { user: profile };
                 }
-                return { user: null, error: "Profile record missing in database.", code: 'MISSING_PROFILE' };
+                return { user: null, error: "Identity verified but profile node is unreachable.", code: 'SYNC_ERROR' };
             } catch (e: any) {
-                return { user: null, error: e.message, code: 'RECURSION_ERROR' };
+                if (e.message === 'RLS_RECURSION_ERROR') {
+                    return { user: null, error: "Database Security Loop Detected. Access Denied by RLS.", code: 'RECURSION_ERROR' };
+                }
+                return { user: null, error: e.message };
             }
         }
-        return { user: null, error: "Authentication failed." };
+        return { user: null, error: "Handshake failed." };
     } catch (err: any) {
-        return { user: null, error: err.message || "Unexpected error" };
+        return { user: null, error: err.message };
     }
   };
 
@@ -170,6 +130,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser(null);
   };
 
+  const refreshProfile = useCallback(async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+          const updatedUser = await fetchProfile(session.user.id, session.user);
+          setUser(updatedUser);
+      }
+  }, [fetchProfile]);
+
+  const updatePassword = async (newPassword: string) => {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) return { success: false, error: error.message };
+      return { success: true };
+  }
+
+  useEffect(() => {
+    const init = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+            try {
+                const mapped = await fetchProfile(session.user.id, session.user);
+                setUser(mapped);
+            } catch (e) {
+                console.error("Auth init error:", e);
+            }
+        }
+        setLoading(false);
+    };
+    init();
+  }, [fetchProfile]);
+
   return (
     <AuthContext.Provider value={{ user, loading, login, logout, refreshProfile, updatePassword }}>
       {!loading && children}
@@ -177,8 +167,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   );
 };
 
-export const useAuth = (): AuthContextType => {
+export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within an AuthProvider');
+  if (!context) throw new Error('useAuth must be wrapped in AuthProvider');
   return context;
 };
