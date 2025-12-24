@@ -63,13 +63,16 @@ const ManageVolunteers: React.FC = () => {
   };
 
   const handleAddVolunteer = async () => {
-    const trimmedEmail = newVol.email.trim().toLowerCase();
+    const email = newVol.email.trim().toLowerCase();
+    const password = newVol.password;
+    const name = newVol.name.trim();
+    const mobile = newVol.mobile.trim();
     
     if (!user?.organisationId) {
         addNotification("Organisation context missing.", 'error');
         return;
     }
-    if (!trimmedEmail || !newVol.password || !newVol.name || !newVol.mobile) {
+    if (!email || !password || !name || !mobile) {
         addNotification("All fields are required.", 'error');
         return;
     }
@@ -77,15 +80,15 @@ const ManageVolunteers: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-        // Create Auth User - Let the Trigger handle the Profile creation
-        const { error: authError } = await supabase.auth.signUp({
-          email: trimmedEmail,
-          password: newVol.password,
+        // Create Auth User
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: email,
+          password: password,
           options: {
             data: {
-              name: newVol.name.trim(),
-              mobile: newVol.mobile.trim(),
-              role: Role.Volunteer, // 'Volunteer'
+              name: name,
+              mobile: mobile,
+              role: Role.Volunteer, 
               organisation_id: user.organisationId
             }
           }
@@ -93,14 +96,25 @@ const ManageVolunteers: React.FC = () => {
 
         if (authError) throw authError;
 
+        // Forced Profile Sync for reliability
+        if (authData.user) {
+            await supabase.from('profiles').upsert({
+                id: authData.user.id,
+                name: name,
+                email: email,
+                role: Role.Volunteer,
+                organisation_id: user.organisationId,
+                mobile: mobile,
+                status: 'Active'
+            });
+        }
+
         addNotification('Field agent registered successfully.', 'success');
         setNewVol({ name: '', mobile: '', email: '', password: '' });
         fetchVolunteers(); 
     } catch (err: any) {
-        const msg = err.message || "Volunteer registration failed.";
-        addNotification(msg.includes("Database error") 
-            ? "Database sync error. Check Supabase SQL Triggers." 
-            : msg, 'error');
+        console.error("Volunteer Registration Error:", err);
+        addNotification(err.message || "Volunteer registration failed.", 'error');
     } finally {
         setIsSubmitting(false);
     }
