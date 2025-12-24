@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
@@ -9,7 +8,7 @@ import Modal from '../../components/ui/Modal';
 import { Organisation, Role } from '../../types';
 import { supabase } from '../../supabase/client';
 import { useNotification } from '../../context/NotificationContext';
-import { ShieldCheck, UserPlus, Building2, Loader2, AlertCircle, Terminal, Copy, Info } from 'lucide-react';
+import { ShieldCheck, UserPlus, Building2, Loader2, AlertCircle, Terminal, Copy, Info, CheckCircle2 } from 'lucide-react';
 
 const ManageOrganisations: React.FC = () => {
   const [organisations, setOrganisations] = useState<Organisation[]>([]);
@@ -44,7 +43,8 @@ const ManageOrganisations: React.FC = () => {
     setNewOrg(prev => ({ ...prev, [name]: value }));
   };
 
-  const sqlFixCode = `CREATE OR REPLACE FUNCTION public.handle_new_user()
+  const sqlFixCode = `-- REPAIR SCRIPT FOR UUID CASTING ERROR
+CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
   INSERT INTO public.profiles (id, email, name, role, organisation_id, mobile, status)
@@ -53,7 +53,7 @@ BEGIN
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'name', 'User'),
     (COALESCE(NEW.raw_user_meta_data->>'role', 'Volunteer'))::user_role,
-    NULLIF(NEW.raw_user_meta_data->>'organisation_id', '')::uuid, -- FIX: Explicitly cast to UUID
+    (NULLIF(NEW.raw_user_meta_data->>'organisation_id', ''))::uuid, -- FIX: Explicit cast
     NEW.raw_user_meta_data->>'mobile',
     'Active'
   )
@@ -68,7 +68,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;`;
 
   const copySql = () => {
     navigator.clipboard.writeText(sqlFixCode);
-    addNotification("SQL Fix Code copied! Paste this into Supabase SQL Editor.", "success");
+    addNotification("SQL Fix Code copied! Execute in Supabase SQL Editor.", "success");
   };
 
   const handleAddOrganisation = async () => {
@@ -110,14 +110,13 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;`;
         });
 
         if (authError) {
-          // Cleanup org if auth fails
           await supabase.from('organisations').delete().eq('id', orgData.id);
           throw authError;
         }
 
-        // 3. Forced Profile Creation as backup for trigger
+        // 3. Forced Profile Creation as safety net
         if (authData.user) {
-            await supabase.from('profiles').upsert({
+            const { error: profileError } = await supabase.from('profiles').upsert({
                 id: authData.user.id,
                 name: secretaryName,
                 email,
@@ -126,22 +125,49 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;`;
                 mobile,
                 status: 'Active'
             });
+            if (profileError && profileError.message.includes("uuid")) {
+                setShowSqlFix(true);
+                throw new Error("Database Sync Conflict: UUID casting failed.");
+            }
         }
 
-        addNotification('Organisation authorized successfully.', 'success');
+        addNotification('Organisation terminal successfully authorized.', 'success');
         setNewOrg({ name: '', mobile: '', secretaryName: '', email: '', password: '' });
         fetchOrganisations();
     } catch (err: any) {
         console.error("Critical Registration Error:", err);
         const msg = err.message || "";
-        if (msg.includes("Database error")) {
+        if (msg.includes("Database error") || msg.includes("UUID")) {
             setShowSqlFix(true);
-            addNotification("Database Trigger Error: Run the SQL repair below.", 'error');
+            addNotification("Database Trigger failure. Please run the SQL Repair script.", 'error');
         } else {
-            addNotification(msg || "Registration sequence failed.", 'error');
+            addNotification(msg || "Registration sequence interrupted.", 'error');
         }
     } finally {
         setIsSubmitting(false);
+    }
+  };
+
+  const handleEditClick = (org: Organisation) => {
+    setEditingOrg({ ...org });
+    setIsModalOpen(true);
+  };
+
+  const handleUpdateOrganisation = async () => {
+    if (!editingOrg) return;
+    const { error } = await supabase.from('organisations').update({
+        name: editingOrg.name, 
+        mobile: editingOrg.mobile,
+        secretary_name: editingOrg.secretary_name, 
+        status: editingOrg.status
+    }).eq('id', editingOrg.id);
+
+    if (error) {
+        addNotification(`Update failed: ${error.message}`, 'error');
+    } else {
+        addNotification(`Registry entry updated.`, 'success');
+        fetchOrganisations();
+        setIsModalOpen(false);
     }
   };
 
@@ -149,18 +175,18 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;`;
     <DashboardLayout title="Entity Administration">
       <div className="space-y-8">
         {showSqlFix && (
-          <div className="bg-red-950/20 border border-red-500/30 rounded-2xl p-8 animate-in fade-in slide-in-from-top-4 duration-500 shadow-2xl shadow-red-900/10">
+          <div className="bg-red-950/20 border border-red-500/30 rounded-2xl p-8 animate-in fade-in slide-in-from-top-4 duration-500 shadow-2xl">
              <div className="flex items-start gap-6">
                 <div className="p-4 bg-red-500/10 rounded-2xl text-red-500 border border-red-500/20">
                     <Terminal size={32} />
                 </div>
                 <div className="flex-1">
-                    <h3 className="text-red-400 font-cinzel text-lg tracking-wider mb-2">Backend Type-Mismatch Detected</h3>
+                    <h3 className="text-red-400 font-cinzel text-lg tracking-wider mb-2">Supabase Trigger Fix Required</h3>
                     <p className="text-gray-400 text-sm leading-relaxed mb-6">
-                        The "Database error saving new user" occurs because the <code>handle_new_user</code> trigger in Supabase lacks a UUID cast for the organization field. Copy the corrected SQL code below and execute it in your <b>Supabase SQL Editor</b>.
+                        The "Database error" occurred because the <code>handle_new_user</code> function in your Supabase project is trying to save the <code>organisation_id</code> as a string into a UUID column. Execute the following script in your <b>SQL Editor</b> to fix this permanently.
                     </p>
                     <div className="relative group">
-                        <pre className="bg-black/80 p-6 rounded-xl border border-gray-800 font-mono text-[11px] text-orange-400/80 overflow-x-auto whitespace-pre-wrap max-h-64 scrollbar-hide">
+                        <pre className="bg-black/80 p-6 rounded-xl border border-gray-800 font-mono text-[11px] text-orange-400/80 overflow-x-auto whitespace-pre-wrap max-h-64">
                             {sqlFixCode}
                         </pre>
                         <button 
@@ -168,7 +194,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;`;
                             className="absolute top-4 right-4 p-3 bg-gray-800 hover:bg-orange-600 text-white rounded-xl transition-all shadow-2xl flex items-center gap-2 text-xs font-black uppercase tracking-widest border border-white/5"
                         >
                             <Copy size={14} />
-                            <span>Copy Repair Script</span>
+                            <span>Copy Fix</span>
                         </button>
                     </div>
                 </div>
@@ -178,20 +204,20 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;`;
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
             <div className="lg:col-span-1">
-                <Card title="Initialize New Entity">
+                <Card title="Register New Entity">
                     <div className="space-y-4">
                         <div className="p-4 bg-orange-500/5 border border-orange-500/10 rounded-xl mb-4 flex items-center gap-3">
                              <ShieldCheck className="text-orange-500" size={20} />
-                             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400/80 leading-tight">Identity Tier: Organisation Admin</span>
+                             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400/80 leading-tight">Tier 1 Identity: Organisation</span>
                         </div>
                         <Input label="Organisation Name" name="name" value={newOrg.name} onChange={handleInputChange} placeholder="SSK Samaj..." />
                         <Input label="Primary Contact" name="mobile" value={newOrg.mobile} onChange={handleInputChange} placeholder="98XXXXXXXX" />
-                        <Input label="Secretary Name" name="secretaryName" value={newOrg.secretaryName} onChange={handleInputChange} placeholder="Full Name" />
-                        <Input label="Access Email" name="email" type="email" value={newOrg.email} onChange={handleInputChange} placeholder="admin@entity.com" />
+                        <Input label="Secretary Name" name="secretaryName" value={newOrg.secretaryName} onChange={handleInputChange} placeholder="Admin Full Name" />
+                        <Input label="Login Email" name="email" type="email" value={newOrg.email} onChange={handleInputChange} placeholder="admin@entity.com" />
                         <Input label="Security Key" name="password" type="password" value={newOrg.password} onChange={handleInputChange} placeholder="••••••••" />
                         <Button type="button" onClick={handleAddOrganisation} disabled={isSubmitting} className="w-full py-4 flex items-center justify-center gap-2 text-xs font-black tracking-widest uppercase mt-4">
                             {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <UserPlus size={18} />}
-                            {isSubmitting ? 'ESTABLISHING...' : 'Establish Entity'}
+                            {isSubmitting ? 'AUTHORIZING...' : 'Authorize Entity'}
                         </Button>
                     </div>
                 </Card>
@@ -200,22 +226,23 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;`;
             <div className="lg:col-span-2">
                 <Card>
                     <div className="flex justify-between items-center mb-8">
-                        <h3 className="font-cinzel text-2xl text-white">Registry Snapshots</h3>
-                        <Building2 className="text-orange-500/30" size={32} />
+                        <h3 className="font-cinzel text-2xl text-white">Authorized Registry</h3>
+                        <Building2 className="text-orange-500/20" size={32} />
                     </div>
                     {loading ? (
                         <div className="p-32 flex flex-col items-center justify-center gap-4">
                             <Loader2 className="animate-spin text-orange-500" size={40} />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-600">Syncing Registry...</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-600">Accessing Storage...</span>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-left">
                                 <thead className="border-b border-gray-800">
                                     <tr>
-                                        <th className="p-4 text-[10px] uppercase tracking-[0.2em] text-gray-500 font-black">Identity</th>
-                                        <th className="p-4 text-[10px] uppercase tracking-[0.2em] text-gray-500 font-black">Mobile</th>
-                                        <th className="p-4 text-[10px] uppercase tracking-[0.2em] text-gray-500 font-black text-right">Verification</th>
+                                        <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black">Identity</th>
+                                        <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black">Mobile</th>
+                                        <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black text-right">Verification</th>
+                                        <th className="p-4 text-right"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -235,6 +262,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;`;
                                                 {org.status}
                                             </span>
                                         </td>
+                                        <td className="p-4 text-right">
+                                            <Button size="sm" variant="secondary" onClick={() => handleEditClick(org)} className="text-[10px] font-black uppercase tracking-widest">Edit</Button>
+                                        </td>
                                     </tr>
                                     ))}
                                 </tbody>
@@ -245,6 +275,24 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;`;
             </div>
         </div>
       </div>
+
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Modify Entity Parameters">
+          {editingOrg && (
+            <div className="space-y-4">
+                <Input label="Organisation Name" name="name" value={editingOrg.name} onChange={(e) => setEditingOrg({...editingOrg, name: e.target.value})} />
+                <Input label="Registry Mobile" name="mobile" value={editingOrg.mobile} onChange={(e) => setEditingOrg({...editingOrg, mobile: e.target.value})} />
+                <Input label="Secretary Name" name="secretary_name" value={editingOrg.secretary_name} onChange={(e) => setEditingOrg({...editingOrg, secretary_name: e.target.value})} />
+                <Select label="Security Status" name="status" value={editingOrg.status} onChange={(e) => setEditingOrg({...editingOrg, status: e.target.value as any})}>
+                    <option value="Active">Active</option>
+                    <option value="Deactivated">Deactivated</option>
+                </Select>
+                <div className="flex justify-end space-x-4 pt-6">
+                    <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>Abort</Button>
+                    <Button type="button" onClick={handleUpdateOrganisation}>Commit Changes</Button>
+                </div>
+            </div>
+          )}
+      </Modal>
     </DashboardLayout>
   );
 };
