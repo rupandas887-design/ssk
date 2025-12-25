@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
@@ -72,11 +71,13 @@ const LandingPage: React.FC = () => {
                 <p className="text-lg text-gray-300 mb-4 leading-relaxed">
                     Due to historical migrations, members of the SSK community later settled in regions like Erandon in Khandesh, where local traditions recount that Kartavirya was blessed with his thousand hands by Lord Dattatreya, becoming the legendary Sahasrarjuna.
                 </p>
-                <img 
-                    src="https://i.pinimg.com/736x/68/ac/f6/68acf6f32a216959c497c7a232b35551.jpg" 
-                    alt="Sahasrarjuna Kshatriya" 
-                    className="w-full max-w-3xl mx-auto h-auto mt-8 rounded-lg shadow-lg border border-gray-800"
-                />
+                <div className="flex justify-center mt-12">
+                    <img 
+                        src="https://i.pinimg.com/736x/68/ac/f6/68acf6f32a216959c497c7a232b35551.jpg" 
+                        alt="Sahasrarjuna Kshatriya" 
+                        className="w-full max-w-md h-auto rounded-2xl shadow-2xl border border-orange-500/20 grayscale hover:grayscale-0 transition-all duration-1000 transform hover:scale-[1.02]"
+                    />
+                </div>
             </div>
         </div>
       </section>
