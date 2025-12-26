@@ -1,10 +1,10 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
-import { Shield, Users, UserCheck, Key, RefreshCw, AlertCircle, Activity, User as UserIcon, Building2, Clock, UserCircle, Phone } from 'lucide-react';
+import Modal from '../../components/ui/Modal';
+import { Shield, Users, UserCheck, Key, RefreshCw, AlertCircle, Activity, User as UserIcon, Building2, Clock, UserCircle, Phone, ExternalLink } from 'lucide-react';
 import { Organisation, Volunteer, Member, Role, User as ProfileUser } from '../../types';
 import { supabase } from '../../supabase/client';
 import { useAuth } from '../../context/AuthContext';
@@ -24,10 +24,10 @@ const AdminDashboard: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [organisations, setOrganisations] = useState<Organisation[]>([]);
     const [members, setMembers] = useState<MemberWithAgent[]>([]);
-    const [volsRaw, setVolsRaw] = useState<any[]>([]);
     const [allProfiles, setAllProfiles] = useState<ProfileUser[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const [isVolunteersModalOpen, setIsVolunteersModalOpen] = useState(false);
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
@@ -47,7 +47,6 @@ const AdminDashboard: React.FC = () => {
             if (orgsRes.data) setOrganisations(orgsRes.data);
             if (membersRes.data) setMembers(membersRes.data);
             if (profilesRes.data) {
-                setVolsRaw(profilesRes.data);
                 const mappedProfiles: ProfileUser[] = profilesRes.data.map(p => ({
                     id: p.id,
                     name: p.name,
@@ -147,16 +146,27 @@ const AdminDashboard: React.FC = () => {
                         <p className="text-4xl font-black text-white">{organisations.length}</p>
                     </div>
                 </Card>
-                <Card className="p-8 border-l-4 border-blue-600 bg-[#080808] hover:bg-[#0a0a0a] transition-all group">
-                    <div className="flex justify-between items-center mb-4">
-                      <Users className="text-blue-600 group-hover:scale-110 transition-transform" size={32} strokeWidth={1.5} />
-                      <span className="text-[9px] font-black text-blue-600/50 uppercase tracking-[0.2em]">Field Personnel</span>
-                    </div>
-                    <div>
-                        <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Active Volunteers</p>
-                        <p className="text-4xl font-black text-white">{volunteers.length}</p>
-                    </div>
-                </Card>
+                
+                <button 
+                    onClick={() => setIsVolunteersModalOpen(true)}
+                    className="text-left w-full block group"
+                >
+                    <Card className="p-8 border-l-4 border-blue-600 bg-[#080808] group-hover:bg-[#0a0a0a] transition-all relative overflow-hidden h-full">
+                        <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-20 transition-opacity">
+                            <ExternalLink size={24} className="text-blue-500" />
+                        </div>
+                        <div className="flex justify-between items-center mb-4">
+                        <Users className="text-blue-600 group-hover:scale-110 transition-transform" size={32} strokeWidth={1.5} />
+                        <span className="text-[9px] font-black text-blue-600/50 uppercase tracking-[0.2em]">Field Personnel</span>
+                        </div>
+                        <div>
+                            <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Active Volunteers</p>
+                            <p className="text-4xl font-black text-white">{volunteers.length}</p>
+                            <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest mt-4 opacity-0 group-hover:opacity-100 transition-opacity">View Full List →</p>
+                        </div>
+                    </Card>
+                </button>
+
                 <Card className="p-8 border-l-4 border-green-600 bg-[#080808] hover:bg-[#0a0a0a] transition-all group">
                     <div className="flex justify-between items-center mb-4">
                       <UserCheck className="text-green-600 group-hover:scale-110 transition-transform" size={32} strokeWidth={1.5} />
@@ -358,7 +368,7 @@ const AdminDashboard: React.FC = () => {
                             </div>
                             <div className="flex justify-between items-center text-xs">
                                 <span className="text-gray-600 uppercase tracking-widest font-bold">Access Node:</span>
-                                <span className="px-4 py-1.5 bg-orange-600/10 text-orange-500 rounded-full border border-orange-600/20 font-black uppercase tracking-widest">Global Root</span>
+                                <span className="px-4 py-1.5 bg-orange-600/10 text-orange-500 rounded-full border border-orange-500/20 font-black uppercase tracking-widest">Global Root</span>
                             </div>
                             <div className="pt-6 border-t border-white/5">
                                 <p className="text-[9px] text-gray-700 font-bold uppercase tracking-widest leading-relaxed">
@@ -370,6 +380,72 @@ const AdminDashboard: React.FC = () => {
                     </Card>
                 </div>
             </div>
+
+            <Modal 
+                isOpen={isVolunteersModalOpen} 
+                onClose={() => setIsVolunteersModalOpen(false)} 
+                title="Field Personnel Registry"
+            >
+                <div className="max-h-[70vh] overflow-y-auto custom-scrollbar pr-2 space-y-6">
+                    <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-4">
+                        <div className="flex items-center gap-3">
+                            <Users className="text-blue-500" size={20} />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Active Operator Nodes</span>
+                        </div>
+                        <span className="text-xs font-bold text-white bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-full">{volunteers.length} Agents</span>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="border-b border-gray-800">
+                                <tr>
+                                    <th className="p-4 text-[9px] uppercase tracking-widest text-gray-500 font-black">Identity</th>
+                                    <th className="p-4 text-[9px] uppercase tracking-widest text-gray-500 font-black">Sector / Org</th>
+                                    <th className="p-4 text-[9px] uppercase tracking-widest text-gray-500 font-black text-right">Metric</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/[0.03]">
+                                {volunteers.map(vol => (
+                                    <tr key={vol.id} className="hover:bg-white/[0.02] transition-colors">
+                                        <td className="p-4">
+                                            <div className="flex flex-col">
+                                                <span className="font-bold text-white text-sm">{vol.name}</span>
+                                                <span className="text-[10px] text-gray-600 font-mono">{vol.mobile}</span>
+                                            </div>
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-blue-500/70">
+                                                    {organisations.find(o => o.id === vol.organisationId)?.name || 'N/A'}
+                                                </span>
+                                                <span className={`text-[9px] font-bold uppercase tracking-widest mt-0.5 ${vol.status === 'Active' ? 'text-green-500' : 'text-red-500'}`}>
+                                                    {vol.status}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="p-4 text-right">
+                                            <div className="flex flex-col items-end">
+                                                <span className="font-black text-white font-mono">{vol.enrollments}</span>
+                                                <span className="text-[8px] font-black text-gray-700 uppercase tracking-widest">Enrollments</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div className="pt-6 border-t border-white/5">
+                        <Button 
+                            variant="secondary" 
+                            className="w-full py-4 text-[10px] font-black uppercase tracking-[0.2em]" 
+                            onClick={() => setIsVolunteersModalOpen(false)}
+                        >
+                            Close Terminal
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
         </DashboardLayout>
     );
 };
