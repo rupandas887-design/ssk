@@ -56,7 +56,20 @@ const AdminReports: React.FC = () => {
             ]);
             if (membersRes.data) setMembers(membersRes.data);
             if (orgsRes.data) setOrganisations(orgsRes.data);
-            if (volsRes.data) setVolunteers(volsRes.data);
+            
+            if (volsRes.data) {
+                // Fix: Explicitly map organisation_id (DB) to organisationId (Type)
+                const mappedVolunteers: VolunteerUser[] = volsRes.data.map(v => ({
+                    id: v.id,
+                    name: v.name,
+                    email: v.email,
+                    role: v.role as Role,
+                    organisationId: v.organisation_id,
+                    mobile: v.mobile,
+                    status: v.status
+                }));
+                setVolunteers(mappedVolunteers);
+            }
         } catch (err) {
             addNotification("Master registry uplink failed.", "error");
         } finally {
@@ -199,7 +212,7 @@ const AdminReports: React.FC = () => {
                                 value={selectedVolunteerId} 
                                 onChange={(e) => setSelectedVolunteerId(e.target.value)}
                                 className="bg-black/40 border-gray-800"
-                                disabled={!selectedOrgId && volunteers.length === 0}
+                                disabled={!selectedOrgId && availableVolunteers.length === 0}
                             >
                                 <option value="">All Volunteers</option>
                                 {availableVolunteers.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
