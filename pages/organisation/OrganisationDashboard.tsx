@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
 import { useAuth } from '../../context/AuthContext';
-import { Users, UserCheck, Building2, User as UserIcon, Phone, ShieldCheck, Mail, Info, Activity, Globe, Zap } from 'lucide-react';
+import { Users, UserCheck, Building2, User as UserIcon, Phone, ShieldCheck, Mail, Info, Activity, Globe, Zap, Clock, RefreshCw } from 'lucide-react';
 import { supabase } from '../../supabase/client';
 import { Member, Role, User as VolunteerUser, Organisation } from '../../types';
 
@@ -10,32 +10,51 @@ const OrganisationDashboard: React.FC = () => {
     const { user } = useAuth();
     const [myVolunteers, setMyVolunteers] = useState<VolunteerUser[]>([]);
     const [myMembers, setMyMembers] = useState<Member[]>([]);
+    const [allOrgProfiles, setAllOrgProfiles] = useState<VolunteerUser[]>([]);
     const [orgDetails, setOrgDetails] = useState<Organisation | null>(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            if (!user?.organisationId) return;
-            setLoading(true);
+    const fetchData = async () => {
+        if (!user?.organisationId) return;
+        setLoading(true);
+        
+        try {
+            const [orgRes, profilesRes, membersRes] = await Promise.all([
+                supabase.from('organisations').select('*').eq('id', user.organisationId).single(),
+                supabase.from('profiles').select('*').eq('organisation_id', user.organisationId),
+                supabase.from('members').select('*').eq('organisation_id', user.organisationId).order('submission_date', { ascending: false })
+            ]);
             
-            try {
-                const [orgRes, volsRes, membersRes] = await Promise.all([
-                    supabase.from('organisations').select('*').eq('id', user.organisationId).single(),
-                    supabase.from('profiles').select('*').eq('role', Role.Volunteer).eq('organisation_id', user.organisationId),
-                    supabase.from('members').select('*').eq('organisation_id', user.organisationId)
-                ]);
-                
-                if (orgRes.data) setOrgDetails(orgRes.data);
-                if (volsRes.data) setMyVolunteers(volsRes.data);
-                if (membersRes.data) setMyMembers(membersRes.data);
-            } catch (error) {
-                console.error("Dashboard Sync Error:", error);
-            } finally {
-                setLoading(false);
+            if (orgRes.data) setOrgDetails(orgRes.data);
+            
+            if (profilesRes.data) {
+                const mappedProfiles: VolunteerUser[] = profilesRes.data.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    email: p.email,
+                    role: p.role as Role,
+                    organisationId: p.organisation_id,
+                    mobile: p.mobile,
+                    status: p.status
+                }));
+                setAllOrgProfiles(mappedProfiles);
+                setMyVolunteers(mappedProfiles.filter(p => p.role === Role.Volunteer));
             }
+            
+            if (membersRes.data) setMyMembers(membersRes.data);
+        } catch (error) {
+            console.error("Dashboard Sync Error:", error);
+        } finally {
+            setLoading(false);
         }
+    };
+
+    useEffect(() => {
         fetchData();
     }, [user]);
+
+    // Top 8 recent members for the activity stream
+    const recentActivity = useMemo(() => myMembers.slice(0, 8), [myMembers]);
 
     return (
         <DashboardLayout title="Entity Command Center">
@@ -156,40 +175,62 @@ const OrganisationDashboard: React.FC = () => {
                     </Card>
                 </div>
                 
-                {/* Advanced Intelligence Panel */}
-                <Card className="border-l-8 border-l-orange-600 bg-[#080808] p-14 shadow-4xl relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-orange-500/[0.02] blur-[120px] rounded-full -mr-40 -mt-40 pointer-events-none"></div>
-                    
-                    <div className="relative z-10 flex items-center gap-8 mb-12">
-                         <div className="p-5 bg-orange-600/10 rounded-3xl text-orange-500 border border-orange-500/10 shadow-lg">
-                            <Activity size={40} />
-                         </div>
-                         <div>
-                            <p className="text-[11px] font-black uppercase tracking-[0.4em] text-orange-500/60 mb-1">Advanced Metrics</p>
-                            <h3 className="font-cinzel text-4xl text-white tracking-[0.1em] uppercase">Drive Intelligence</h3>
-                         </div>
-                    </div>
-                    
-                    <div className="relative z-10 grid lg:grid-cols-3 gap-20">
-                        <div className="lg:col-span-2 space-y-10">
-                            <p className="text-gray-400 text-2xl leading-relaxed font-light">
-                                The SSK People master registry for <b className="text-white font-black">{orgDetails?.name || user?.organisationName}</b> is successfully synchronizing data nodes. 
-                                Your network of <b className="text-orange-500 font-bold">{myVolunteers.length}</b> field agents has cataloged <b className="text-orange-500 font-bold">{myMembers.length}</b> community members in the current window.
-                            </p>
-                            <div className="flex items-center gap-5 p-6 bg-white/[0.03] rounded-2xl border border-white/5 w-fit shadow-xl">
-                                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
-                                <p className="text-[12px] text-gray-400 font-bold uppercase tracking-[0.3em] leading-none">System Status: Active & Operational</p>
+                {/* Sector Activity Stream - fulfilling the request for "Field Agent" on dashboard */}
+                <Card className="border-white/5 bg-[#080808] p-10 shadow-4xl relative overflow-hidden">
+                    <div className="flex items-center justify-between mb-10">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-blue-500/10 rounded-xl text-blue-400">
+                                <Activity size={24} />
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500/60 mb-0.5">Real-time Stream</p>
+                                <h3 className="font-cinzel text-2xl text-white uppercase tracking-widest">Sector Activity Stream</h3>
                             </div>
                         </div>
-                        
-                        <div className="bg-black/60 p-12 rounded-[3rem] border border-white/10 flex flex-col justify-center text-center shadow-2xl relative group/matrix overflow-hidden">
-                            <div className="absolute inset-0 bg-gradient-to-t from-orange-500/[0.03] to-transparent translate-y-full group-hover/matrix:translate-y-0 transition-transform duration-1000"></div>
-                            <p className="relative z-10 text-[11px] font-black uppercase text-gray-600 tracking-[0.5em] mb-6">Force Productivity Matrix</p>
-                            <p className="relative z-10 text-9xl font-black text-white leading-none tracking-tighter">
-                                {myVolunteers.length > 0 ? (myMembers.length / myVolunteers.length).toFixed(1) : '0'}
-                            </p>
-                            <p className="relative z-10 text-[11px] font-black text-orange-500/60 uppercase mt-8 tracking-[0.4em]">Verified Records Per Node</p>
-                        </div>
+                        <button onClick={fetchData} className="p-3 bg-white/5 rounded-xl border border-white/5 hover:border-blue-500/40 transition-all text-gray-500 hover:text-white">
+                            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+                        </button>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="border-b border-gray-800">
+                                    <th className="p-5 text-[10px] uppercase tracking-widest text-gray-500 font-black">Enrolled Identity</th>
+                                    <th className="p-5 text-[10px] uppercase tracking-widest text-gray-500 font-black text-center">Field Agent</th>
+                                    <th className="p-5 text-[10px] uppercase tracking-widest text-gray-500 font-black text-right">Verification Date</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-900/50">
+                                {recentActivity.map(m => (
+                                    <tr key={m.id} className="group hover:bg-white/[0.015] transition-colors">
+                                        <td className="p-5">
+                                            <div className="flex flex-col">
+                                                <span className="font-bold text-white text-lg group-hover:text-blue-400 transition-colors">{m.name} {m.surname}</span>
+                                                <span className="text-[11px] text-gray-600 font-mono tracking-tighter">{m.mobile}</span>
+                                            </div>
+                                        </td>
+                                        <td className="p-5 text-center">
+                                            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-500/5 border border-blue-500/10 rounded-xl">
+                                                <UserIcon size={12} className="text-blue-500" />
+                                                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">
+                                                    {allOrgProfiles.find(p => p.id === m.volunteer_id)?.name || 'Agent '+m.volunteer_id.slice(0,5)}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="p-5 text-right">
+                                            <div className="flex items-center justify-end gap-2 text-[11px] text-gray-500 font-bold uppercase tracking-wider">
+                                                <Clock size={12} />
+                                                {m.submission_date.split('T')[0]}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {recentActivity.length === 0 && (
+                                    <tr><td colSpan={3} className="p-20 text-center text-xs text-gray-700 uppercase tracking-widest font-black">No recent node activations.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
                     </div>
                 </Card>
              </div>

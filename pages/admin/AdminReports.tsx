@@ -22,7 +22,8 @@ import {
   AlertTriangle,
   Calendar,
   Building2,
-  Fingerprint
+  Fingerprint,
+  FileText
 } from 'lucide-react';
 
 const AdminReports: React.FC = () => {
@@ -49,7 +50,6 @@ const AdminReports: React.FC = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            // Fetch all profiles to ensure every enrollment agent's name can be looked up
             const [membersRes, orgsRes, profilesRes] = await Promise.all([
                 supabase.from('members').select('*').order('submission_date', { ascending: false }),
                 supabase.from('organisations').select('*').order('name'),
@@ -106,11 +106,8 @@ const AdminReports: React.FC = () => {
         });
     }, [members, selectedOrgId, selectedVolunteerId, startDate, endDate, searchQuery]);
 
-    // Dropdown for agents should filter by organization if one is selected
     const availableAgents = useMemo(() => {
         let base = allProfiles;
-        // Optional: Filter dropdown to only show Volunteers if required, 
-        // but often Orgs want to see anyone who made an entry.
         if (selectedOrgId) {
             base = base.filter(p => p.organisationId === selectedOrgId);
         }
@@ -189,7 +186,6 @@ const AdminReports: React.FC = () => {
     return (
         <DashboardLayout title="Master Registry Terminal">
             <div className="space-y-8">
-                {/* 4-Column Intelligence Filter */}
                 <Card className="bg-gray-950 border-white/5 p-8 rounded-[2rem] shadow-2xl">
                     <div className="flex items-center gap-2 mb-8 text-orange-500">
                         <Filter size={18} />
@@ -260,7 +256,6 @@ const AdminReports: React.FC = () => {
                     </div>
                 </Card>
 
-                {/* Global Registry Table */}
                 <Card title="Global Identity Node Registry">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
@@ -281,7 +276,7 @@ const AdminReports: React.FC = () => {
                                             <div className="flex flex-col gap-1">
                                                 <div className="flex items-center gap-2">
                                                     <span className="font-bold text-white text-lg group-hover:text-orange-500 transition-colors">{m.name} {m.surname}</span>
-                                                    {m.member_image_url && <ImageIcon size={14} className="text-blue-500/50" />}
+                                                    {m.member_image_url && <FileText size={14} className="text-blue-500/50" />}
                                                 </div>
                                                 <div className="flex items-center gap-3 text-[11px] text-gray-600 font-mono tracking-tighter">
                                                     <span>{m.mobile}</span>
@@ -337,27 +332,25 @@ const AdminReports: React.FC = () => {
                 </Card>
             </div>
 
-            {/* Comprehensive Edit Modal */}
             <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Registry Override Terminal">
                 {editingMember && (
                     <div className="space-y-6 p-2 max-h-[85vh] overflow-y-auto custom-scrollbar">
-                        {/* Profile Preview */}
                         <div className="flex items-start gap-8 p-8 bg-orange-500/5 border border-orange-500/10 rounded-[2.5rem] relative overflow-hidden group/modal-head">
                             {editingMember.member_image_url ? (
                                 <div className="relative h-40 w-40 rounded-[2rem] overflow-hidden border-2 border-white/10 shrink-0 shadow-2xl">
-                                    <img src={editingMember.member_image_url} alt="Capture" className="w-full h-full object-cover" />
+                                    <img src={editingMember.member_image_url} alt="Aadhaar Scan" className="w-full h-full object-cover" />
                                     <a href={editingMember.member_image_url} target="_blank" rel="noreferrer" className="absolute inset-0 bg-black/60 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity text-white">
                                         <ExternalLink size={24} />
                                     </a>
                                 </div>
                             ) : (
                                 <div className="h-40 w-40 rounded-[2rem] bg-gray-900 border-2 border-white/5 flex items-center justify-center text-gray-700 shrink-0">
-                                    <ImageIcon size={48} />
+                                    <FileText size={48} />
                                 </div>
                             )}
                             <div className="flex-1 space-y-4 pt-2">
                                 <div>
-                                    <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.4em] mb-1">Global ID Card</p>
+                                    <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.4em] mb-1">Aadhaar Document Scan</p>
                                     <h4 className="text-3xl font-cinzel text-white leading-none">{editingMember.name} {editingMember.surname}</h4>
                                 </div>
                                 <div className="flex flex-wrap gap-4">
@@ -373,7 +366,6 @@ const AdminReports: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Full Metadata Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <Input label="FIRST NAME" value={editingMember.name} onChange={(e) => setEditingMember({...editingMember, name: e.target.value})} />
                             <Input label="SURNAME" value={editingMember.surname} onChange={(e) => setEditingMember({...editingMember, surname: e.target.value})} />
@@ -401,7 +393,6 @@ const AdminReports: React.FC = () => {
                             </Select>
                         </div>
 
-                        {/* Modal Actions */}
                         <div className="flex justify-end gap-4 pt-10 border-t border-white/5 mt-8 sticky bottom-0 bg-gray-900 pb-2 z-10">
                             <Button variant="secondary" onClick={() => setIsEditModalOpen(false)} className="px-8 py-4 text-[10px] font-black uppercase tracking-widest">Abort</Button>
                             <Button 
@@ -417,7 +408,6 @@ const AdminReports: React.FC = () => {
                 )}
             </Modal>
 
-            {/* Delete Confirmation Modal */}
             <Modal isOpen={!!memberToDelete} onClose={() => setMemberToDelete(null)} title="Security Confirmation">
                 <div className="p-6 text-center space-y-8">
                     <div className="p-6 bg-red-500/10 rounded-full w-24 h-24 mx-auto flex items-center justify-center text-red-500 border border-red-500/20 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
@@ -426,7 +416,7 @@ const AdminReports: React.FC = () => {
                     <div>
                         <h4 className="text-2xl font-cinzel text-white mb-3">Irreversible Purge</h4>
                         <p className="text-sm text-gray-500 leading-relaxed uppercase tracking-widest font-bold">
-                            Are you absolutely certain you wish to delete this identity node from the global registry? This action cannot be undone.
+                            Are you certain you wish to purge this Aadhaar record? This action is absolute.
                         </p>
                     </div>
                     <div className="flex gap-4">

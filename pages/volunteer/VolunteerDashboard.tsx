@@ -17,23 +17,25 @@ const VolunteerDashboard: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const { addNotification } = useNotification();
 
+    const fetchSubmissions = async () => {
+        if (!user?.id) return;
+        setLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('members')
+                .select('*')
+                .eq('volunteer_id', user.id)
+                .order('submission_date', { ascending: false });
+            if (error) throw error;
+            if (data) setMySubmissions(data);
+        } catch (err: any) {
+            addNotification(`Sync Fault: ${err.message}`, 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchSubmissions = async () => {
-            if (!user?.id) return;
-            setLoading(true);
-            try {
-                const { data, error } = await supabase
-                    .from('members')
-                    .select('*')
-                    .eq('volunteer_id', user.id);
-                if (error) throw error;
-                if (data) setMySubmissions(data);
-            } catch (err: any) {
-                addNotification(`Sync Fault: ${err.message}`, 'error');
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchSubmissions();
     }, [user, addNotification]);
     
@@ -76,9 +78,14 @@ const VolunteerDashboard: React.FC = () => {
                             <h2 className="font-cinzel text-3xl text-white tracking-tight">{user?.name}</h2>
                         </div>
                     </div>
-                    <Button onClick={() => navigate('/volunteer/new-member')} className="w-full md:w-auto py-4 px-10 shadow-2xl">
-                        Enroll New Member
-                    </Button>
+                    <div className="flex gap-3 w-full md:w-auto">
+                        <button onClick={fetchSubmissions} className="p-4 bg-white/5 rounded-2xl border border-white/5 hover:border-blue-500/40 transition-all text-gray-500 hover:text-white">
+                            <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+                        </button>
+                        <Button onClick={() => navigate('/volunteer/new-member')} className="flex-1 md:flex-none py-4 px-10 shadow-2xl">
+                            Enroll New Member
+                        </Button>
+                    </div>
                 </div>
                 
                 <Card className="border-white/5 bg-gray-900/40">
@@ -110,7 +117,7 @@ const VolunteerDashboard: React.FC = () => {
                               <tr key={member.id} className="group border-b border-gray-900/50 hover:bg-white/[0.02] transition-colors">
                                 <td className="p-4">
                                     <div className="flex flex-col">
-                                        <span className="font-bold text-white">{member.name} {member.surname}</span>
+                                        <span className="font-bold text-white group-hover:text-blue-400 transition-colors">{member.name} {member.surname}</span>
                                         <span className="text-[10px] text-gray-600 font-mono">{member.mobile}</span>
                                     </div>
                                 </td>

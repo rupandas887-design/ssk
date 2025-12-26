@@ -22,7 +22,8 @@ import {
   Save,
   RefreshCw,
   XCircle,
-  Building2
+  Building2,
+  FileText
 } from 'lucide-react';
 
 const OrganisationReports: React.FC = () => {
@@ -171,7 +172,10 @@ const OrganisationReports: React.FC = () => {
                                     <tr key={member.id} className="group hover:bg-white/[0.02] transition-all">
                                         <td className="p-6">
                                             <div className="flex flex-col gap-1">
-                                                <span className="font-bold text-white text-lg group-hover:text-orange-500 transition-colors">{member.name} {member.surname}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-bold text-white text-lg group-hover:text-orange-500 transition-colors">{member.name} {member.surname}</span>
+                                                    {member.member_image_url && <FileText size={14} className="text-blue-500/50" />}
+                                                </div>
                                                 <div className="flex items-center gap-2 text-[11px] text-gray-600 font-mono">
                                                     <span>{member.mobile}</span>
                                                     <span className="h-1 w-1 rounded-full bg-gray-800"></span>
@@ -181,7 +185,7 @@ const OrganisationReports: React.FC = () => {
                                         </td>
                                         <td className="p-6 text-center">
                                             <div className="inline-flex flex-col items-center">
-                                                <div className="px-4 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-center gap-2">
+                                                <div className="px-4 py-1.5 bg-blue-500/10 border border-blue-500/10 rounded-xl flex items-center gap-2">
                                                     <UserIcon size={12} className="text-blue-500" />
                                                     <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">
                                                         {allOrgProfiles.find(p => p.id === member.volunteer_id)?.name || 'Agent '+member.volunteer_id.slice(0,5)}
@@ -214,9 +218,6 @@ const OrganisationReports: React.FC = () => {
                                         </td>
                                     </tr>
                                 ))}
-                                {filteredMembers.length === 0 && !loading && (
-                                    <tr><td colSpan={4} className="p-40 text-center text-[11px] text-gray-700 uppercase tracking-[0.5em] font-black">Null intersection in sector dataset.</td></tr>
-                                )}
                             </tbody>
                         </table>
                     </div>
@@ -229,18 +230,18 @@ const OrganisationReports: React.FC = () => {
                         <div className="p-8 bg-blue-500/5 border border-blue-500/10 rounded-[2rem] flex items-center gap-8 relative overflow-hidden group/modal-head">
                             {editingMember.member_image_url ? (
                                 <div className="relative h-32 w-32 rounded-2xl overflow-hidden border border-white/10 shrink-0">
-                                    <img src={editingMember.member_image_url} className="h-full w-full object-cover" />
+                                    <img src={editingMember.member_image_url} className="h-full w-full object-cover" alt="Aadhaar Scan" />
                                     <a href={editingMember.member_image_url} target="_blank" rel="noreferrer" className="absolute inset-0 bg-black/60 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity text-white">
                                         <ExternalLink size={20} />
                                     </a>
                                 </div>
                             ) : (
                                 <div className="h-32 w-32 rounded-2xl bg-gray-900 border border-white/5 flex items-center justify-center text-gray-700 shrink-0">
-                                    <ImageIcon size={32} />
+                                    <FileText size={32} />
                                 </div>
                             )}
                             <div>
-                                <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.4em] mb-1">Enrolled Identity</p>
+                                <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.4em] mb-1">Aadhaar Scan Record</p>
                                 <p className="text-3xl font-cinzel text-white leading-tight uppercase mb-2">{editingMember.name} {editingMember.surname}</p>
                                 <div className="flex items-center gap-2">
                                     <UserIcon size={12} className="text-gray-600" />

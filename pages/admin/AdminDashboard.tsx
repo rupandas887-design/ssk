@@ -1,11 +1,10 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
-import { Shield, Users, UserCheck, Key, RefreshCw, AlertCircle } from 'lucide-react';
-import { Organisation, Volunteer, Member, Role } from '../../types';
+import { Shield, Users, UserCheck, Key, RefreshCw, AlertCircle, Activity, User as UserIcon, Building2, Clock } from 'lucide-react';
+import { Organisation, Volunteer, Member, Role, User as ProfileUser } from '../../types';
 import { supabase } from '../../supabase/client';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
@@ -21,6 +20,7 @@ const AdminDashboard: React.FC = () => {
     const [organisations, setOrganisations] = useState<Organisation[]>([]);
     const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
     const [members, setMembers] = useState<Member[]>([]);
+    const [allProfiles, setAllProfiles] = useState<ProfileUser[]>([]);
     const [loading, setLoading] = useState(true);
 
     // Password Update State
@@ -28,29 +28,49 @@ const AdminDashboard: React.FC = () => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            const { data: orgsData } = await supabase.from('organisations').select('*');
-            const { data: membersData } = await supabase.from('members').select('*');
-            const { data: volsData } = await supabase.from('profiles').select('*').eq('role', Role.Volunteer);
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const [orgsRes, membersRes, profilesRes] = await Promise.all([
+                supabase.from('organisations').select('*'),
+                supabase.from('members').select('*').order('submission_date', { ascending: false }),
+                supabase.from('profiles').select('*')
+            ]);
 
-            if (orgsData) setOrganisations(orgsData);
-            if (membersData) setMembers(membersData);
-            if (volsData && membersData) {
-                const volunteersWithEnrollments: Volunteer[] = volsData.map(v => ({
-                    id: v.id,
-                    name: v.name,
-                    email: v.email,
-                    role: v.role,
-                    organisationId: v.organisation_id,
-                    mobile: v.mobile,
-                    enrollments: membersData.filter(m => m.volunteer_id === v.id).length,
+            if (orgsRes.data) setOrganisations(orgsRes.data);
+            if (membersRes.data) setMembers(membersRes.data);
+            
+            if (profilesRes.data) {
+                const mappedProfiles: ProfileUser[] = profilesRes.data.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    email: p.email,
+                    role: p.role as Role,
+                    organisationId: p.organisation_id,
+                    mobile: p.mobile,
+                    status: p.status
                 }));
-                setVolunteers(volunteersWithEnrollments);
+                setAllProfiles(mappedProfiles);
+                
+                if (membersRes.data) {
+                    const volunteersWithEnrollments: Volunteer[] = mappedProfiles
+                        .filter(p => p.role === Role.Volunteer)
+                        .map(v => ({
+                            ...v,
+                            organisationId: v.organisationId || '',
+                            enrollments: membersRes.data!.filter(m => m.volunteer_id === v.id).length,
+                        }));
+                    setVolunteers(volunteersWithEnrollments);
+                }
             }
+        } catch (err) {
+            addNotification("Sync fault in master dashboard.", "error");
+        } finally {
             setLoading(false);
-        };
+        }
+    };
+
+    useEffect(() => {
         fetchData();
     }, []);
 
@@ -72,14 +92,17 @@ const AdminDashboard: React.FC = () => {
 
     const filteredOrgs = useMemo(() => {
         if (!searchTerm) return orgPerformanceData;
-        return orgPerformanceData.filter(org => org.mobile.includes(searchTerm));
+        return orgPerformanceData.filter(org => org.mobile.includes(searchTerm) || org.name.toLowerCase().includes(searchTerm.toLowerCase()));
     }, [searchTerm, orgPerformanceData]);
 
     const filteredVolunteers = useMemo(() => {
         if (!searchTerm) return volunteerPerformanceData;
         const matchingOrgIds = organisations.filter(org => org.mobile.includes(searchTerm)).map(org => org.id);
-        return volunteerPerformanceData.filter(vol => matchingOrgIds.includes(vol.organisationId));
+        return volunteerPerformanceData.filter(vol => matchingOrgIds.includes(vol.organisationId) || vol.name.toLowerCase().includes(searchTerm.toLowerCase()));
     }, [searchTerm, volunteerPerformanceData, organisations]);
+
+    // Recent 10 members for the activity feed
+    const recentMembers = useMemo(() => members.slice(0, 8), [members]);
 
     const handlePasswordUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -108,21 +131,21 @@ const AdminDashboard: React.FC = () => {
     return (
         <DashboardLayout title="Master Admin Dashboard">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <Card className="flex items-center space-x-4 border-l-4 border-orange-500">
+                <Card className="flex items-center space-x-4 border-l-4 border-orange-500 bg-gray-900/40">
                     <Shield className="text-orange-500" size={40} />
                     <div>
                         <p className="text-gray-400 text-xs uppercase tracking-widest font-bold">Organisations</p>
                         <p className="text-2xl font-bold">{organisations.length}</p>
                     </div>
                 </Card>
-                <Card className="flex items-center space-x-4 border-l-4 border-blue-500">
+                <Card className="flex items-center space-x-4 border-l-4 border-blue-500 bg-gray-900/40">
                     <Users className="text-blue-500" size={40} />
                     <div>
                         <p className="text-gray-400 text-xs uppercase tracking-widest font-bold">Volunteers</p>
                         <p className="text-2xl font-bold">{volunteers.length}</p>
                     </div>
                 </Card>
-                <Card className="flex items-center space-x-4 border-l-4 border-green-500">
+                <Card className="flex items-center space-x-4 border-l-4 border-green-500 bg-gray-900/40">
                     <UserCheck className="text-green-500" size={40} />
                     <div>
                         <p className="text-gray-400 text-xs uppercase tracking-widest font-bold">Memberships</p>
@@ -132,12 +155,77 @@ const AdminDashboard: React.FC = () => {
             </div>
 
             <div className="mt-8 grid grid-cols-1 xl:grid-cols-3 gap-8">
-                {/* Performance Table Section */}
-                <div className="xl:col-span-2">
-                    <Card title="Performance Overview">
+                {/* Global Activity Feed - fulfilling the request for "Field Agent" on dashboard */}
+                <div className="xl:col-span-2 space-y-8">
+                    <Card className="border-orange-500/10">
+                        <div className="flex items-center justify-between mb-8">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-orange-500/10 rounded-lg text-orange-500">
+                                    <Activity size={20} />
+                                </div>
+                                <h4 className="font-cinzel text-xl text-white">Global Live Feed</h4>
+                            </div>
+                            <button onClick={fetchData} className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors flex items-center gap-2">
+                                <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Refresh Stream
+                            </button>
+                        </div>
+                        
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="border-b border-gray-800">
+                                        <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black">Member Node</th>
+                                        <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black">Field Agent</th>
+                                        <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black">Sector</th>
+                                        <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black text-right">Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-900/50">
+                                    {loading ? (
+                                        <tr><td colSpan={4} className="p-12 text-center text-xs text-gray-600 animate-pulse">Syncing feed...</td></tr>
+                                    ) : recentMembers.map(m => (
+                                        <tr key={m.id} className="hover:bg-white/[0.01] transition-colors group">
+                                            <td className="p-4">
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold text-white group-hover:text-orange-500 transition-colors">{m.name} {m.surname}</span>
+                                                    <span className="text-[10px] text-gray-600 font-mono">{m.mobile}</span>
+                                                </div>
+                                            </td>
+                                            <td className="p-4">
+                                                <div className="flex items-center gap-2">
+                                                    <UserIcon size={12} className="text-blue-500" />
+                                                    <span className="text-[11px] font-black uppercase tracking-wider text-gray-400">
+                                                        {allProfiles.find(p => p.id === m.volunteer_id)?.name || 'System Agent'}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td className="p-4">
+                                                <div className="flex items-center gap-2">
+                                                    <Building2 size={12} className="text-gray-600" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-600">
+                                                        {organisations.find(o => o.id === m.organisation_id)?.name || 'N/A'}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td className="p-4 text-right">
+                                                <div className="flex flex-col items-end">
+                                                    <div className="flex items-center gap-1 text-[10px] text-gray-500">
+                                                        <Clock size={10} />
+                                                        <span>{m.submission_date.split('T')[0]}</span>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </Card>
+
+                    <Card title="Performance Intelligence">
                         <div className="mb-6">
                             <Input
-                                placeholder="Search by organisation mobile number..."
+                                placeholder="Search by name or mobile..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="bg-black/50 border-gray-800"
@@ -146,15 +234,14 @@ const AdminDashboard: React.FC = () => {
                         {loading ? <div className="flex justify-center p-12"><RefreshCw className="animate-spin text-orange-500" size={32} /></div> : (
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                             <div>
-                                <h4 className="font-cinzel text-lg text-orange-400 mb-3 flex items-center gap-2">
-                                    <Shield size={18} /> Organisation Performance
+                                <h4 className="font-cinzel text-lg text-orange-400 mb-3 flex items-center gap-2 border-b border-orange-500/10 pb-2">
+                                    <Shield size={18} /> Organisation Ranking
                                 </h4>
                                 <div className="overflow-x-auto max-h-96 custom-scrollbar">
                                     <table className="w-full text-left">
                                         <thead className="border-b border-gray-700 sticky top-0 bg-gray-900">
                                             <tr>
                                                 <th className="p-2 text-[10px] uppercase tracking-wider text-gray-500">Entity</th>
-                                                <th className="p-2 text-[10px] uppercase tracking-wider text-gray-500">Mobile</th>
                                                 <th className="p-2 text-[10px] uppercase tracking-wider text-gray-500 text-right">Count</th>
                                             </tr>
                                         </thead>
@@ -162,7 +249,6 @@ const AdminDashboard: React.FC = () => {
                                             {filteredOrgs.map(org => (
                                                 <tr key={org.id} className="border-b border-gray-800 hover:bg-gray-800 transition-colors">
                                                     <td className="p-2 text-sm font-medium">{org.name}</td>
-                                                    <td className="p-2 text-xs text-gray-400 font-mono">{org.mobile}</td>
                                                     <td className="p-2 font-black text-orange-400 text-right">{org.enrollments}</td>
                                                 </tr>
                                             ))}
@@ -172,15 +258,14 @@ const AdminDashboard: React.FC = () => {
                             </div>
 
                             <div>
-                                <h4 className="font-cinzel text-lg text-blue-400 mb-3 flex items-center gap-2">
-                                    <Users size={18} /> Volunteer Performance
+                                <h4 className="font-cinzel text-lg text-blue-400 mb-3 flex items-center gap-2 border-b border-blue-500/10 pb-2">
+                                    <Users size={18} /> Field Force Performance
                                 </h4>
                                 <div className="overflow-x-auto max-h-96 custom-scrollbar">
                                     <table className="w-full text-left">
                                         <thead className="border-b border-gray-700 sticky top-0 bg-gray-900">
                                             <tr>
                                                 <th className="p-2 text-[10px] uppercase tracking-wider text-gray-500">Agent</th>
-                                                <th className="p-2 text-[10px] uppercase tracking-wider text-gray-500">Parent Org</th>
                                                 <th className="p-2 text-[10px] uppercase tracking-wider text-gray-500 text-right">Count</th>
                                             </tr>
                                         </thead>
@@ -188,9 +273,6 @@ const AdminDashboard: React.FC = () => {
                                             {filteredVolunteers.map(vol => (
                                                 <tr key={vol.id} className="border-b border-gray-800 hover:bg-gray-800 transition-colors">
                                                     <td className="p-2 text-sm font-medium">{vol.name}</td>
-                                                    <td className="p-2 text-[10px] text-gray-500 uppercase truncate max-w-[120px]">
-                                                        {organisations.find(o => o.id === vol.organisationId)?.name}
-                                                    </td>
                                                     <td className="p-2 font-black text-blue-400 text-right">{vol.enrollments}</td>
                                                 </tr>
                                             ))}
