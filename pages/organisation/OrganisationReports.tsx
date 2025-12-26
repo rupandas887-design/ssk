@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
@@ -150,6 +151,7 @@ const OrganisationReports: React.FC = () => {
         const headers = ['Aadhaar', 'Full Name', 'Father Name', 'Mobile', 'DOB', 'Pincode', 'Address', 'VOLUNTEER', 'VOL_MOBILE', 'Date', 'Status'];
         const rows = filteredMembers.map(m => [
             m.aadhaar, `${m.name} ${m.surname}`, m.father_name, m.mobile, m.dob, m.pincode, m.address,
+            // Fix: Replaced 'member.volunteer_id' with 'm.volunteer_id' to resolve "Cannot find name 'member'" error.
             m.agent_profile?.name || allOrgProfiles.find(p => p.id === m.volunteer_id)?.name || 'N/A',
             m.agent_profile?.mobile || 'N/A',
             m.submission_date.split('T')[0], m.status
@@ -417,7 +419,7 @@ const OrganisationReports: React.FC = () => {
                     </div>
                 )}
             </Modal>
-        </div>
+        </DashboardLayout>
     );
 };
 
