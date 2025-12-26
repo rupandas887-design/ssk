@@ -13,13 +13,18 @@ interface OrgPerformance extends Organisation {
     enrollments: number;
 }
 
+// Extended member type for join data
+type MemberWithAgent = Member & {
+    agent_profile?: { name: string }
+};
+
 const AdminDashboard: React.FC = () => {
     const { updatePassword } = useAuth();
     const { addNotification } = useNotification();
     const [searchTerm, setSearchTerm] = useState('');
     const [organisations, setOrganisations] = useState<Organisation[]>([]);
     const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
-    const [members, setMembers] = useState<Member[]>([]);
+    const [members, setMembers] = useState<MemberWithAgent[]>([]);
     const [allProfiles, setAllProfiles] = useState<ProfileUser[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -31,9 +36,13 @@ const AdminDashboard: React.FC = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
+            // Join volunteer profiles to get names for the global feed
             const [orgsRes, membersRes, profilesRes] = await Promise.all([
                 supabase.from('organisations').select('*'),
-                supabase.from('members').select('*').order('submission_date', { ascending: false }),
+                supabase
+                    .from('members')
+                    .select('*, agent_profile:profiles!volunteer_id(name)')
+                    .order('submission_date', { ascending: false }),
                 supabase.from('profiles').select('*')
             ]);
 
@@ -195,7 +204,7 @@ const AdminDashboard: React.FC = () => {
                                                 <div className="flex items-center gap-2">
                                                     <UserIcon size={12} className="text-blue-500" />
                                                     <span className="text-[11px] font-black uppercase tracking-wider text-gray-400">
-                                                        {allProfiles.find(p => p.id === m.volunteer_id)?.name || 'System Agent'}
+                                                        {m.agent_profile?.name || allProfiles.find(p => p.id === m.volunteer_id)?.name || 'System Agent'}
                                                     </span>
                                                 </div>
                                             </td>

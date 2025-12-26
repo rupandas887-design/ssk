@@ -30,14 +30,19 @@ import {
   ShieldCheck
 } from 'lucide-react';
 
+// Extended member type to handle joined volunteer profile data
+type MemberWithAgent = Member & {
+    agent_profile?: { name: string }
+};
+
 const OrganisationReports: React.FC = () => {
     const { user } = useAuth();
-    const [myMembers, setMyMembers] = useState<Member[]>([]);
+    const [myMembers, setMyMembers] = useState<MemberWithAgent[]>([]);
     const [allOrgProfiles, setAllOrgProfiles] = useState<VolunteerUser[]>([]);
     const [loading, setLoading] = useState(true);
     const { addNotification } = useNotification();
     
-    const [viewingMember, setViewingMember] = useState<Member | null>(null);
+    const [viewingMember, setViewingMember] = useState<MemberWithAgent | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
     // Filter State
@@ -54,9 +59,17 @@ const OrganisationReports: React.FC = () => {
         setLoading(true);
         try {
             // Strictly fetch members and profiles belonging to THIS organisation only
+            // We use a join ('agent_profile:profiles!volunteer_id(name)') to get the volunteer's name directly
             const [membersRes, profilesRes] = await Promise.all([
-                supabase.from('members').select('*').eq('organisation_id', user.organisationId).order('submission_date', { ascending: false }),
-                supabase.from('profiles').select('*').eq('organisation_id', user.organisationId)
+                supabase
+                    .from('members')
+                    .select('*, agent_profile:profiles!volunteer_id(name)')
+                    .eq('organisation_id', user.organisationId)
+                    .order('submission_date', { ascending: false }),
+                supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('organisation_id', user.organisationId)
             ]);
             
             if (membersRes.data) setMyMembers(membersRes.data);
@@ -121,7 +134,7 @@ const OrganisationReports: React.FC = () => {
         setFilters(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleVerifyStatus = async (member: Member) => {
+    const handleVerifyStatus = async (member: MemberWithAgent) => {
         const newStatus = member.status === MemberStatus.Accepted ? MemberStatus.Pending : MemberStatus.Accepted;
         try {
             const { error } = await supabase.from('members').update({ status: newStatus }).eq('id', member.id);
@@ -133,7 +146,7 @@ const OrganisationReports: React.FC = () => {
         }
     };
 
-    const openDetails = (member: Member) => {
+    const openDetails = (member: MemberWithAgent) => {
         setViewingMember({ ...member });
         setIsDetailModalOpen(true);
     };
@@ -142,7 +155,7 @@ const OrganisationReports: React.FC = () => {
         const headers = ['Aadhaar', 'Full Name', 'Father Name', 'Mobile', 'DOB', 'Pincode', 'Address', 'Agent', 'Date', 'Status'];
         const rows = filteredMembers.map(m => [
             m.aadhaar, `${m.name} ${m.surname}`, m.father_name, m.mobile, m.dob, m.pincode, m.address,
-            allOrgProfiles.find(p => p.id === m.volunteer_id)?.name || 'N/A',
+            m.agent_profile?.name || allOrgProfiles.find(p => p.id === m.volunteer_id)?.name || 'N/A',
             m.submission_date.split('T')[0], m.status
         ]);
         const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
@@ -274,7 +287,7 @@ const OrganisationReports: React.FC = () => {
                                             <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/5 border border-blue-500/10 rounded-xl w-fit">
                                                 <UserIcon size={12} className="text-blue-500" />
                                                 <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">
-                                                    {allOrgProfiles.find(p => p.id === member.volunteer_id)?.name || 'System Agent'}
+                                                    {member.agent_profile?.name || allOrgProfiles.find(p => p.id === member.volunteer_id)?.name || 'System Agent'}
                                                 </span>
                                             </div>
                                         </td>
@@ -374,7 +387,7 @@ const OrganisationReports: React.FC = () => {
                             <DataPoint label="Support Requirement" value={viewingMember.support_need} icon={<ZapIcon size={14} />} />
                             <DataPoint 
                                 label="Source Field Agent" 
-                                value={allOrgProfiles.find(p => p.id === viewingMember.volunteer_id)?.name || 'N/A'} 
+                                value={viewingMember.agent_profile?.name || allOrgProfiles.find(p => p.id === viewingMember.volunteer_id)?.name || 'N/A'} 
                                 icon={<UserIcon size={14} />} 
                             />
                         </div>
@@ -391,7 +404,7 @@ const OrganisationReports: React.FC = () => {
                     </div>
                 )}
             </Modal>
-        </DashboardLayout>
+        </div>
     );
 };
 

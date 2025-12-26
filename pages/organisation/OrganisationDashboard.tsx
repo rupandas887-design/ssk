@@ -6,10 +6,15 @@ import { Users, UserCheck, Building2, User as UserIcon, Phone, ShieldCheck, Mail
 import { supabase } from '../../supabase/client';
 import { Member, Role, User as VolunteerUser, Organisation } from '../../types';
 
+// Extended type for joined volunteer data
+type MemberWithAgent = Member & {
+    agent_profile?: { name: string }
+};
+
 const OrganisationDashboard: React.FC = () => {
     const { user } = useAuth();
     const [myVolunteers, setMyVolunteers] = useState<VolunteerUser[]>([]);
-    const [myMembers, setMyMembers] = useState<Member[]>([]);
+    const [myMembers, setMyMembers] = useState<MemberWithAgent[]>([]);
     const [allOrgProfiles, setAllOrgProfiles] = useState<VolunteerUser[]>([]);
     const [orgDetails, setOrgDetails] = useState<Organisation | null>(null);
     const [loading, setLoading] = useState(true);
@@ -20,10 +25,15 @@ const OrganisationDashboard: React.FC = () => {
         
         try {
             // DATA ISOLATION: Explicitly filter everything by organisationId
+            // Join 'agent_profile' to get the volunteer's name directly in the feed
             const [orgRes, profilesRes, membersRes] = await Promise.all([
                 supabase.from('organisations').select('*').eq('id', user.organisationId).single(),
                 supabase.from('profiles').select('*').eq('organisation_id', user.organisationId),
-                supabase.from('members').select('*').eq('organisation_id', user.organisationId).order('submission_date', { ascending: false })
+                supabase
+                    .from('members')
+                    .select('*, agent_profile:profiles!volunteer_id(name)')
+                    .eq('organisation_id', user.organisationId)
+                    .order('submission_date', { ascending: false })
             ]);
             
             if (orgRes.data) setOrgDetails(orgRes.data);
@@ -215,7 +225,7 @@ const OrganisationDashboard: React.FC = () => {
                                             <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-500/5 border border-blue-500/10 rounded-xl">
                                                 <UserIcon size={12} className="text-blue-500" />
                                                 <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">
-                                                    {allOrgProfiles.find(p => p.id === m.volunteer_id)?.name || 'System Agent'}
+                                                    {m.agent_profile?.name || allOrgProfiles.find(p => p.id === m.volunteer_id)?.name || 'System Agent'}
                                                 </span>
                                             </div>
                                         </td>
