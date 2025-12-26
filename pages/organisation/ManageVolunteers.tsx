@@ -324,7 +324,7 @@ GRANT ALL ON public.profiles TO postgres;`;
                     </div>
                     <div className="pt-4 border-t border-red-500/10">
                         <p className="text-[9px] text-gray-500 font-bold uppercase text-center leading-relaxed">
-                            Instructions: Copy script -> Paste in Supabase SQL Editor -> Run -> Refresh this page
+                            Instructions: Copy script {"->"} Paste in Supabase SQL Editor {"->"} Run {"->"} Refresh this page
                         </p>
                     </div>
                 </div>
