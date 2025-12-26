@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 import { User, Role } from '../types';
 import { supabase } from '../supabase/client';
@@ -37,11 +36,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fix: Explicitly typed fetchProfile return type to Promise<User | null> to resolve setUser type errors.
   const fetchProfile = useCallback(async (userId: string, authUser?: any): Promise<User | null> => {
     try {
-      // Step 1: Try to get role from Auth Metadata (Fastest, Bypass RLS issues)
+      // Step 1: Extract Metadata as Initial Source of Truth
       const metadataRole = authUser?.app_metadata?.role || authUser?.user_metadata?.role;
+      const metadataOrgId = authUser?.app_metadata?.organisation_id || authUser?.user_metadata?.organisation_id;
       
       const { data: profile, error } = await supabase
           .from('profiles')
@@ -50,19 +49,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           .maybeSingle();
 
       if (error) {
-          const msg = error.message.toLowerCase();
-          if (msg.includes('recursion') || msg.includes('infinite loop')) {
-              // If recursion happens, we fallback strictly to Auth Metadata
-              if (metadataRole && authUser) {
-                  return {
-                      id: authUser.id,
-                      name: authUser.user_metadata?.name || 'Authorized User',
-                      email: authUser.email || '',
-                      role: mapStringToRole(metadataRole),
-                      status: 'Active'
-                  };
-              }
-              throw new Error('RLS_RECURSION_ERROR');
+          console.warn("DB Profile Fetch Blocked:", error.message);
+          // If recursion or RLS blocks the read, we fallback strictly to Auth Metadata
+          if (authUser) {
+              return {
+                  id: authUser.id,
+                  name: authUser.user_metadata?.name || 'Authorized User',
+                  email: authUser.email || '',
+                  role: mapStringToRole(metadataRole),
+                  organisationId: metadataOrgId,
+                  status: 'Active'
+              };
           }
           return null;
       }
@@ -73,24 +70,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               name: profile.name,
               email: profile.email,
               role: mapStringToRole(profile.role || metadataRole),
-              organisationId: profile.organisation_id,
+              organisationId: profile.organisation_id || metadataOrgId,
               organisationName: profile.organisations?.name || undefined,
               mobile: profile.mobile,
               status: (profile.status as 'Active' | 'Deactivated') || 'Active'
           };
       } else if (authUser) {
-          // Fallback if profile row doesn't exist yet but user is authenticated
+          // Fallback: Use JWT data to provide access even if 'profiles' row is missing or blocked
           return {
               id: authUser.id,
               name: authUser.user_metadata?.name || 'Authorized User',
               email: authUser.email || '',
               role: mapStringToRole(metadataRole),
+              organisationId: metadataOrgId,
               status: 'Active'
           };
       }
     } catch (e: any) {
-      if (e.message === 'RLS_RECURSION_ERROR') throw e;
-      console.error("Profile sync fault:", e);
+      console.error("Critical Profile sync fault:", e);
     }
     return null;
   }, []);
@@ -105,21 +102,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (authError) return { user: null, error: authError.message };
 
         if (data.user) {
-            try {
-                const profile = await fetchProfile(data.user.id, data.user);
-                if (profile) {
-                    setUser(profile);
-                    return { user: profile };
-                }
-                return { user: null, error: "Identity verified but profile node is unreachable.", code: 'SYNC_ERROR' };
-            } catch (e: any) {
-                if (e.message === 'RLS_RECURSION_ERROR') {
-                    return { user: null, error: "Database Security Loop Detected. Access Denied by RLS.", code: 'RECURSION_ERROR' };
-                }
-                return { user: null, error: e.message };
+            const profile = await fetchProfile(data.user.id, data.user);
+            if (profile) {
+                setUser(profile);
+                return { user: profile };
             }
+            return { user: null, error: "Access Denied: Sync protocol failed to establish identity.", code: 'SYNC_ERROR' };
         }
-        return { user: null, error: "Handshake failed." };
+        return { user: null, error: "Authentication Handshake Failed." };
     } catch (err: any) {
         return { user: null, error: err.message };
     }

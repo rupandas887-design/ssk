@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import DashboardLayout from '../../components/layout/DashboardLayout';
@@ -6,11 +5,11 @@ import Card from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Button from '../../components/ui/Button';
-import { Gender, Occupation, SupportNeed } from '../../types';
+import { Gender, Occupation, SupportNeed, Role } from '../../types';
 import { supabase } from '../../supabase/client';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
-import { UploadCloud, Camera } from 'lucide-react';
+import { UploadCloud, Camera, ShieldAlert, Copy, ExternalLink, RefreshCw, Database, AlertTriangle, Zap, CheckCircle2, Loader2, User as UserIcon } from 'lucide-react';
 
 const initialFormData = {
   aadhaar: '',
@@ -35,13 +34,27 @@ const NewMemberForm: React.FC = () => {
   const [formData, setFormData] = useState(initialFormData);
   const [aadhaarError, setAadhaarError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
   
+  const [showRepairTool, setShowRepairTool] = useState(false);
+  const [diagnosticInfo, setDiagnosticInfo] = useState<string | null>(null);
+
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+
+  const getErrorMessage = (err: any): string => {
+      if (!err) return "Unknown System Error";
+      if (typeof err === 'string') return err;
+      const commonProps = ['message', 'error_description', 'details', 'hint', 'msg', 'error'];
+      for (const prop of commonProps) {
+          if (err[prop] && typeof err[prop] === 'string') return err[prop];
+      }
+      return "Database security policy failure";
+  };
 
   useEffect(() => {
     return () => {
@@ -79,8 +92,7 @@ const NewMemberForm: React.FC = () => {
         if (videoRef.current) videoRef.current.srcObject = stream;
         setIsCameraOpen(true);
     } catch (err) {
-        console.error("Error accessing camera:", err);
-        addNotification("Could not access camera. Please check browser permissions.", 'error');
+        addNotification("Camera access denied.", 'error');
     }
   };
 
@@ -99,7 +111,7 @@ const NewMemberForm: React.FC = () => {
             context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
             canvas.toBlob((blob) => {
                 if (blob) {
-                    const file = new File([blob], "member-capture.jpg", { type: "image/jpeg" });
+                    const file = new File([blob], "capture.jpg", { type: "image/jpeg" });
                     setFormData(prev => ({ ...prev, memberImage: file }));
                     if(imagePreview) URL.revokeObjectURL(imagePreview);
                     setImagePreview(URL.createObjectURL(file));
@@ -109,204 +121,190 @@ const NewMemberForm: React.FC = () => {
         }
     }
   };
-  
+
   const handleStep1Next = async () => {
     setAadhaarError('');
     if (!formData.aadhaar || !/^\d{12}$/.test(formData.aadhaar)) {
-      setAadhaarError('Please enter a valid 12-digit Aadhaar number.');
+      setAadhaarError('Valid 12-digit Aadhaar required.');
       return;
     }
-
-    const { data, error } = await supabase
-      .from('members')
-      .select('id')
-      .eq('aadhaar', formData.aadhaar)
-      .maybeSingle();
-
-    if (error) {
-        setAadhaarError('Error validating Aadhaar. Please try again.');
-        console.error(error);
-        return;
-    }
-    if (data) {
-      setAadhaarError('This Aadhaar number is already registered.');
-    } else {
-      setStep(2);
+    setIsValidating(true);
+    try {
+        const { data, error } = await supabase.from('members').select('id').eq('aadhaar', formData.aadhaar).maybeSingle();
+        if (error) throw error;
+        if (data) setAadhaarError('Aadhaar already registered.');
+        else setStep(2);
+    } catch (e: any) {
+        setAadhaarError(`Registry Fault: ${getErrorMessage(e)}`);
+    } finally {
+        setIsValidating(false);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!user || !user.organisationId) {
-          addNotification("Error: You must be logged in and associated with an organisation to submit.", 'error');
-          return;
-      }
+      if (!user?.organisationId) return;
       setIsSubmitting(true);
-      
-      let imageUrl = '';
-      if (formData.memberImage) {
-          const fileExt = formData.memberImage.name.split('.').pop();
-          const fileName = `${uuidv4()}.${fileExt}`;
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('member-images')
-            .upload(fileName, formData.memberImage);
-
-          if(uploadError) {
-              addNotification(`Error uploading image: ${uploadError.message}`, 'error');
-              setIsSubmitting(false);
-              return;
+      try {
+          let imageUrl = '';
+          if (formData.memberImage) {
+              const fileName = `${uuidv4()}.jpg`;
+              const { data: uploadData, error: uploadError } = await supabase.storage.from('member-images').upload(fileName, formData.memberImage);
+              if(uploadError) throw uploadError;
+              imageUrl = supabase.storage.from('member-images').getPublicUrl(uploadData.path).data.publicUrl;
           }
-          const { data: publicUrlData } = supabase.storage.from('member-images').getPublicUrl(uploadData.path);
-          imageUrl = publicUrlData.publicUrl;
-      }
-
-      const { error: insertError } = await supabase.from('members').insert({
-          aadhaar: formData.aadhaar,
-          mobile: formData.mobile,
-          name: formData.name,
-          surname: formData.surname,
-          father_name: formData.fatherName,
-          dob: formData.dob,
-          gender: formData.gender,
-          emergency_contact: formData.emergencyContact,
-          pincode: formData.pincode,
-          address: formData.address,
-          member_image_url: imageUrl,
-          occupation: formData.occupation,
-          support_need: formData.supportNeed,
-          volunteer_id: user.id,
-          organisation_id: user.organisationId,
-      });
-
-      if (insertError) {
-          addNotification(`Failed to submit form: ${insertError.message}`, 'error');
-      } else {
-          addNotification("Membership form submitted successfully!", 'success');
+          const { error } = await supabase.from('members').insert({
+              aadhaar: formData.aadhaar,
+              mobile: formData.mobile,
+              name: formData.name,
+              surname: formData.surname,
+              father_name: formData.fatherName,
+              dob: formData.dob,
+              gender: formData.gender,
+              emergency_contact: formData.emergencyContact,
+              pincode: formData.pincode,
+              address: formData.address,
+              member_image_url: imageUrl,
+              occupation: formData.occupation,
+              support_need: formData.supportNeed,
+              volunteer_id: user.id,
+              organisation_id: user.organisationId,
+              status: 'Pending'
+          });
+          if (error) throw error;
+          addNotification("Enrollment Complete.", 'success');
           setFormData(initialFormData);
-          handleRemoveImage();
+          setImagePreview(null);
           setStep(1);
+      } catch (err: any) {
+          addNotification(`Error: ${getErrorMessage(err)}`, 'error');
+      } finally {
+          setIsSubmitting(false);
       }
-      setIsSubmitting(false);
-  };
-
-  const renderStep = () => {
-    switch (step) {
-      case 1:
-        return (
-          <div>
-            <h3 className="font-cinzel text-xl text-orange-500 mb-4">Step 1: Validation</h3>
-            <div className="space-y-4">
-              <Input 
-                label="Aadhaar Number" 
-                name="aadhaar" 
-                value={formData.aadhaar} 
-                onChange={handleChange} 
-                placeholder="Enter 12-digit Aadhaar" 
-              />
-               {aadhaarError && <p className="text-red-500 text-sm mt-1">{aadhaarError}</p>}
-              <Input label="Mobile Number" name="mobile" value={formData.mobile} onChange={handleChange} placeholder="Enter 10-digit mobile" />
-            </div>
-            <div className="mt-6 flex justify-end">
-              <Button onClick={handleStep1Next}>Next</Button>
-            </div>
-          </div>
-        );
-      case 2:
-        return (
-          <div>
-            <h3 className="font-cinzel text-xl text-orange-500 mb-4">Step 2: Personal Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input label="Name" name="name" value={formData.name} onChange={handleChange} />
-              <Input label="Surname" name="surname" value={formData.surname} onChange={handleChange} />
-              <Input label="Father's Name" name="fatherName" value={formData.fatherName} onChange={handleChange} />
-              <Input label="Date of Birth" name="dob" type="date" value={formData.dob} onChange={handleChange} />
-              <Select label="Gender" name="gender" value={formData.gender} onChange={handleChange}>
-                {Object.values(Gender).map(g => <option key={g} value={g}>{g}</option>)}
-              </Select>
-              <Input label="Emergency Contact" name="emergencyContact" value={formData.emergencyContact} onChange={handleChange} />
-              <Input label="Pincode" name="pincode" value={formData.pincode} onChange={handleChange} />
-               <div className="md:col-span-2">
-                <Input label="Full Address" name="address" value={formData.address} onChange={handleChange} placeholder="House No, Street, Landmark, City, State" />
-               </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-300 mb-1">Upload Member Image</label>
-                <div className="mt-1 flex items-center justify-center px-6 pt-5 pb-6 border-2 border-gray-600 border-dashed rounded-md">
-                    {imagePreview ? (
-                        <div className="text-center">
-                            <img src={imagePreview} alt="Member Image Preview" className="mx-auto h-40 rounded-md shadow-lg" />
-                            <Button variant="secondary" size="sm" onClick={handleRemoveImage} className="mt-4">Remove Image</Button>
-                        </div>
-                    ) : (
-                        <div className="space-y-4 text-center">
-                            <div className="flex gap-4 justify-center">
-                                <Button type="button" size="sm" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2">
-                                    <UploadCloud size={16} /> Upload a file
-                                </Button>
-                                <Button type="button" size="sm" variant="secondary" onClick={openCamera} className="flex items-center gap-2">
-                                    <Camera size={16} /> Take a picture
-                                </Button>
-                            </div>
-                            <input ref={fileInputRef} id="memberImage" name="memberImage" type="file" className="sr-only" onChange={handleFileChange} accept="image/*" />
-                            <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
-                        </div>
-                    )}
-                </div>
-              </div>
-            </div>
-            <div className="mt-6 flex justify-between">
-                <Button variant="secondary" onClick={() => setStep(1)}>Back</Button>
-                <Button onClick={() => setStep(3)}>Next</Button>
-            </div>
-          </div>
-        );
-      case 3:
-        return (
-          <form onSubmit={handleSubmit}>
-            <h3 className="font-cinzel text-xl text-orange-500 mb-4">Step 3: Purpose</h3>
-            <div className="space-y-4">
-                <Select label="What do you do?" name="occupation" value={formData.occupation} onChange={handleChange}>
-                     {Object.values(Occupation).map(o => <option key={o} value={o}>{o}</option>)}
-                </Select>
-                <Select label="What support you want?" name="supportNeed" value={formData.supportNeed} onChange={handleChange}>
-                    {Object.values(SupportNeed).map(s => <option key={s} value={s}>{s}</option>)}
-                </Select>
-            </div>
-            <div className="mt-6 flex justify-between">
-                <Button variant="secondary" type="button" onClick={() => setStep(2)}>Back</Button>
-                <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Submitting...' : 'Submit Form'}</Button>
-            </div>
-          </form>
-        );
-      default:
-        return null;
-    }
   };
 
   return (
-    <DashboardLayout title="New Member Enrollment">
-      <Card>
-        <div className="w-full max-w-4xl mx-auto">
-            <div className="mb-8">
-                <div className="flex justify-between items-center mb-1">
-                    <span className={`font-bold ${step >= 1 ? 'text-orange-500' : 'text-gray-500'}`}>Validation</span>
-                    <span className={`font-bold ${step >= 2 ? 'text-orange-500' : 'text-gray-500'}`}>Personal</span>
-                    <span className={`font-bold ${step >= 3 ? 'text-orange-500' : 'text-gray-500'}`}>Purpose</span>
+    <DashboardLayout title="Member Enrollment Terminal">
+      <div className="w-full max-w-5xl mx-auto space-y-8 pb-20">
+          {/* Operator Identity Banner */}
+          <div className="bg-orange-600/10 border border-orange-500/20 rounded-3xl p-6 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                  <div className="p-3 bg-orange-600/20 rounded-2xl text-orange-500">
+                      <UserIcon size={24} />
+                  </div>
+                  <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-orange-500/60 leading-none mb-1">Authenticated Operator</p>
+                      <h4 className="text-xl font-bold text-white uppercase tracking-tight">{user?.name}</h4>
+                  </div>
+              </div>
+              <div className="text-right hidden md:block">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Entity sector</p>
+                  <p className="text-xs font-bold text-gray-400 uppercase">{user?.organisationName}</p>
+              </div>
+          </div>
+
+          <div className="relative pt-6">
+              <div className="flex justify-between items-center mb-6 relative z-10 px-2">
+                  {[1, 2, 3].map(s => (
+                      <div key={s} className={`flex flex-col items-center gap-2 transition-all duration-500 ${step >= s ? 'scale-110' : 'opacity-40'}`}>
+                          <div className={`h-12 w-12 rounded-full border-2 flex items-center justify-center transition-all ${step >= s ? 'bg-orange-500 border-orange-400' : 'bg-gray-900 border-gray-800'}`}>
+                              <span className="text-sm font-black text-white">{s}</span>
+                          </div>
+                      </div>
+                  ))}
+              </div>
+              <div className="absolute top-[3.2rem] left-0 w-full h-0.5 bg-gray-900 rounded-full overflow-hidden">
+                  <div className="h-full bg-orange-600 transition-all duration-700 shadow-[0_0_10px_rgba(255,100,0,0.5)]" style={{ width: `${((step - 1) / 2) * 100}%` }}></div>
+              </div>
+          </div>
+          
+          <div className="animate-in fade-in slide-in-from-bottom-6 duration-700">
+            {step === 1 && (
+                <div className="space-y-8">
+                    <Card title="Registry Validation" className="bg-[#050505]">
+                        <div className="space-y-6">
+                            <Input label="AADHAAR ID" name="aadhaar" value={formData.aadhaar} onChange={handleChange} maxLength={12} className="text-lg font-mono tracking-[0.2em]" />
+                            <Input label="MOBILE" name="mobile" type="tel" value={formData.mobile} onChange={handleChange} maxLength={10} />
+                            {aadhaarError && <p className="text-xs text-red-400 font-bold uppercase tracking-widest">{aadhaarError}</p>}
+                        </div>
+                        <div className="mt-8 flex justify-end">
+                            <Button onClick={handleStep1Next} disabled={isValidating} className="py-4 px-12 text-[10px] font-black uppercase tracking-widest">
+                                {isValidating ? 'Validating...' : 'Next Step'}
+                            </Button>
+                        </div>
+                    </Card>
                 </div>
-                <div className="w-full bg-gray-700 rounded-full h-2.5">
-                    <div className="bg-orange-600 h-2.5 rounded-full" style={{ width: `${((step -1) / 2) * 100}%` }}></div>
-                </div>
-            </div>
-            {renderStep()}
-        </div>
-      </Card>
+            )}
+            {step === 2 && (
+                <Card title="Identity Profile" className="bg-[#050505]">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <Input label="GIVEN NAME" name="name" value={formData.name} onChange={handleChange} />
+                        <Input label="SURNAME" name="surname" value={formData.surname} onChange={handleChange} />
+                        <Input label="FATHER NAME" name="fatherName" value={formData.fatherName} onChange={handleChange} />
+                        <Input label="DOB" name="dob" type="date" value={formData.dob} onChange={handleChange} />
+                        <Select label="GENDER" name="gender" value={formData.gender} onChange={handleChange}>
+                            {Object.values(Gender).map(g => <option key={g} value={g}>{g}</option>)}
+                        </Select>
+                        <Input label="EMERGENCY" name="emergencyContact" value={formData.emergencyContact} onChange={handleChange} />
+                        <Input label="PINCODE" name="pincode" value={formData.pincode} onChange={handleChange} />
+                        <div className="md:col-span-2">
+                            <Input label="ADDRESS" name="address" value={formData.address} onChange={handleChange} />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-4">MEMBER PHOTO</label>
+                            <div className="mt-1 flex items-center justify-center p-12 border-2 border-gray-800 border-dashed rounded-3xl bg-black/40">
+                                {imagePreview ? (
+                                    <div className="text-center">
+                                        <img src={imagePreview} className="mx-auto h-48 rounded-2xl shadow-2xl" />
+                                        <Button variant="secondary" size="sm" onClick={handleRemoveImage} className="mt-4">Remove</Button>
+                                    </div>
+                                ) : (
+                                    <div className="flex gap-4">
+                                        <Button size="sm" onClick={() => fileInputRef.current?.click()}>Upload</Button>
+                                        <Button size="sm" variant="secondary" onClick={openCamera}>Camera</Button>
+                                        <input ref={fileInputRef} type="file" className="sr-only" onChange={handleFileChange} />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="mt-8 flex justify-between">
+                        <Button variant="secondary" onClick={() => setStep(1)}>Back</Button>
+                        <Button onClick={() => setStep(3)}>Next Step</Button>
+                    </div>
+                </Card>
+            )}
+            {step === 3 && (
+                <Card title="Finalize Enrollment" className="bg-[#050505]">
+                    <div className="space-y-6">
+                        <Select label="OCCUPATION" name="occupation" value={formData.occupation} onChange={handleChange}>
+                            {Object.values(Occupation).map(o => <option key={o} value={o}>{o}</option>)}
+                        </Select>
+                        <Select label="SUPPORT NEED" name="supportNeed" value={formData.supportNeed} onChange={handleChange}>
+                            {Object.values(SupportNeed).map(s => <option key={s} value={s}>{s}</option>)}
+                        </Select>
+                        <div className="p-6 bg-orange-600/5 border border-orange-500/20 rounded-2xl">
+                            <p className="text-xs text-gray-400">Confirming enrollment as <b>{user?.name}</b>. All data is verified.</p>
+                        </div>
+                    </div>
+                    <div className="mt-8 flex justify-between">
+                        <Button variant="secondary" onClick={() => setStep(2)}>Back</Button>
+                        <Button onClick={handleSubmit} disabled={isSubmitting} className="py-4 px-12">
+                            {isSubmitting ? 'Submitting...' : 'Commit Enrollment'}
+                        </Button>
+                    </div>
+                </Card>
+            )}
+          </div>
+      </div>
       
       {isCameraOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-              <Card title="Take Picture" className="w-full max-w-2xl">
-                  <video ref={videoRef} autoPlay playsInline className="w-full rounded-md bg-gray-800"></video>
-                  <div className="flex justify-center space-x-4 pt-4">
-                      <Button type="button" onClick={handleCapture}>Capture</Button>
-                      <Button type="button" variant="secondary" onClick={closeCamera}>Cancel</Button>
+          <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[100] p-6 backdrop-blur-md">
+              <Card title="Identity Capture" className="w-full max-w-2xl bg-black">
+                  <video ref={videoRef} autoPlay playsInline className="w-full rounded-2xl border border-white/10 shadow-2xl mb-8"></video>
+                  <div className="flex justify-center gap-6">
+                      <Button onClick={handleCapture}>Capture</Button>
+                      <Button variant="secondary" onClick={closeCamera}>Cancel</Button>
                   </div>
               </Card>
           </div>
