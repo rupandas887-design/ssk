@@ -65,18 +65,18 @@ const LandingPage: React.FC = () => {
     <div className="bg-black text-white min-h-screen selection:bg-orange-500/30">
       <Header isLandingPage />
 
-      {/* Community Heritage Section (Precisely Matched to Reference) */}
+      {/* Community Heritage Section */}
       <section className="relative pt-48 pb-20 px-6">
         <div className="max-w-5xl mx-auto">
-          {/* Main Title - Centered as per screenshot */}
+          {/* Main Title - Refined size for a more elegant look */}
           <div className="text-center mb-16">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-cinzel font-bold text-white uppercase tracking-tight leading-tight">
-              THE SOMAVAMSHA SAHASRARJUNA <br />
-              <span className="text-orange-500">KSHATRIYA (SSK)</span>
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-cinzel font-bold uppercase tracking-tight leading-[1.2] drop-shadow-[0_2px_10px_rgba(255,255,255,0.05)]">
+              <span className="text-white block">THE SOMAVAMSHA SAHASRARJUNA</span>
+              <span className="text-[#FF6600] block mt-1 drop-shadow-[0_2px_8px_rgba(255,102,0,0.25)]">KSHATRIYA (SSK)</span>
             </h1>
           </div>
           
-          {/* Narrative Content - Left Aligned as per screenshot */}
+          {/* Narrative Content - Left Aligned */}
           <div className="space-y-8 text-gray-300 text-lg leading-relaxed text-left max-w-4xl mx-auto font-light">
             <p>
               The Somavamsha Sahasrarjuna Kshatriya (SSK) community belongs to the Somavamsha or Chandravamsha (Lunar Dynasty), one of the three main Kshatriya lineages in India, alongside Surya and Agni Vamshas. Descended from Soma (the Moon), they are known as warriors of the Moon Dynasty.
@@ -92,7 +92,7 @@ const LandingPage: React.FC = () => {
             </p>
           </div>
 
-          {/* Centered Image below text */}
+          {/* Centered Image */}
           <div className="mt-24 flex justify-center">
             <div className="relative group max-w-3xl">
               <div className="absolute -inset-1 bg-gradient-to-r from-orange-600/20 to-orange-900/10 rounded-2xl blur opacity-25"></div>
