@@ -25,11 +25,20 @@ import {
   Fingerprint,
   FileText,
   Activity,
-  Eye
+  Eye,
+  UserCircle,
+  ShieldCheck,
+  Phone,
+  BadgeCheck
 } from 'lucide-react';
 
+// Extended member type for join data
+type MemberWithAgent = Member & {
+    agent_profile?: { name: string, mobile: string }
+};
+
 const AdminReports: React.FC = () => {
-    const [members, setMembers] = useState<Member[]>([]);
+    const [members, setMembers] = useState<MemberWithAgent[]>([]);
     const [organisations, setOrganisations] = useState<Organisation[]>([]);
     const [allProfiles, setAllProfiles] = useState<VolunteerUser[]>([]);
     const [loading, setLoading] = useState(true);
@@ -43,7 +52,7 @@ const AdminReports: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
 
     // Modal & Action State
-    const [editingMember, setEditingMember] = useState<Member | null>(null);
+    const [editingMember, setEditingMember] = useState<MemberWithAgent | null>(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
@@ -53,7 +62,10 @@ const AdminReports: React.FC = () => {
         setLoading(true);
         try {
             const [membersRes, orgsRes, profilesRes] = await Promise.all([
-                supabase.from('members').select('*').order('submission_date', { ascending: false }),
+                supabase
+                    .from('members')
+                    .select('*, agent_profile:profiles!volunteer_id(name, mobile)')
+                    .order('submission_date', { ascending: false }),
                 supabase.from('organisations').select('*').order('name'),
                 supabase.from('profiles').select('*')
             ]);
@@ -116,8 +128,7 @@ const AdminReports: React.FC = () => {
         return base;
     }, [selectedOrgId, allProfiles]);
 
-    // Handlers
-    const handleEditMember = (member: Member) => {
+    const handleEditMember = (member: MemberWithAgent) => {
         setEditingMember({ ...member });
         setIsEditModalOpen(true);
     };
@@ -170,11 +181,12 @@ const AdminReports: React.FC = () => {
     };
 
     const handleDownload = () => {
-        const headers = ['Aadhaar', 'Name', 'Surname', 'Mobile', 'Org', 'Agent', 'Date', 'Status'];
+        const headers = ['Aadhaar', 'Name', 'Surname', 'Mobile', 'Org', 'VOLUNTEER', 'VOL_MOBILE', 'Date', 'Status'];
         const rows = filteredMembers.map(m => [
             m.aadhaar, m.name, m.surname, m.mobile,
             organisations.find(o => o.id === m.organisation_id)?.name || 'N/A',
-            allProfiles.find(p => p.id === m.volunteer_id)?.name || 'N/A',
+            m.agent_profile?.name || allProfiles.find(p => p.id === m.volunteer_id)?.name || 'N/A',
+            m.agent_profile?.mobile || 'N/A',
             m.submission_date, m.status
         ]);
         const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
@@ -211,13 +223,13 @@ const AdminReports: React.FC = () => {
                             </Select>
                         </div>
                         <div>
-                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">2. Enrollment Agent</label>
+                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">2. VOLUNTEER</label>
                             <Select 
                                 value={selectedVolunteerId} 
                                 onChange={(e) => setSelectedVolunteerId(e.target.value)}
                                 className="bg-black/40 border-gray-800"
                             >
-                                <option value="">All Sector Agents</option>
+                                <option value="">All Sector Volunteers</option>
                                 {availableAgents.map(a => <option key={a.id} value={a.id}>{a.name} ({a.role})</option>)}
                             </Select>
                         </div>
@@ -268,7 +280,7 @@ const AdminReports: React.FC = () => {
                             <thead className="border-b border-gray-800">
                                 <tr>
                                     <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black">Member Identity</th>
-                                    <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black">Enrollment Agent</th>
+                                    <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black">ENROLLMENT SOURCE (VOLUNTEER)</th>
                                     <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black text-center">Status</th>
                                     <th className="p-6 text-right"></th>
                                 </tr>
@@ -292,16 +304,24 @@ const AdminReports: React.FC = () => {
                                             </div>
                                         </td>
                                         <td className="p-6">
-                                            <div className="flex flex-col">
-                                                <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-500/5 border border-blue-500/10 rounded-lg w-fit">
-                                                    <UserIcon size={10} className="text-blue-500" />
-                                                    <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">
-                                                        {allProfiles.find(p => p.id === m.volunteer_id)?.name || 'Agent '+m.volunteer_id.slice(0,5)}
-                                                    </span>
+                                            <div className="flex items-center gap-4">
+                                                <div className="h-10 w-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500 shrink-0">
+                                                    <UserCircle size={20} />
                                                 </div>
-                                                <span className="text-[9px] text-gray-700 font-black uppercase tracking-widest mt-1.5 flex items-center gap-1">
-                                                    <Building2 size={8} /> {organisations.find(o => o.id === m.organisation_id)?.name || 'Master Entity'}
-                                                </span>
+                                                <div className="flex flex-col">
+                                                    <span className="text-[11px] font-black text-white uppercase tracking-widest">
+                                                        {m.agent_profile?.name || allProfiles.find(p => p.id === m.volunteer_id)?.name || 'Agent '+m.volunteer_id.slice(0,5)}
+                                                    </span>
+                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                        <span className="text-[9px] text-gray-700 font-black uppercase tracking-widest flex items-center gap-1">
+                                                            <Building2 size={8} /> {organisations.find(o => o.id === m.organisation_id)?.name || 'Master Entity'}
+                                                        </span>
+                                                        <span className="h-0.5 w-0.5 rounded-full bg-gray-800"></span>
+                                                        <span className="text-[9px] text-orange-500/60 font-mono font-bold tracking-widest">
+                                                            {m.agent_profile?.mobile || 'PH: N/A'}
+                                                        </span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="p-6 text-center">
@@ -369,6 +389,26 @@ const AdminReports: React.FC = () => {
                                         <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Enrolled: {editingMember.submission_date.split('T')[0]}</span>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        <div className="p-6 bg-gradient-to-r from-orange-950/20 to-black border border-orange-500/20 rounded-[2rem] flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="h-12 w-12 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500 border border-orange-500/10">
+                                    <UserCircle size={24} />
+                                </div>
+                                <div>
+                                    <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.3em] mb-0.5">Enrollment VOLUNTEER</p>
+                                    <p className="text-sm font-bold text-white uppercase tracking-widest">
+                                        {editingMember.agent_profile?.name || 'Unknown Operator'}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-[9px] font-black text-gray-600 uppercase tracking-[0.3em] mb-0.5">Contact Link</p>
+                                <p className="text-[10px] font-mono font-bold text-orange-400 tracking-widest flex items-center justify-end gap-1.5">
+                                    <Phone size={10} /> {editingMember.agent_profile?.mobile || 'PH: N/A'}
+                                </p>
                             </div>
                         </div>
 

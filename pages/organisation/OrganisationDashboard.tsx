@@ -24,8 +24,6 @@ const OrganisationDashboard: React.FC = () => {
         setLoading(true);
         
         try {
-            // DATA ISOLATION: Explicitly filter everything by organisationId
-            // Join 'agent_profile' to get the volunteer's name directly in the feed
             const [orgRes, profilesRes, membersRes] = await Promise.all([
                 supabase.from('organisations').select('*').eq('id', user.organisationId).single(),
                 supabase.from('profiles').select('*').eq('organisation_id', user.organisationId),
@@ -64,7 +62,6 @@ const OrganisationDashboard: React.FC = () => {
         fetchData();
     }, [user]);
 
-    // Top 8 recent members for the activity stream
     const recentActivity = useMemo(() => myMembers.slice(0, 8), [myMembers]);
 
     return (
@@ -208,7 +205,7 @@ const OrganisationDashboard: React.FC = () => {
                             <thead>
                                 <tr className="border-b border-gray-800">
                                     <th className="p-5 text-[10px] uppercase tracking-widest text-gray-500 font-black">Enrolled Identity</th>
-                                    <th className="p-5 text-[10px] uppercase tracking-widest text-gray-500 font-black text-center">Field Agent (Volunteer)</th>
+                                    <th className="p-5 text-[10px] uppercase tracking-widest text-gray-500 font-black text-center">VOLUNTEER</th>
                                     <th className="p-5 text-[10px] uppercase tracking-widest text-gray-500 font-black text-right">Verification Date</th>
                                 </tr>
                             </thead>
@@ -244,7 +241,7 @@ const OrganisationDashboard: React.FC = () => {
                         </table>
                     </div>
                 </Card>
-             </div>
+            </div>
              )}
         </DashboardLayout>
     );

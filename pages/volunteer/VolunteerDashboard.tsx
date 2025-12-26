@@ -8,7 +8,7 @@ import { Member, MemberStatus } from '../../types';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabase/client';
 import { useNotification } from '../../context/NotificationContext';
-import { User, Building2, AlertTriangle, RefreshCw, ShieldAlert, Copy, ExternalLink, Database, Zap } from 'lucide-react';
+import { User, Building2, AlertTriangle, RefreshCw, ShieldAlert, Copy, ExternalLink, Database, Zap, Clock } from 'lucide-react';
 
 const VolunteerDashboard: React.FC = () => {
     const { user, refreshProfile } = useAuth();
@@ -103,7 +103,7 @@ const VolunteerDashboard: React.FC = () => {
                         <thead className="border-b border-gray-800">
                           <tr>
                             <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black">Member Identity</th>
-                            <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black">Field Agent</th>
+                            <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black">VOLUNTEER</th>
                             <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black text-center">Date</th>
                             <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black text-center">Status</th>
                           </tr>

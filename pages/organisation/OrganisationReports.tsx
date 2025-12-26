@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
@@ -27,12 +28,14 @@ import {
   Phone,
   Eye,
   Zap,
-  ShieldCheck
+  ShieldCheck,
+  UserCircle,
+  BadgeCheck
 } from 'lucide-react';
 
 // Extended member type to handle joined volunteer profile data
 type MemberWithAgent = Member & {
-    agent_profile?: { name: string }
+    agent_profile?: { name: string, mobile: string }
 };
 
 const OrganisationReports: React.FC = () => {
@@ -58,12 +61,10 @@ const OrganisationReports: React.FC = () => {
         if (!user?.organisationId) return;
         setLoading(true);
         try {
-            // Strictly fetch members and profiles belonging to THIS organisation only
-            // We use a join ('agent_profile:profiles!volunteer_id(name)') to get the volunteer's name directly
             const [membersRes, profilesRes] = await Promise.all([
                 supabase
                     .from('members')
-                    .select('*, agent_profile:profiles!volunteer_id(name)')
+                    .select('*, agent_profile:profiles!volunteer_id(name, mobile)')
                     .eq('organisation_id', user.organisationId)
                     .order('submission_date', { ascending: false }),
                 supabase
@@ -99,13 +100,9 @@ const OrganisationReports: React.FC = () => {
 
     const filteredMembers = useMemo(() => {
         return myMembers.filter(member => {
-            // Volunteer Agent Filter
             if (filters.agentId && member.volunteer_id !== filters.agentId) return false;
-            
-            // Status Filter
             if (filters.status && member.status !== filters.status) return false;
 
-            // Date Range Filtering
             const subDate = new Date(member.submission_date);
             const start = filters.startDate ? new Date(filters.startDate) : null;
             const end = filters.endDate ? new Date(filters.endDate) : null;
@@ -114,7 +111,6 @@ const OrganisationReports: React.FC = () => {
             if (start && subDate < start) return false;
             if (end && subDate > end) return false;
 
-            // Global Search Filter
             if (filters.search) {
                 const term = filters.search.toLowerCase();
                 return (
@@ -152,10 +148,11 @@ const OrganisationReports: React.FC = () => {
     };
 
     const handleExport = () => {
-        const headers = ['Aadhaar', 'Full Name', 'Father Name', 'Mobile', 'DOB', 'Pincode', 'Address', 'Agent', 'Date', 'Status'];
+        const headers = ['Aadhaar', 'Full Name', 'Father Name', 'Mobile', 'DOB', 'Pincode', 'Address', 'VOLUNTEER', 'VOL_MOBILE', 'Date', 'Status'];
         const rows = filteredMembers.map(m => [
             m.aadhaar, `${m.name} ${m.surname}`, m.father_name, m.mobile, m.dob, m.pincode, m.address,
             m.agent_profile?.name || allOrgProfiles.find(p => p.id === m.volunteer_id)?.name || 'N/A',
+            m.agent_profile?.mobile || 'N/A',
             m.submission_date.split('T')[0], m.status
         ]);
         const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
@@ -169,7 +166,6 @@ const OrganisationReports: React.FC = () => {
     return (
         <DashboardLayout title="Sector Verification Terminal">
             <div className="space-y-8">
-                {/* Advanced Multi-Vector Filter Card */}
                 <Card className="bg-gray-950 border-white/5 p-8 rounded-[2rem] shadow-2xl relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-8 opacity-[0.02] pointer-events-none">
                         <Filter size={150} />
@@ -182,14 +178,14 @@ const OrganisationReports: React.FC = () => {
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 relative z-10">
                         <div>
-                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">1. Volunteer Agent</label>
+                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">1. VOLUNTEER</label>
                             <Select 
                                 name="agentId"
                                 value={filters.agentId} 
                                 onChange={handleFilterChange}
                                 className="bg-black/40 border-gray-800"
                             >
-                                <option value="">All Field Volunteers</option>
+                                <option value="">All Volunteers</option>
                                 {allOrgProfiles
                                     .filter(p => p.role === Role.Volunteer)
                                     .map(p => <option key={p.id} value={p.id}>{p.name}</option>)
@@ -253,14 +249,13 @@ const OrganisationReports: React.FC = () => {
                     </div>
                 </Card>
 
-                {/* Member Registry Table */}
                 <Card title="Sector Identity Node Registry">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead className="border-b border-gray-800">
                                 <tr>
                                     <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black">Identity Node</th>
-                                    <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black">Field Agent (Volunteer)</th>
+                                    <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black">ENROLLMENT VOLUNTEER</th>
                                     <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black text-center">Status</th>
                                     <th className="p-6 text-right"></th>
                                 </tr>
@@ -273,7 +268,7 @@ const OrganisationReports: React.FC = () => {
                                         <td className="p-6">
                                             <div className="flex flex-col gap-1">
                                                 <div className="flex items-center gap-3">
-                                                    <span className="font-bold text-white text-lg group-hover:text-blue-500 transition-colors">{member.name} {member.surname}</span>
+                                                    <span className="font-bold text-white text-lg group-hover:text-blue-400 transition-colors">{member.name} {member.surname}</span>
                                                     {member.member_image_url && <FileText size={14} className="text-blue-500/50" />}
                                                 </div>
                                                 <div className="flex items-center gap-3 text-[11px] text-gray-600 font-mono tracking-tighter">
@@ -284,11 +279,18 @@ const OrganisationReports: React.FC = () => {
                                             </div>
                                         </td>
                                         <td className="p-6">
-                                            <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/5 border border-blue-500/10 rounded-xl w-fit">
-                                                <UserIcon size={12} className="text-blue-500" />
-                                                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">
-                                                    {member.agent_profile?.name || allOrgProfiles.find(p => p.id === member.volunteer_id)?.name || 'System Agent'}
-                                                </span>
+                                            <div className="flex items-center gap-4">
+                                                <div className="h-10 w-10 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-500 shrink-0">
+                                                    <UserCircle size={20} />
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-[11px] font-black text-white uppercase tracking-widest">
+                                                        {member.agent_profile?.name || allOrgProfiles.find(p => p.id === member.volunteer_id)?.name || 'Unknown operator'}
+                                                    </span>
+                                                    <span className="text-[9px] text-blue-500/60 font-mono font-bold tracking-widest mt-0.5">
+                                                        {member.agent_profile?.mobile || 'PH: N/A'}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="p-6 text-center">
@@ -325,11 +327,9 @@ const OrganisationReports: React.FC = () => {
                 </Card>
             </div>
 
-            {/* Complete Identity View Modal */}
             <Modal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} title="Master Identity File">
                 {viewingMember && (
                     <div className="space-y-8 p-2 max-h-[85vh] overflow-y-auto custom-scrollbar">
-                        {/* Header Profile Section */}
                         <div className="flex flex-col md:flex-row gap-8 p-10 bg-blue-500/5 border border-blue-500/10 rounded-[3rem] relative overflow-hidden group/modal-head">
                             <div className="absolute top-0 right-0 p-10 opacity-5 group-hover/modal-head:rotate-12 transition-all duration-700">
                                 <Fingerprint size={120} />
@@ -372,11 +372,10 @@ const OrganisationReports: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Comprehensive Data Points Grid - All Member Fields */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             <DataPoint label="Father / Guardian" value={viewingMember.father_name} icon={<UserIcon size={14} />} />
                             <DataPoint label="Primary Mobile" value={viewingMember.mobile} icon={<Phone size={14} />} />
-                            <DataPoint label="Emergency Link" value={viewingMember.emergency_contact} icon={<ShieldCheckIcon size={14} />} />
+                            <DataPoint label="Emergency Link" value={viewingMember.emergency_contact} icon={<ShieldCheck size={14} />} />
                             <DataPoint label="Date of Birth" value={viewingMember.dob} icon={<Calendar size={14} />} />
                             <DataPoint label="Identity Gender" value={viewingMember.gender} icon={<Activity size={14} />} />
                             <DataPoint label="Postal Pincode" value={viewingMember.pincode} icon={<MapPin size={14} />} />
@@ -384,12 +383,28 @@ const OrganisationReports: React.FC = () => {
                                 <DataPoint label="Residential Registry Address" value={viewingMember.address} icon={<MapPin size={14} />} />
                             </div>
                             <DataPoint label="Professional Status" value={viewingMember.occupation} icon={<Briefcase size={14} />} />
-                            <DataPoint label="Support Requirement" value={viewingMember.support_need} icon={<ZapIcon size={14} />} />
-                            <DataPoint 
-                                label="Source Field Agent" 
-                                value={viewingMember.agent_profile?.name || allOrgProfiles.find(p => p.id === viewingMember.volunteer_id)?.name || 'N/A'} 
-                                icon={<UserIcon size={14} />} 
-                            />
+                            {/* Fix: Changed ZapIcon to Zap to resolve 'Cannot find name ZapIcon' error */}
+                            <DataPoint label="Support Requirement" value={viewingMember.support_need} icon={<Zap size={14} />} />
+                            
+                            <div className="p-8 bg-gradient-to-br from-blue-950/20 to-black border border-blue-500/20 rounded-[2rem] md:col-span-2 lg:col-span-1 group hover:border-blue-500/40 transition-all">
+                                <div className="flex items-center gap-2 mb-6 text-blue-500">
+                                    <BadgeCheck size={18} />
+                                    <span className="text-[10px] font-black uppercase tracking-[0.3em]">Source Authentication</span>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <div className="h-14 w-14 rounded-2xl bg-blue-600/10 flex items-center justify-center text-blue-500 border border-blue-500/10 group-hover:scale-105 transition-transform">
+                                        <UserCircle size={32} />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <p className="text-white font-black uppercase text-sm tracking-widest leading-none mb-1">
+                                            {viewingMember.agent_profile?.name || 'Unknown operator'}
+                                        </p>
+                                        <p className="text-[10px] text-blue-400 font-mono font-bold tracking-widest flex items-center gap-1.5">
+                                            <Phone size={10} /> {viewingMember.agent_profile?.mobile || 'No Contact'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="flex justify-end gap-4 pt-10 border-t border-white/5 mt-8 sticky bottom-0 bg-gray-900 pb-4 z-10">
@@ -408,7 +423,6 @@ const OrganisationReports: React.FC = () => {
     );
 };
 
-// Internal DataPoint Component for the Modal
 const DataPoint: React.FC<{ label: string, value: string, icon: React.ReactNode }> = ({ label, value, icon }) => (
     <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl group hover:border-blue-500/20 transition-all">
         <div className="flex items-center gap-2 mb-3 text-gray-500 group-hover:text-blue-500 transition-colors">
@@ -418,8 +432,5 @@ const DataPoint: React.FC<{ label: string, value: string, icon: React.ReactNode 
         <p className="text-white font-bold tracking-tight">{value || 'N/A'}</p>
     </div>
 );
-
-const ShieldCheckIcon = ({ size }: { size: number }) => <ShieldCheck size={size} />;
-const ZapIcon = ({ size }: { size: number }) => <Zap size={size} />;
 
 export default OrganisationReports;

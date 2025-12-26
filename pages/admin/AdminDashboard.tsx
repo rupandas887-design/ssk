@@ -36,7 +36,6 @@ const AdminDashboard: React.FC = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            // Join volunteer profiles to get names for the global feed
             const [orgsRes, membersRes, profilesRes] = await Promise.all([
                 supabase.from('organisations').select('*'),
                 supabase
@@ -110,7 +109,6 @@ const AdminDashboard: React.FC = () => {
         return volunteerPerformanceData.filter(vol => matchingOrgIds.includes(vol.organisationId) || vol.name.toLowerCase().includes(searchTerm.toLowerCase()));
     }, [searchTerm, volunteerPerformanceData, organisations]);
 
-    // Recent 10 members for the activity feed
     const recentMembers = useMemo(() => members.slice(0, 8), [members]);
 
     const handlePasswordUpdate = async (e: React.FormEvent) => {
@@ -164,7 +162,6 @@ const AdminDashboard: React.FC = () => {
             </div>
 
             <div className="mt-8 grid grid-cols-1 xl:grid-cols-3 gap-8">
-                {/* Global Activity Feed - fulfilling the request for "Field Agent" on dashboard */}
                 <div className="xl:col-span-2 space-y-8">
                     <Card className="border-orange-500/10">
                         <div className="flex items-center justify-between mb-8">
@@ -184,7 +181,7 @@ const AdminDashboard: React.FC = () => {
                                 <thead>
                                     <tr className="border-b border-gray-800">
                                         <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black">Member Node</th>
-                                        <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black">Field Agent</th>
+                                        <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black">VOLUNTEER</th>
                                         <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black">Sector</th>
                                         <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black text-right">Time</th>
                                     </tr>
@@ -294,7 +291,6 @@ const AdminDashboard: React.FC = () => {
                     </Card>
                 </div>
 
-                {/* Account Security Section */}
                 <div className="xl:col-span-1">
                     <Card title="Security Configuration">
                         <div className="flex items-center gap-3 mb-6 p-4 bg-orange-500/5 rounded border border-orange-500/10">
