@@ -23,7 +23,9 @@ import {
   Calendar,
   Building2,
   Fingerprint,
-  FileText
+  FileText,
+  Activity,
+  Eye
 } from 'lucide-react';
 
 const AdminReports: React.FC = () => {
@@ -107,7 +109,7 @@ const AdminReports: React.FC = () => {
     }, [members, selectedOrgId, selectedVolunteerId, startDate, endDate, searchQuery]);
 
     const availableAgents = useMemo(() => {
-        let base = allProfiles;
+        let base = allProfiles.filter(p => p.role === Role.Volunteer || p.role === Role.Organisation);
         if (selectedOrgId) {
             base = base.filter(p => p.organisationId === selectedOrgId);
         }
@@ -186,15 +188,19 @@ const AdminReports: React.FC = () => {
     return (
         <DashboardLayout title="Master Registry Terminal">
             <div className="space-y-8">
-                <Card className="bg-gray-950 border-white/5 p-8 rounded-[2rem] shadow-2xl">
-                    <div className="flex items-center gap-2 mb-8 text-orange-500">
-                        <Filter size={18} />
+                <Card className="bg-gray-950 border-white/5 p-8 rounded-[2rem] shadow-2xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-8 opacity-[0.02] pointer-events-none">
+                        <Filter size={150} />
+                    </div>
+                    
+                    <div className="flex items-center gap-2 mb-8 text-orange-500 relative z-10">
+                        <Activity size={18} />
                         <h3 className="text-[10px] font-black uppercase tracking-[0.4em]">Multi-Vector Query Intelligence</h3>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 relative z-10">
                         <div>
-                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">1. Organization Sector</label>
+                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">1. Organization Sector</label>
                             <Select 
                                 value={selectedOrgId} 
                                 onChange={(e) => { setSelectedOrgId(e.target.value); setSelectedVolunteerId(''); }}
@@ -205,18 +211,18 @@ const AdminReports: React.FC = () => {
                             </Select>
                         </div>
                         <div>
-                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">2. Enrollment Agent</label>
+                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">2. Enrollment Agent</label>
                             <Select 
                                 value={selectedVolunteerId} 
                                 onChange={(e) => setSelectedVolunteerId(e.target.value)}
                                 className="bg-black/40 border-gray-800"
                             >
-                                <option value="">All Agents</option>
+                                <option value="">All Sector Agents</option>
                                 {availableAgents.map(a => <option key={a.id} value={a.id}>{a.name} ({a.role})</option>)}
                             </Select>
                         </div>
                         <div>
-                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">3. Start Date</label>
+                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">3. Start Date</label>
                             <Input 
                                 type="date" 
                                 value={startDate} 
@@ -225,7 +231,7 @@ const AdminReports: React.FC = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">4. End Date</label>
+                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">4. End Date</label>
                             <Input 
                                 type="date" 
                                 value={endDate} 
@@ -235,21 +241,21 @@ const AdminReports: React.FC = () => {
                         </div>
                     </div>
                     
-                    <div className="mt-8 pt-6 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6">
+                    <div className="mt-10 pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6 relative z-10">
                         <div className="w-full md:w-1/2">
                             <Input 
                                 placeholder="Global ID Search (Name, Phone, Aadhaar)..." 
                                 value={searchQuery} 
                                 onChange={(e) => setSearchQuery(e.target.value)} 
                                 icon={<Search size={16} />}
-                                className="bg-black/20 border-gray-900"
+                                className="bg-black/20 border-gray-900 focus:border-orange-500/50"
                             />
                         </div>
-                        <div className="flex gap-4">
-                            <Button onClick={fetchData} variant="secondary" className="px-6 py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                        <div className="flex gap-4 w-full md:w-auto">
+                            <Button onClick={fetchData} variant="secondary" className="flex-1 md:flex-none px-6 py-4 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2">
                                 <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Sync
                             </Button>
-                            <Button onClick={handleDownload} className="px-10 py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-2xl">
+                            <Button onClick={handleDownload} className="flex-1 md:flex-none px-10 py-4 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-2xl bg-orange-600 hover:bg-orange-700">
                                 <FileSpreadsheet size={16} /> Export Dataset
                             </Button>
                         </div>

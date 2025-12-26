@@ -23,7 +23,13 @@ import {
   RefreshCw,
   XCircle,
   Building2,
-  FileText
+  FileText,
+  Calendar,
+  Fingerprint,
+  MapPin,
+  Briefcase,
+  Activity,
+  Phone
 } from 'lucide-react';
 
 const OrganisationReports: React.FC = () => {
@@ -33,9 +39,18 @@ const OrganisationReports: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const { addNotification } = useNotification();
     
-    const [editingMember, setEditingMember] = useState<Member | null>(null);
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [viewingMember, setViewingMember] = useState<Member | null>(null);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [isUpdating, setIsUpdating] = useState(false);
+
+    // Filter State
+    const [filters, setFilters] = useState({ 
+        startDate: '', 
+        endDate: '', 
+        agentId: '', 
+        search: '', 
+        status: '' 
+    });
 
     const fetchData = async () => {
         if (!user?.organisationId) return;
@@ -61,7 +76,7 @@ const OrganisationReports: React.FC = () => {
                 setAllOrgProfiles(mappedProfiles);
             }
         } catch (error) {
-            addNotification("Sync failed.", "error");
+            addNotification("Sector registry sync failed.", "error");
         } finally {
             setLoading(false);
         }
@@ -71,15 +86,33 @@ const OrganisationReports: React.FC = () => {
         fetchData();
     }, [user]);
 
-    const [filters, setFilters] = useState({ startDate: '', endDate: '', agentId: '', search: '', status: '' });
-
     const filteredMembers = useMemo(() => {
         return myMembers.filter(member => {
+            // Volunteer Agent Filter
             if (filters.agentId && member.volunteer_id !== filters.agentId) return false;
+            
+            // Status Filter
             if (filters.status && member.status !== filters.status) return false;
+
+            // Date Range Filtering
+            const subDate = new Date(member.submission_date);
+            const start = filters.startDate ? new Date(filters.startDate) : null;
+            const end = filters.endDate ? new Date(filters.endDate) : null;
+            if (end) end.setHours(23, 59, 59, 999);
+            
+            if (start && subDate < start) return false;
+            if (end && subDate > end) return false;
+
+            // Global Search Filter
             if (filters.search) {
                 const term = filters.search.toLowerCase();
-                return member.name.toLowerCase().includes(term) || member.surname.toLowerCase().includes(term) || member.mobile.includes(term);
+                return (
+                    member.name.toLowerCase().includes(term) || 
+                    member.surname.toLowerCase().includes(term) || 
+                    member.mobile.includes(term) ||
+                    member.aadhaar.includes(term) ||
+                    member.pincode.includes(term)
+                );
             }
             return true;
         });
@@ -90,107 +123,158 @@ const OrganisationReports: React.FC = () => {
         setFilters(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleVerify = async (member: Member) => {
+    const handleVerifyStatus = async (member: Member) => {
         const newStatus = member.status === MemberStatus.Accepted ? MemberStatus.Pending : MemberStatus.Accepted;
         try {
-            await supabase.from('members').update({ status: newStatus }).eq('id', member.id);
-            addNotification(`Member ${newStatus}.`, "success");
+            const { error } = await supabase.from('members').update({ status: newStatus }).eq('id', member.id);
+            if (error) throw error;
+            addNotification(`Member ${newStatus} successfully.`, "success");
             fetchData();
         } catch (err) {
-            addNotification("Verification failed.", "error");
+            addNotification("Verification update failed.", "error");
         }
     };
 
-    const handleEditClick = (member: Member) => {
-        setEditingMember({ ...member });
-        setIsEditModalOpen(true);
+    const openDetails = (member: Member) => {
+        setViewingMember({ ...member });
+        setIsDetailModalOpen(true);
     };
 
-    const handleUpdateMember = async () => {
-        if (!editingMember) return;
-        setIsUpdating(true);
-        try {
-            await supabase.from('members').update({
-                name: editingMember.name, surname: editingMember.surname, mobile: editingMember.mobile,
-                father_name: editingMember.father_name, dob: editingMember.dob, gender: editingMember.gender,
-                pincode: editingMember.pincode, address: editingMember.address,
-                occupation: editingMember.occupation, support_need: editingMember.support_need,
-                status: editingMember.status
-            }).eq('id', editingMember.id);
-            addNotification("Updated successfully.", "success");
-            setIsEditModalOpen(false);
-            fetchData();
-        } finally {
-            setIsUpdating(false);
-        }
+    const handleExport = () => {
+        const headers = ['Aadhaar', 'Full Name', 'Father Name', 'Mobile', 'DOB', 'Pincode', 'Address', 'Agent', 'Date', 'Status'];
+        const rows = filteredMembers.map(m => [
+            m.aadhaar, `${m.name} ${m.surname}`, m.father_name, m.mobile, m.dob, m.pincode, m.address,
+            allOrgProfiles.find(p => p.id === m.volunteer_id)?.name || 'N/A',
+            m.submission_date.split('T')[0], m.status
+        ]);
+        const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `Sector_Report_${new Date().toISOString().split('T')[0]}.csv`;
+        link.click();
     };
 
     return (
         <DashboardLayout title="Sector Verification Terminal">
             <div className="space-y-8">
-                <Card className="bg-gray-950 border-white/5 p-6 rounded-3xl">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                        <Input 
-                            label="Global Search" 
-                            name="search" 
-                            value={filters.search} 
-                            onChange={handleFilterChange} 
-                            placeholder="Name or Phone..."
-                        />
-                        <Select label="Status Filter" name="status" value={filters.status} onChange={handleFilterChange}>
-                            <option value="">All Status</option>
-                            <option value={MemberStatus.Pending}>Pending Verification</option>
-                            <option value={MemberStatus.Accepted}>Verified / Accepted</option>
-                        </Select>
-                        <Select label="Enrollment Agent" name="agentId" value={filters.agentId} onChange={handleFilterChange}>
-                            <option value="">All Agents</option>
-                            {allOrgProfiles.map(p => <option key={p.id} value={p.id}>{p.name} ({p.role})</option>)}
-                        </Select>
-                        <div className="flex items-end">
-                            <Button onClick={fetchData} variant="secondary" className="w-full flex items-center justify-center gap-2 py-3 uppercase text-[10px] font-black tracking-widest">
-                                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Sync Dataset
+                {/* Advanced Multi-Vector Filter Card */}
+                <Card className="bg-gray-950 border-white/5 p-8 rounded-[2rem] shadow-2xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-8 opacity-[0.02] pointer-events-none">
+                        <Filter size={150} />
+                    </div>
+                    
+                    <div className="flex items-center gap-2 mb-8 text-blue-500 relative z-10">
+                        <Activity size={18} />
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.4em]">Multi-Vector Query Intelligence</h3>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 relative z-10">
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">1. Enrollment Agent</label>
+                            <Select 
+                                name="agentId"
+                                value={filters.agentId} 
+                                onChange={handleFilterChange}
+                                className="bg-black/40 border-gray-800"
+                            >
+                                <option value="">All Field Agents</option>
+                                {allOrgProfiles.map(p => <option key={p.id} value={p.id}>{p.name} ({p.role})</option>)}
+                            </Select>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">2. Status Category</label>
+                            <Select 
+                                name="status"
+                                value={filters.status} 
+                                onChange={handleFilterChange}
+                                className="bg-black/40 border-gray-800"
+                            >
+                                <option value="">All Verification States</option>
+                                <option value={MemberStatus.Pending}>Pending Verification</option>
+                                <option value={MemberStatus.Accepted}>Accepted / Verified</option>
+                            </Select>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">3. Activation Start</label>
+                            <Input 
+                                type="date" 
+                                name="startDate"
+                                value={filters.startDate} 
+                                onChange={handleFilterChange} 
+                                className="bg-black/40 border-gray-800"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">4. Activation End</label>
+                            <Input 
+                                type="date" 
+                                name="endDate"
+                                value={filters.endDate} 
+                                onChange={handleFilterChange} 
+                                className="bg-black/40 border-gray-800"
+                            />
+                        </div>
+                    </div>
+                    
+                    <div className="mt-10 pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6 relative z-10">
+                        <div className="w-full md:w-1/2">
+                            <Input 
+                                placeholder="Universal Identity Search (Name, Mobile, Aadhaar)..." 
+                                name="search"
+                                value={filters.search} 
+                                onChange={handleFilterChange} 
+                                icon={<Search size={16} />}
+                                className="bg-black/20 border-gray-900 focus:border-blue-500/50"
+                            />
+                        </div>
+                        <div className="flex gap-4 w-full md:w-auto">
+                            <Button onClick={fetchData} variant="secondary" className="flex-1 md:flex-none px-6 py-4 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2">
+                                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Sync
+                            </Button>
+                            <Button onClick={handleExport} className="flex-1 md:flex-none px-10 py-4 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-2xl bg-blue-600 hover:bg-blue-700">
+                                <FileSpreadsheet size={16} /> Export Data
                             </Button>
                         </div>
                     </div>
                 </Card>
 
-                <Card title="Sector Node Registry">
+                {/* Member Registry Table */}
+                <Card title="Sector Identity Node Registry">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead className="border-b border-gray-800">
                                 <tr>
-                                    <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black">Member Identity</th>
-                                    <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black text-center">Enrollment Agent</th>
+                                    <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black">Identity Node</th>
+                                    <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black">Field Agent</th>
                                     <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black text-center">Status</th>
                                     <th className="p-6 text-right"></th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-900/50">
                                 {loading ? (
-                                    <tr><td colSpan={4} className="p-24 text-center text-[10px] font-black uppercase tracking-[0.4em] text-gray-600 animate-pulse">Scanning Sector Nodes...</td></tr>
+                                    <tr><td colSpan={4} className="p-24 text-center text-[11px] animate-pulse font-black uppercase tracking-[0.4em] text-gray-600">Synchronizing Sector Records...</td></tr>
                                 ) : filteredMembers.map(member => (
                                     <tr key={member.id} className="group hover:bg-white/[0.02] transition-all">
                                         <td className="p-6">
                                             <div className="flex flex-col gap-1">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-bold text-white text-lg group-hover:text-orange-500 transition-colors">{member.name} {member.surname}</span>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="font-bold text-white text-lg group-hover:text-blue-500 transition-colors">{member.name} {member.surname}</span>
                                                     {member.member_image_url && <FileText size={14} className="text-blue-500/50" />}
                                                 </div>
-                                                <div className="flex items-center gap-2 text-[11px] text-gray-600 font-mono">
+                                                <div className="flex items-center gap-3 text-[11px] text-gray-600 font-mono tracking-tighter">
                                                     <span>{member.mobile}</span>
                                                     <span className="h-1 w-1 rounded-full bg-gray-800"></span>
                                                     <span>{member.aadhaar.slice(-4).padStart(12, '•')}</span>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="p-6 text-center">
-                                            <div className="inline-flex flex-col items-center">
-                                                <div className="px-4 py-1.5 bg-blue-500/10 border border-blue-500/10 rounded-xl flex items-center gap-2">
-                                                    <UserIcon size={12} className="text-blue-500" />
-                                                    <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">
-                                                        {allOrgProfiles.find(p => p.id === member.volunteer_id)?.name || 'Agent '+member.volunteer_id.slice(0,5)}
-                                                    </span>
-                                                </div>
+                                        <td className="p-6">
+                                            <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/5 border border-blue-500/10 rounded-xl w-fit">
+                                                <UserIcon size={12} className="text-blue-500" />
+                                                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">
+                                                    {allOrgProfiles.find(p => p.id === member.volunteer_id)?.name || 'Agent '+member.volunteer_id.slice(0,5)}
+                                                </span>
                                             </div>
                                         </td>
                                         <td className="p-6 text-center">
@@ -199,79 +283,108 @@ const OrganisationReports: React.FC = () => {
                                             </span>
                                         </td>
                                         <td className="p-6 text-right">
-                                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                                            <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
                                                 <button 
-                                                    onClick={() => handleVerify(member)} 
-                                                    className="p-3 bg-white/5 rounded-xl border border-white/5 hover:border-green-500/40 text-gray-500 hover:text-green-400 transition-all"
-                                                    title="Verify Member"
+                                                    onClick={() => openDetails(member)} 
+                                                    className="p-3 bg-white/5 rounded-xl border border-white/10 hover:border-blue-500/50 text-gray-400 hover:text-white transition-all"
+                                                    title="View Full Identity"
                                                 >
-                                                    <CheckCircle2 size={18} />
+                                                    <Eye size={18} />
                                                 </button>
                                                 <button 
-                                                    onClick={() => handleEditClick(member)} 
-                                                    className="p-3 bg-white/5 rounded-xl border border-white/5 hover:border-orange-500/40 text-gray-500 hover:text-orange-500 transition-all"
-                                                    title="Override Record"
+                                                    onClick={() => handleVerifyStatus(member)} 
+                                                    className={`p-3 rounded-xl border transition-all ${member.status === MemberStatus.Accepted ? 'bg-red-500/5 border-red-500/10 text-red-400 hover:bg-red-500/20' : 'bg-green-500/5 border-green-500/10 text-green-400 hover:bg-green-500/20'}`}
+                                                    title={member.status === MemberStatus.Accepted ? "Reset Verification" : "Verify Record"}
                                                 >
-                                                    <Edit3 size={18} />
+                                                    {member.status === MemberStatus.Accepted ? <XCircle size={18} /> : <CheckCircle2 size={18} />}
                                                 </button>
                                             </div>
                                         </td>
                                     </tr>
                                 ))}
+                                {filteredMembers.length === 0 && !loading && (
+                                    <tr><td colSpan={4} className="p-40 text-center text-[11px] text-gray-700 uppercase tracking-[0.5em] font-black">Null intersection in sector dataset.</td></tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
                 </Card>
             </div>
 
-            <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Sector Override Terminal">
-                {editingMember && (
-                    <div className="space-y-6 max-h-[85vh] overflow-y-auto custom-scrollbar p-2">
-                        <div className="p-8 bg-blue-500/5 border border-blue-500/10 rounded-[2rem] flex items-center gap-8 relative overflow-hidden group/modal-head">
-                            {editingMember.member_image_url ? (
-                                <div className="relative h-32 w-32 rounded-2xl overflow-hidden border border-white/10 shrink-0">
-                                    <img src={editingMember.member_image_url} className="h-full w-full object-cover" alt="Aadhaar Scan" />
-                                    <a href={editingMember.member_image_url} target="_blank" rel="noreferrer" className="absolute inset-0 bg-black/60 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity text-white">
-                                        <ExternalLink size={20} />
+            {/* Complete Identity View Modal */}
+            <Modal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} title="Master Identity File">
+                {viewingMember && (
+                    <div className="space-y-8 p-2 max-h-[85vh] overflow-y-auto custom-scrollbar">
+                        {/* Header Profile Section */}
+                        <div className="flex flex-col md:flex-row gap-8 p-10 bg-blue-500/5 border border-blue-500/10 rounded-[3rem] relative overflow-hidden group/modal-head">
+                            <div className="absolute top-0 right-0 p-10 opacity-5 group-hover/modal-head:rotate-12 transition-all duration-700">
+                                <Fingerprint size={120} />
+                            </div>
+                            
+                            {viewingMember.member_image_url ? (
+                                <div className="relative h-48 w-full md:w-64 rounded-[2.5rem] overflow-hidden border-2 border-white/10 shrink-0 shadow-3xl">
+                                    <img src={viewingMember.member_image_url} alt="Aadhaar Scan" className="w-full h-full object-cover" />
+                                    <a href={viewingMember.member_image_url} target="_blank" rel="noreferrer" className="absolute inset-0 bg-black/70 opacity-0 hover:opacity-100 flex flex-col items-center justify-center transition-opacity text-white gap-2">
+                                        <ExternalLink size={24} />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Open Full Scan</span>
                                     </a>
                                 </div>
                             ) : (
-                                <div className="h-32 w-32 rounded-2xl bg-gray-900 border border-white/5 flex items-center justify-center text-gray-700 shrink-0">
-                                    <FileText size={32} />
+                                <div className="h-48 w-full md:w-64 rounded-[2.5rem] bg-gray-950 border-2 border-white/5 flex flex-col items-center justify-center text-gray-800 shrink-0 gap-3">
+                                    <FileText size={48} strokeWidth={1} />
+                                    <span className="text-[9px] font-black uppercase tracking-widest">No Document Found</span>
                                 </div>
                             )}
-                            <div>
-                                <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.4em] mb-1">Aadhaar Scan Record</p>
-                                <p className="text-3xl font-cinzel text-white leading-tight uppercase mb-2">{editingMember.name} {editingMember.surname}</p>
-                                <div className="flex items-center gap-2">
-                                    <UserIcon size={12} className="text-gray-600" />
-                                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
-                                        Source Agent: {allOrgProfiles.find(v => v.id === editingMember.volunteer_id)?.name || 'System'}
-                                    </span>
+                            
+                            <div className="flex-1 space-y-6 pt-4 relative z-10">
+                                <div>
+                                    <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.4em] mb-2">Authenticated Identity Node</p>
+                                    <h4 className="text-4xl font-cinzel text-white leading-none tracking-tight">{viewingMember.name} {viewingMember.surname}</h4>
+                                </div>
+                                <div className="flex flex-wrap gap-4">
+                                    <div className="px-5 py-2.5 bg-black/60 rounded-2xl border border-white/5 flex items-center gap-2">
+                                        <Fingerprint size={12} className="text-blue-500/50" />
+                                        <span className="text-[10px] font-mono text-gray-400 uppercase tracking-[0.2em]">{viewingMember.aadhaar}</span>
+                                    </div>
+                                    <div className="px-5 py-2.5 bg-black/60 rounded-2xl border border-white/5 flex items-center gap-2">
+                                        <Calendar size={12} className="text-orange-500/50" />
+                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Enrolled: {viewingMember.submission_date.split('T')[0]}</span>
+                                    </div>
+                                    <div className={`px-5 py-2.5 rounded-2xl border flex items-center gap-2 ${viewingMember.status === MemberStatus.Accepted ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-orange-500/10 border-orange-500/20 text-orange-400'}`}>
+                                        <CheckCircle2 size={12} />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">{viewingMember.status}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <Input label="GIVEN NAME" value={editingMember.name} onChange={(e) => setEditingMember({...editingMember, name: e.target.value})} />
-                            <Input label="SURNAME" value={editingMember.surname} onChange={(e) => setEditingMember({...editingMember, surname: e.target.value})} />
-                            <Input label="MOBILE" value={editingMember.mobile} onChange={(e) => setEditingMember({...editingMember, mobile: e.target.value})} />
-                            <Input label="AADHAAR" value={editingMember.aadhaar} onChange={(e) => setEditingMember({...editingMember, aadhaar: e.target.value})} maxLength={12} />
-                            <Select label="SECTOR STATUS" value={editingMember.status} onChange={(e) => setEditingMember({...editingMember, status: e.target.value as MemberStatus})}>
-                                <option value={MemberStatus.Pending}>Pending Verification</option>
-                                <option value={MemberStatus.Accepted}>Accepted / Verified</option>
-                            </Select>
+                        {/* Comprehensive Data Points Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <DataPoint label="Father / Guardian" value={viewingMember.father_name} icon={<UserIcon size={14} />} />
+                            <DataPoint label="Primary Mobile" value={viewingMember.mobile} icon={<Phone size={14} />} />
+                            <DataPoint label="Emergency Link" value={viewingMember.emergency_contact} icon={<ShieldCheck size={14} />} />
+                            <DataPoint label="Date of Birth" value={viewingMember.dob} icon={<Calendar size={14} />} />
+                            <DataPoint label="Identity Gender" value={viewingMember.gender} icon={<Activity size={14} />} />
+                            <DataPoint label="Postal Pincode" value={viewingMember.pincode} icon={<MapPin size={14} />} />
+                            <div className="md:col-span-2 lg:col-span-3">
+                                <DataPoint label="Residential Registry Address" value={viewingMember.address} icon={<MapPin size={14} />} />
+                            </div>
+                            <DataPoint label="Professional Status" value={viewingMember.occupation} icon={<Briefcase size={14} />} />
+                            <DataPoint label="Support Requirement" value={viewingMember.support_need} icon={<Zap size={14} />} />
+                            <DataPoint 
+                                label="Source Field Agent" 
+                                value={allOrgProfiles.find(p => p.id === viewingMember.volunteer_id)?.name || 'N/A'} 
+                                icon={<UserIcon size={14} />} 
+                            />
                         </div>
 
-                        <div className="flex justify-end gap-4 pt-10 border-t border-white/5 mt-8 sticky bottom-0 bg-gray-900 pb-2 z-10">
-                            <Button variant="secondary" onClick={() => setIsEditModalOpen(false)} className="px-8 py-4 text-[10px] font-black uppercase tracking-widest">Abort</Button>
+                        <div className="flex justify-end gap-4 pt-10 border-t border-white/5 mt-8 sticky bottom-0 bg-gray-900 pb-4 z-10">
+                            <Button variant="secondary" onClick={() => setIsDetailModalOpen(false)} className="px-10 py-4 text-[10px] font-black uppercase tracking-widest">Close File</Button>
                             <Button 
-                                onClick={handleUpdateMember} 
-                                disabled={isUpdating}
-                                className="px-12 py-4 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-2xl"
+                                onClick={() => { handleVerifyStatus(viewingMember); setIsDetailModalOpen(false); }} 
+                                className={`px-12 py-4 text-[10px] font-black uppercase tracking-widest shadow-2xl ${viewingMember.status === MemberStatus.Accepted ? 'bg-orange-600 hover:bg-orange-700' : 'bg-green-600 hover:bg-green-700'}`}
                             >
-                                {isUpdating ? <RefreshCw className="animate-spin" size={16} /> : <Save size={16} />}
-                                {isUpdating ? 'SYNCHRONIZING...' : 'Commit Changes'}
+                                {viewingMember.status === MemberStatus.Accepted ? 'Reset Verification' : 'Verify Identity Node'}
                             </Button>
                         </div>
                     </div>
@@ -280,5 +393,20 @@ const OrganisationReports: React.FC = () => {
         </DashboardLayout>
     );
 };
+
+// Internal DataPoint Component for the Modal
+const DataPoint: React.FC<{ label: string, value: string, icon: React.ReactNode }> = ({ label, value, icon }) => (
+    <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl group hover:border-blue-500/20 transition-all">
+        <div className="flex items-center gap-2 mb-3 text-gray-500 group-hover:text-blue-500 transition-colors">
+            {icon}
+            <span className="text-[9px] font-black uppercase tracking-[0.2em]">{label}</span>
+        </div>
+        <p className="text-white font-bold tracking-tight">{value || 'N/A'}</p>
+    </div>
+);
+
+const ShieldCheck = ({ size }: { size: number }) => <CheckCircle2 size={size} />;
+const Zap = ({ size }: { size: number }) => <Activity size={size} />;
+const Eye = ({ size }: { size: number }) => <ExternalLink size={size} />;
 
 export default OrganisationReports;
