@@ -279,7 +279,7 @@ GRANT ALL ON public.profiles TO postgres;`;
                 type="button" 
                 onClick={handleAddVolunteer} 
                 disabled={isSubmitting} 
-                className="w-full py-5 flex items-center justify-center gap-3 text-[11px] font-black tracking-[0.4em] uppercase shadow-2xl shadow-blue-950/20"
+                className="w-full py-5 flex items-center justify-center gap-3 text-[11px] font-black uppercase tracking-[0.4em] shadow-2xl shadow-blue-950/20"
               >
                 {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <UserPlus size={20} />}
                 {isSubmitting ? 'AUTHORIZING...' : 'Authorize Operator'}
@@ -324,7 +324,7 @@ GRANT ALL ON public.profiles TO postgres;`;
                     </div>
                     <div className="pt-4 border-t border-red-500/10">
                         <p className="text-[9px] text-gray-500 font-bold uppercase text-center leading-relaxed">
-                            Instructions: Copy script {"->"} Paste in Supabase SQL Editor {"->"} Run {"->"} Refresh this page
+                            Instructions: Copy script &rarr; Paste in Supabase SQL Editor &rarr; Run &rarr; Refresh this page
                         </p>
                     </div>
                 </div>
