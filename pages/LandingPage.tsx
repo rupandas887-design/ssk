@@ -62,18 +62,22 @@ const LandingPage: React.FC = () => {
   const totalMembers = members.length;
 
   return (
-    <div className="bg-black text-white min-h-screen">
+    <div className="bg-black text-white min-h-screen selection:bg-orange-500/30">
       <Header isLandingPage />
 
-      {/* Community Heritage Section (Based on Screenshot) */}
-      <section className="relative pt-40 pb-20 px-4">
-        <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-cinzel font-bold text-white mb-4 uppercase tracking-tight">
-            THE SOMAVAMSHA SAHASRARJUNA <br />
-            <span className="text-orange-500">KSHATRIYA (SSK)</span>
-          </h1>
+      {/* Community Heritage Section (Precisely Matched to Reference) */}
+      <section className="relative pt-48 pb-20 px-6">
+        <div className="max-w-5xl mx-auto">
+          {/* Main Title - Centered as per screenshot */}
+          <div className="text-center mb-16">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-cinzel font-bold text-white uppercase tracking-tight leading-tight">
+              THE SOMAVAMSHA SAHASRARJUNA <br />
+              <span className="text-orange-500">KSHATRIYA (SSK)</span>
+            </h1>
+          </div>
           
-          <div className="mt-12 space-y-8 text-gray-300 text-lg leading-relaxed text-left md:text-center max-w-3xl mx-auto">
+          {/* Narrative Content - Left Aligned as per screenshot */}
+          <div className="space-y-8 text-gray-300 text-lg leading-relaxed text-left max-w-4xl mx-auto font-light">
             <p>
               The Somavamsha Sahasrarjuna Kshatriya (SSK) community belongs to the Somavamsha or Chandravamsha (Lunar Dynasty), one of the three main Kshatriya lineages in India, alongside Surya and Agni Vamshas. Descended from Soma (the Moon), they are known as warriors of the Moon Dynasty.
             </p>
@@ -88,87 +92,100 @@ const LandingPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="mt-16 flex justify-center">
-            <div className="relative max-w-2xl rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(255,100,0,0.1)] border border-white/5">
-              <img 
-                src="https://i.pinimg.com/736x/68/ac/f6/68acf6f32a216959c497c7a232b35551.jpg" 
-                alt="Sahasrarjuna Illustration" 
-                className="w-full h-auto"
-              />
+          {/* Centered Image below text */}
+          <div className="mt-24 flex justify-center">
+            <div className="relative group max-w-3xl">
+              <div className="absolute -inset-1 bg-gradient-to-r from-orange-600/20 to-orange-900/10 rounded-2xl blur opacity-25"></div>
+              <div className="relative rounded-2xl overflow-hidden shadow-[0_0_80px_rgba(255,100,0,0.08)] border border-white/5">
+                <img 
+                  src="https://i.pinimg.com/736x/68/ac/f6/68acf6f32a216959c497c7a232b35551.jpg" 
+                  alt="Sahasrarjuna Illustration" 
+                  className="w-full h-auto grayscale hover:grayscale-0 transition-all duration-1000"
+                />
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Platform Analytics & Utilities Section */}
-      <main className="container mx-auto px-4 py-20 space-y-24">
+      {/* Analytics & Registry Tools */}
+      <main className="container mx-auto px-6 py-24 space-y-32">
         {/* Analytics Section */}
         <section>
-          <div className="flex items-center justify-between mb-12 border-b border-gray-800 pb-6">
-            <div className="flex items-center gap-3">
-              <BarChart3 className="text-orange-500" />
-              <h2 className="text-2xl font-cinzel text-white uppercase tracking-widest">Registry Insights</h2>
-            </div>
-            {loading && <RefreshCw className="animate-spin text-orange-500" size={20} />}
+          <div className="flex flex-col items-center mb-16">
+            <div className="h-px w-24 bg-gradient-to-r from-transparent via-orange-500 to-transparent mb-8"></div>
+            <h2 className="text-4xl font-cinzel text-center uppercase tracking-widest">
+              Live <span className="text-orange-500">Analytics</span>
+            </h2>
+            <p className="text-[10px] font-black text-gray-600 uppercase tracking-[0.4em] mt-4">Real-time Registry Intelligence</p>
           </div>
 
           {!loading && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <Card className="flex flex-col items-center justify-center p-12 bg-gray-900/30 border-gray-800 group hover:border-orange-500/30 transition-all duration-500">
-                <Users className="text-orange-500/40 group-hover:text-orange-500 transition-colors mb-4" size={56} strokeWidth={1} />
-                <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.4em] mb-2">Verified Nodes</p>
-                <p className="text-7xl font-black text-white font-cinzel leading-none">{totalMembers}</p>
-              </Card>
+            <div className="space-y-12">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <Card className="flex flex-col items-center justify-center p-12 bg-[#050505] border-white/5 group hover:border-orange-500/30 transition-all duration-700">
+                  <Users className="text-orange-500/20 group-hover:text-orange-500 transition-colors mb-6" size={64} strokeWidth={1} />
+                  <p className="text-[10px] font-black uppercase tracking-[0.5em] text-gray-500 mb-2">Total Verified Members</p>
+                  <p className="text-8xl font-black text-white tracking-tighter leading-none font-cinzel">{totalMembers}</p>
+                </Card>
+                
+                <Card title="Gender Distribution" className="bg-[#050505] border-white/5">
+                  <GenderChart members={members} />
+                </Card>
+                
+                <Card title="Professional Demographics" className="bg-[#050505] border-white/5">
+                  <OccupationChart members={members} />
+                </Card>
+              </div>
               
-              <Card title="Gender Distribution" className="bg-gray-900/30 border-gray-800">
-                <GenderChart members={members} />
-              </Card>
-              
-              <Card title="Professional Demographics" className="bg-gray-900/30 border-gray-800">
-                <OccupationChart members={members} />
-              </Card>
-            </div>
-          )}
-
-          {!loading && (
-            <div className="mt-8">
-              <Card title="Community Support Matrix" className="bg-gray-900/30 border-gray-800">
+              <Card title="Global Support Demand Matrix" className="bg-[#050505] border-white/5">
                 <SupportChart members={members} />
               </Card>
             </div>
           )}
+
+          {loading && (
+            <div className="flex flex-col items-center justify-center p-32 gap-6">
+              <RefreshCw className="animate-spin text-orange-500" size={48} />
+              <p className="text-[10px] font-black uppercase tracking-[0.5em] text-gray-600">Synchronizing Master Registry...</p>
+            </div>
+          )}
         </section>
 
-        {/* Leaderboard Section */}
+        {/* Top Contributors */}
         <section>
-          <div className="flex items-center gap-3 mb-12 border-b border-gray-800 pb-6">
-            <TrendingUp className="text-orange-500" />
-            <h2 className="text-2xl font-cinzel text-white uppercase tracking-widest">Top Contributors</h2>
+          <div className="flex flex-col items-center mb-16">
+            <h2 className="text-4xl font-cinzel text-center uppercase tracking-widest">
+              Master <span className="text-orange-500">Nodes</span>
+            </h2>
+            <p className="text-[10px] font-black text-gray-600 uppercase tracking-[0.4em] mt-4">Top Enrollment Performance</p>
           </div>
           {loading ? (
-             <div className="flex justify-center p-20">
-               <RefreshCw className="animate-spin text-orange-500" size={32} />
-             </div>
+             <p className="text-center text-gray-700 animate-pulse font-black text-[10px] uppercase tracking-widest">Establishing Uplink...</p>
           ) : (
             <Leaderboard members={members} organisations={organisations} volunteers={volunteers} />
           )}
         </section>
 
-        {/* Rewards Section */}
+        {/* Recognition */}
         <section>
           <Rewards />
         </section>
 
-        {/* Join CTA */}
-        <section className="text-center py-20 bg-gradient-to-b from-transparent to-gray-900/40 rounded-[3rem] border border-gray-800/50">
-          <h2 className="text-3xl font-cinzel text-white mb-6 uppercase tracking-[0.2em]">Join the Registry</h2>
-          <p className="text-gray-400 mb-10 max-w-xl mx-auto text-lg font-light leading-relaxed">
-            Support our community by becoming a verified contributor. Contact your local node for access credentials.
-          </p>
-          <div className="inline-block px-12 py-5 bg-orange-600 rounded-full hover:bg-orange-700 transition-all shadow-xl shadow-orange-900/20 active:scale-95">
-            <a href="tel:+918884449689" className="text-xl font-bold text-white tracking-widest">
-              HELPLINE: +91 888 444 9689
-            </a>
+        {/* Global CTA */}
+        <section className="text-center pb-20">
+          <div className="max-w-4xl mx-auto p-16 bg-gradient-to-br from-[#080808] to-black rounded-[3rem] border border-orange-500/10 relative overflow-hidden group">
+            <div className="absolute inset-0 bg-orange-500/[0.01] opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <h2 className="text-4xl font-cinzel text-white uppercase tracking-widest mb-8">Join the Registry</h2>
+            <p className="text-gray-400 font-light text-lg mb-12 max-w-2xl mx-auto leading-relaxed">
+              Become a verified contributor to the global SSK database. Contact your local organisation node to receive authorized access credentials.
+            </p>
+            <div className="inline-block px-12 py-6 bg-orange-600 hover:bg-orange-500 rounded-full shadow-[0_20px_50px_-10px_rgba(255,100,0,0.2)] transition-all duration-500 active:scale-95">
+              <a href="tel:+918884449689" className="text-2xl font-black text-white tracking-widest">
+                +91 888 444 9689
+              </a>
+            </div>
+            <p className="mt-10 text-[10px] text-gray-600 font-black uppercase tracking-[0.5em]">SSK Samaj Bangalore Global HQ</p>
           </div>
         </section>
       </main>
