@@ -28,7 +28,7 @@ import {
 const AdminReports: React.FC = () => {
     const [members, setMembers] = useState<Member[]>([]);
     const [organisations, setOrganisations] = useState<Organisation[]>([]);
-    const [volunteers, setVolunteers] = useState<VolunteerUser[]>([]);
+    const [allProfiles, setAllProfiles] = useState<VolunteerUser[]>([]);
     const [loading, setLoading] = useState(true);
     const { addNotification } = useNotification();
     
@@ -49,26 +49,27 @@ const AdminReports: React.FC = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [membersRes, orgsRes, volsRes] = await Promise.all([
+            // Fetch all profiles to ensure every enrollment agent's name can be looked up
+            const [membersRes, orgsRes, profilesRes] = await Promise.all([
                 supabase.from('members').select('*').order('submission_date', { ascending: false }),
                 supabase.from('organisations').select('*').order('name'),
-                supabase.from('profiles').select('*').eq('role', Role.Volunteer)
+                supabase.from('profiles').select('*')
             ]);
+            
             if (membersRes.data) setMembers(membersRes.data);
             if (orgsRes.data) setOrganisations(orgsRes.data);
             
-            if (volsRes.data) {
-                // Fix: Explicitly map organisation_id (DB) to organisationId (Type)
-                const mappedVolunteers: VolunteerUser[] = volsRes.data.map(v => ({
-                    id: v.id,
-                    name: v.name,
-                    email: v.email,
-                    role: v.role as Role,
-                    organisationId: v.organisation_id,
-                    mobile: v.mobile,
-                    status: v.status
+            if (profilesRes.data) {
+                const mappedProfiles: VolunteerUser[] = profilesRes.data.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    email: p.email,
+                    role: p.role as Role,
+                    organisationId: p.organisation_id,
+                    mobile: p.mobile,
+                    status: p.status
                 }));
-                setVolunteers(mappedVolunteers);
+                setAllProfiles(mappedProfiles);
             }
         } catch (err) {
             addNotification("Master registry uplink failed.", "error");
@@ -84,13 +85,9 @@ const AdminReports: React.FC = () => {
     // Filter Logic
     const filteredMembers = useMemo(() => {
         return members.filter(m => {
-            // Organization Filter
             const matchOrg = !selectedOrgId || m.organisation_id === selectedOrgId;
-            
-            // Volunteer Filter (Cascading)
             const matchVol = !selectedVolunteerId || m.volunteer_id === selectedVolunteerId;
             
-            // Date Range Filter
             const subDate = new Date(m.submission_date);
             const start = startDate ? new Date(startDate) : null;
             const end = endDate ? new Date(endDate) : null;
@@ -99,7 +96,6 @@ const AdminReports: React.FC = () => {
             const matchStart = !start || subDate >= start;
             const matchEnd = !end || subDate <= end;
             
-            // Search Query
             const matchSearch = !searchQuery || 
                 m.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                 m.surname.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -110,10 +106,16 @@ const AdminReports: React.FC = () => {
         });
     }, [members, selectedOrgId, selectedVolunteerId, startDate, endDate, searchQuery]);
 
-    const availableVolunteers = useMemo(() => {
-        if (!selectedOrgId) return volunteers;
-        return volunteers.filter(v => v.organisationId === selectedOrgId);
-    }, [selectedOrgId, volunteers]);
+    // Dropdown for agents should filter by organization if one is selected
+    const availableAgents = useMemo(() => {
+        let base = allProfiles;
+        // Optional: Filter dropdown to only show Volunteers if required, 
+        // but often Orgs want to see anyone who made an entry.
+        if (selectedOrgId) {
+            base = base.filter(p => p.organisationId === selectedOrgId);
+        }
+        return base;
+    }, [selectedOrgId, allProfiles]);
 
     // Handlers
     const handleEditMember = (member: Member) => {
@@ -169,11 +171,11 @@ const AdminReports: React.FC = () => {
     };
 
     const handleDownload = () => {
-        const headers = ['Aadhaar', 'Name', 'Surname', 'Mobile', 'Org', 'Volunteer', 'Date', 'Status'];
+        const headers = ['Aadhaar', 'Name', 'Surname', 'Mobile', 'Org', 'Agent', 'Date', 'Status'];
         const rows = filteredMembers.map(m => [
             m.aadhaar, m.name, m.surname, m.mobile,
             organisations.find(o => o.id === m.organisation_id)?.name || 'N/A',
-            volunteers.find(v => v.id === m.volunteer_id)?.name || 'N/A',
+            allProfiles.find(p => p.id === m.volunteer_id)?.name || 'N/A',
             m.submission_date, m.status
         ]);
         const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
@@ -207,15 +209,14 @@ const AdminReports: React.FC = () => {
                             </Select>
                         </div>
                         <div>
-                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">2. Field Agent</label>
+                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">2. Enrollment Agent</label>
                             <Select 
                                 value={selectedVolunteerId} 
                                 onChange={(e) => setSelectedVolunteerId(e.target.value)}
                                 className="bg-black/40 border-gray-800"
-                                disabled={!selectedOrgId && availableVolunteers.length === 0}
                             >
-                                <option value="">All Volunteers</option>
-                                {availableVolunteers.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                                <option value="">All Agents</option>
+                                {availableAgents.map(a => <option key={a.id} value={a.id}>{a.name} ({a.role})</option>)}
                             </Select>
                         </div>
                         <div>
@@ -266,7 +267,7 @@ const AdminReports: React.FC = () => {
                             <thead className="border-b border-gray-800">
                                 <tr>
                                     <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black">Member Identity</th>
-                                    <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black">Field Agent</th>
+                                    <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black">Enrollment Agent</th>
                                     <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black text-center">Status</th>
                                     <th className="p-6 text-right"></th>
                                 </tr>
@@ -294,7 +295,7 @@ const AdminReports: React.FC = () => {
                                                 <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-500/5 border border-blue-500/10 rounded-lg w-fit">
                                                     <UserIcon size={10} className="text-blue-500" />
                                                     <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">
-                                                        {volunteers.find(v => v.id === m.volunteer_id)?.name || 'System Agent'}
+                                                        {allProfiles.find(p => p.id === m.volunteer_id)?.name || 'Agent '+m.volunteer_id.slice(0,5)}
                                                     </span>
                                                 </div>
                                                 <span className="text-[9px] text-gray-700 font-black uppercase tracking-widest mt-1.5 flex items-center gap-1">
