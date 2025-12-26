@@ -19,6 +19,7 @@ const OrganisationDashboard: React.FC = () => {
         setLoading(true);
         
         try {
+            // DATA ISOLATION: Explicitly filter everything by organisationId
             const [orgRes, profilesRes, membersRes] = await Promise.all([
                 supabase.from('organisations').select('*').eq('id', user.organisationId).single(),
                 supabase.from('profiles').select('*').eq('organisation_id', user.organisationId),
@@ -165,7 +166,7 @@ const OrganisationDashboard: React.FC = () => {
                                 <UserCheck size={72} strokeWidth={1} />
                             </div>
                             <div>
-                                <p className="text-gray-500 text-[12px] font-black uppercase tracking-[0.5em] mb-5">Master Enrollment</p>
+                                <p className="text-gray-500 text-[12px] font-black uppercase tracking-[0.5em] mb-5">Sector Enrollment</p>
                                 <div className="flex items-baseline gap-6">
                                     <p className="text-8xl font-black text-white leading-none tracking-tighter">{myMembers.length}</p>
                                     <span className="text-[12px] font-black text-blue-500 uppercase tracking-widest leading-none ml-4">Verified</span>
@@ -175,7 +176,7 @@ const OrganisationDashboard: React.FC = () => {
                     </Card>
                 </div>
                 
-                {/* Sector Activity Stream - fulfilling the request for "Field Agent" on dashboard */}
+                {/* Sector Activity Stream - Isolated by Organisation */}
                 <Card className="border-white/5 bg-[#080808] p-10 shadow-4xl relative overflow-hidden">
                     <div className="flex items-center justify-between mb-10">
                         <div className="flex items-center gap-4">
@@ -197,7 +198,7 @@ const OrganisationDashboard: React.FC = () => {
                             <thead>
                                 <tr className="border-b border-gray-800">
                                     <th className="p-5 text-[10px] uppercase tracking-widest text-gray-500 font-black">Enrolled Identity</th>
-                                    <th className="p-5 text-[10px] uppercase tracking-widest text-gray-500 font-black text-center">Field Agent</th>
+                                    <th className="p-5 text-[10px] uppercase tracking-widest text-gray-500 font-black text-center">Field Agent (Volunteer)</th>
                                     <th className="p-5 text-[10px] uppercase tracking-widest text-gray-500 font-black text-right">Verification Date</th>
                                 </tr>
                             </thead>
@@ -214,7 +215,7 @@ const OrganisationDashboard: React.FC = () => {
                                             <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-500/5 border border-blue-500/10 rounded-xl">
                                                 <UserIcon size={12} className="text-blue-500" />
                                                 <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">
-                                                    {allOrgProfiles.find(p => p.id === m.volunteer_id)?.name || 'Agent '+m.volunteer_id.slice(0,5)}
+                                                    {allOrgProfiles.find(p => p.id === m.volunteer_id)?.name || 'System Agent'}
                                                 </span>
                                             </div>
                                         </td>
@@ -227,7 +228,7 @@ const OrganisationDashboard: React.FC = () => {
                                     </tr>
                                 ))}
                                 {recentActivity.length === 0 && (
-                                    <tr><td colSpan={3} className="p-20 text-center text-xs text-gray-700 uppercase tracking-widest font-black">No recent node activations.</td></tr>
+                                    <tr><td colSpan={3} className="p-20 text-center text-xs text-gray-700 uppercase tracking-widest font-black">No member activations in your sector.</td></tr>
                                 )}
                             </tbody>
                         </table>

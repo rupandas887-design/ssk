@@ -13,23 +13,21 @@ import {
   FileSpreadsheet, 
   Filter, 
   Search, 
-  Edit3, 
   CheckCircle2, 
-  Clock, 
   User as UserIcon, 
-  Image as ImageIcon, 
   ExternalLink,
-  Save,
   RefreshCw,
   XCircle,
-  Building2,
   FileText,
   Calendar,
   Fingerprint,
   MapPin,
   Briefcase,
   Activity,
-  Phone
+  Phone,
+  Eye,
+  Zap,
+  ShieldCheck
 } from 'lucide-react';
 
 const OrganisationReports: React.FC = () => {
@@ -41,7 +39,6 @@ const OrganisationReports: React.FC = () => {
     
     const [viewingMember, setViewingMember] = useState<Member | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-    const [isUpdating, setIsUpdating] = useState(false);
 
     // Filter State
     const [filters, setFilters] = useState({ 
@@ -56,6 +53,7 @@ const OrganisationReports: React.FC = () => {
         if (!user?.organisationId) return;
         setLoading(true);
         try {
+            // Strictly fetch members and profiles belonging to THIS organisation only
             const [membersRes, profilesRes] = await Promise.all([
                 supabase.from('members').select('*').eq('organisation_id', user.organisationId).order('submission_date', { ascending: false }),
                 supabase.from('profiles').select('*').eq('organisation_id', user.organisationId)
@@ -128,7 +126,7 @@ const OrganisationReports: React.FC = () => {
         try {
             const { error } = await supabase.from('members').update({ status: newStatus }).eq('id', member.id);
             if (error) throw error;
-            addNotification(`Member ${newStatus} successfully.`, "success");
+            addNotification(`Member status updated to ${newStatus}.`, "success");
             fetchData();
         } catch (err) {
             addNotification("Verification update failed.", "error");
@@ -166,20 +164,23 @@ const OrganisationReports: React.FC = () => {
                     
                     <div className="flex items-center gap-2 mb-8 text-blue-500 relative z-10">
                         <Activity size={18} />
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.4em]">Multi-Vector Query Intelligence</h3>
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.4em]">Sector Query Intelligence</h3>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 relative z-10">
                         <div>
-                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">1. Enrollment Agent</label>
+                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">1. Volunteer Agent</label>
                             <Select 
                                 name="agentId"
                                 value={filters.agentId} 
                                 onChange={handleFilterChange}
                                 className="bg-black/40 border-gray-800"
                             >
-                                <option value="">All Field Agents</option>
-                                {allOrgProfiles.map(p => <option key={p.id} value={p.id}>{p.name} ({p.role})</option>)}
+                                <option value="">All Field Volunteers</option>
+                                {allOrgProfiles
+                                    .filter(p => p.role === Role.Volunteer)
+                                    .map(p => <option key={p.id} value={p.id}>{p.name}</option>)
+                                }
                             </Select>
                         </div>
                         <div>
@@ -246,7 +247,7 @@ const OrganisationReports: React.FC = () => {
                             <thead className="border-b border-gray-800">
                                 <tr>
                                     <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black">Identity Node</th>
-                                    <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black">Field Agent</th>
+                                    <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black">Field Agent (Volunteer)</th>
                                     <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black text-center">Status</th>
                                     <th className="p-6 text-right"></th>
                                 </tr>
@@ -273,7 +274,7 @@ const OrganisationReports: React.FC = () => {
                                             <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/5 border border-blue-500/10 rounded-xl w-fit">
                                                 <UserIcon size={12} className="text-blue-500" />
                                                 <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">
-                                                    {allOrgProfiles.find(p => p.id === member.volunteer_id)?.name || 'Agent '+member.volunteer_id.slice(0,5)}
+                                                    {allOrgProfiles.find(p => p.id === member.volunteer_id)?.name || 'System Agent'}
                                                 </span>
                                             </div>
                                         </td>
@@ -303,7 +304,7 @@ const OrganisationReports: React.FC = () => {
                                     </tr>
                                 ))}
                                 {filteredMembers.length === 0 && !loading && (
-                                    <tr><td colSpan={4} className="p-40 text-center text-[11px] text-gray-700 uppercase tracking-[0.5em] font-black">Null intersection in sector dataset.</td></tr>
+                                    <tr><td colSpan={4} className="p-40 text-center text-[11px] text-gray-700 uppercase tracking-[0.5em] font-black">No member records found for this sector.</td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -358,11 +359,11 @@ const OrganisationReports: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Comprehensive Data Points Grid */}
+                        {/* Comprehensive Data Points Grid - All Member Fields */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             <DataPoint label="Father / Guardian" value={viewingMember.father_name} icon={<UserIcon size={14} />} />
                             <DataPoint label="Primary Mobile" value={viewingMember.mobile} icon={<Phone size={14} />} />
-                            <DataPoint label="Emergency Link" value={viewingMember.emergency_contact} icon={<ShieldCheck size={14} />} />
+                            <DataPoint label="Emergency Link" value={viewingMember.emergency_contact} icon={<ShieldCheckIcon size={14} />} />
                             <DataPoint label="Date of Birth" value={viewingMember.dob} icon={<Calendar size={14} />} />
                             <DataPoint label="Identity Gender" value={viewingMember.gender} icon={<Activity size={14} />} />
                             <DataPoint label="Postal Pincode" value={viewingMember.pincode} icon={<MapPin size={14} />} />
@@ -370,7 +371,7 @@ const OrganisationReports: React.FC = () => {
                                 <DataPoint label="Residential Registry Address" value={viewingMember.address} icon={<MapPin size={14} />} />
                             </div>
                             <DataPoint label="Professional Status" value={viewingMember.occupation} icon={<Briefcase size={14} />} />
-                            <DataPoint label="Support Requirement" value={viewingMember.support_need} icon={<Zap size={14} />} />
+                            <DataPoint label="Support Requirement" value={viewingMember.support_need} icon={<ZapIcon size={14} />} />
                             <DataPoint 
                                 label="Source Field Agent" 
                                 value={allOrgProfiles.find(p => p.id === viewingMember.volunteer_id)?.name || 'N/A'} 
@@ -405,8 +406,7 @@ const DataPoint: React.FC<{ label: string, value: string, icon: React.ReactNode 
     </div>
 );
 
-const ShieldCheck = ({ size }: { size: number }) => <CheckCircle2 size={size} />;
-const Zap = ({ size }: { size: number }) => <Activity size={size} />;
-const Eye = ({ size }: { size: number }) => <ExternalLink size={size} />;
+const ShieldCheckIcon = ({ size }: { size: number }) => <ShieldCheck size={size} />;
+const ZapIcon = ({ size }: { size: number }) => <Zap size={size} />;
 
 export default OrganisationReports;
