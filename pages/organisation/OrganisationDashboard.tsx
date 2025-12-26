@@ -2,13 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
 import { useAuth } from '../../context/AuthContext';
-import { Users, UserCheck, Building2, User as UserIcon, Phone, ShieldCheck, Mail, Info, Activity, Globe, Zap, Clock, RefreshCw } from 'lucide-react';
+import { Users, UserCheck, Building2, User as UserIcon, Phone, ShieldCheck, Mail, Info, Activity, Globe, Zap, Clock, RefreshCw, UserCircle } from 'lucide-react';
 import { supabase } from '../../supabase/client';
 import { Member, Role, User as VolunteerUser, Organisation } from '../../types';
 
 // Extended type for joined volunteer data
 type MemberWithAgent = Member & {
-    agent_profile?: { name: string }
+    agent_profile?: { name: string, mobile: string }
 };
 
 const OrganisationDashboard: React.FC = () => {
@@ -29,7 +29,7 @@ const OrganisationDashboard: React.FC = () => {
                 supabase.from('profiles').select('*').eq('organisation_id', user.organisationId),
                 supabase
                     .from('members')
-                    .select('*, agent_profile:profiles!volunteer_id(name)')
+                    .select('*, agent_profile:profiles!volunteer_id(name, mobile)')
                     .eq('organisation_id', user.organisationId)
                     .order('submission_date', { ascending: false })
             ]);
@@ -62,7 +62,7 @@ const OrganisationDashboard: React.FC = () => {
         fetchData();
     }, [user]);
 
-    const recentActivity = useMemo(() => myMembers.slice(0, 8), [myMembers]);
+    const recentActivity = useMemo(() => myMembers.slice(0, 10), [myMembers]);
 
     return (
         <DashboardLayout title="Entity Command Center">
@@ -205,7 +205,7 @@ const OrganisationDashboard: React.FC = () => {
                             <thead>
                                 <tr className="border-b border-gray-800">
                                     <th className="p-5 text-[10px] uppercase tracking-widest text-gray-500 font-black">Enrolled Identity</th>
-                                    <th className="p-5 text-[10px] uppercase tracking-widest text-gray-500 font-black text-center">VOLUNTEER</th>
+                                    <th className="p-5 text-[10px] uppercase tracking-widest text-blue-500 font-black">Enrollment Source (Volunteer)</th>
                                     <th className="p-5 text-[10px] uppercase tracking-widest text-gray-500 font-black text-right">Verification Date</th>
                                 </tr>
                             </thead>
@@ -218,12 +218,19 @@ const OrganisationDashboard: React.FC = () => {
                                                 <span className="text-[11px] text-gray-600 font-mono tracking-tighter">{m.mobile}</span>
                                             </div>
                                         </td>
-                                        <td className="p-5 text-center">
-                                            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-500/5 border border-blue-500/10 rounded-xl">
-                                                <UserIcon size={12} className="text-blue-500" />
-                                                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">
-                                                    {m.agent_profile?.name || allOrgProfiles.find(p => p.id === m.volunteer_id)?.name || 'System Agent'}
-                                                </span>
+                                        <td className="p-5">
+                                            <div className="flex items-center gap-4">
+                                                <div className="h-9 w-9 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-500 shrink-0">
+                                                    <UserCircle size={18} />
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-[11px] font-black text-white uppercase tracking-widest">
+                                                        {m.agent_profile?.name || allOrgProfiles.find(p => p.id === m.volunteer_id)?.name || 'System Operator'}
+                                                    </span>
+                                                    <span className="text-[9px] text-blue-500/60 font-mono font-bold tracking-widest flex items-center gap-1">
+                                                        <Phone size={8} /> {m.agent_profile?.mobile || 'PH: N/A'}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="p-5 text-right">

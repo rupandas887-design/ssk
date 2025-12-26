@@ -3,7 +3,7 @@ import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
-import { Shield, Users, UserCheck, Key, RefreshCw, AlertCircle, Activity, User as UserIcon, Building2, Clock } from 'lucide-react';
+import { Shield, Users, UserCheck, Key, RefreshCw, AlertCircle, Activity, User as UserIcon, Building2, Clock, UserCircle, Phone } from 'lucide-react';
 import { Organisation, Volunteer, Member, Role, User as ProfileUser } from '../../types';
 import { supabase } from '../../supabase/client';
 import { useAuth } from '../../context/AuthContext';
@@ -15,7 +15,7 @@ interface OrgPerformance extends Organisation {
 
 // Extended member type for join data
 type MemberWithAgent = Member & {
-    agent_profile?: { name: string }
+    agent_profile?: { name: string, mobile: string }
 };
 
 const AdminDashboard: React.FC = () => {
@@ -40,7 +40,7 @@ const AdminDashboard: React.FC = () => {
                 supabase.from('organisations').select('*'),
                 supabase
                     .from('members')
-                    .select('*, agent_profile:profiles!volunteer_id(name)')
+                    .select('*, agent_profile:profiles!volunteer_id(name, mobile)')
                     .order('submission_date', { ascending: false }),
                 supabase.from('profiles').select('*')
             ]);
@@ -109,7 +109,7 @@ const AdminDashboard: React.FC = () => {
         return volunteerPerformanceData.filter(vol => matchingOrgIds.includes(vol.organisationId) || vol.name.toLowerCase().includes(searchTerm.toLowerCase()));
     }, [searchTerm, volunteerPerformanceData, organisations]);
 
-    const recentMembers = useMemo(() => members.slice(0, 8), [members]);
+    const recentMembers = useMemo(() => members.slice(0, 10), [members]);
 
     const handlePasswordUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -169,10 +169,10 @@ const AdminDashboard: React.FC = () => {
                                 <div className="p-2 bg-orange-500/10 rounded-lg text-orange-500">
                                     <Activity size={20} />
                                 </div>
-                                <h4 className="font-cinzel text-xl text-white">Global Live Feed</h4>
+                                <h4 className="font-cinzel text-xl text-white uppercase tracking-widest">Global Live Identity Feed</h4>
                             </div>
                             <button onClick={fetchData} className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors flex items-center gap-2">
-                                <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Refresh Stream
+                                <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Synchronize
                             </button>
                         </div>
                         
@@ -180,42 +180,44 @@ const AdminDashboard: React.FC = () => {
                             <table className="w-full text-left">
                                 <thead>
                                     <tr className="border-b border-gray-800">
-                                        <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black">Member Node</th>
-                                        <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black">VOLUNTEER</th>
-                                        <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black">Sector</th>
+                                        <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black">Member Identity</th>
+                                        <th className="p-4 text-[10px] uppercase tracking-widest text-blue-500 font-black">Enrollment Source (Volunteer)</th>
                                         <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black text-right">Time</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-900/50">
                                     {loading ? (
-                                        <tr><td colSpan={4} className="p-12 text-center text-xs text-gray-600 animate-pulse">Syncing feed...</td></tr>
+                                        <tr><td colSpan={3} className="p-12 text-center text-xs text-gray-600 animate-pulse">Syncing feed...</td></tr>
                                     ) : recentMembers.map(m => (
-                                        <tr key={m.id} className="hover:bg-white/[0.01] transition-colors group">
+                                        <tr key={m.id} className="hover:bg-white/[0.02] transition-colors group">
                                             <td className="p-4">
                                                 <div className="flex flex-col">
                                                     <span className="font-bold text-white group-hover:text-orange-500 transition-colors">{m.name} {m.surname}</span>
-                                                    <span className="text-[10px] text-gray-600 font-mono">{m.mobile}</span>
+                                                    <div className="flex items-center gap-2 text-[10px] text-gray-600 font-mono">
+                                                        <span>{m.mobile}</span>
+                                                        <span className="h-0.5 w-0.5 rounded-full bg-gray-700"></span>
+                                                        <span>{organisations.find(o => o.id === m.organisation_id)?.name || 'N/A'}</span>
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="p-4">
-                                                <div className="flex items-center gap-2">
-                                                    <UserIcon size={12} className="text-blue-500" />
-                                                    <span className="text-[11px] font-black uppercase tracking-wider text-gray-400">
-                                                        {m.agent_profile?.name || allProfiles.find(p => p.id === m.volunteer_id)?.name || 'System Agent'}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="p-4">
-                                                <div className="flex items-center gap-2">
-                                                    <Building2 size={12} className="text-gray-600" />
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-600">
-                                                        {organisations.find(o => o.id === m.organisation_id)?.name || 'N/A'}
-                                                    </span>
+                                                <div className="flex items-center gap-4">
+                                                    <div className="h-9 w-9 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-500 shrink-0">
+                                                        <UserCircle size={18} />
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[11px] font-black text-white uppercase tracking-widest">
+                                                            {m.agent_profile?.name || allProfiles.find(p => p.id === m.volunteer_id)?.name || 'System Operator'}
+                                                        </span>
+                                                        <span className="text-[9px] text-blue-500/60 font-mono font-bold tracking-widest flex items-center gap-1">
+                                                            <Phone size={8} /> {m.agent_profile?.mobile || 'PH: N/A'}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="p-4 text-right">
                                                 <div className="flex flex-col items-end">
-                                                    <div className="flex items-center gap-1 text-[10px] text-gray-500">
+                                                    <div className="flex items-center gap-1 text-[10px] text-gray-500 font-mono">
                                                         <Clock size={10} />
                                                         <span>{m.submission_date.split('T')[0]}</span>
                                                     </div>
@@ -231,7 +233,7 @@ const AdminDashboard: React.FC = () => {
                     <Card title="Performance Intelligence">
                         <div className="mb-6">
                             <Input
-                                placeholder="Search by name or mobile..."
+                                placeholder="Universal Search (Name, Sector, Mobile)..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="bg-black/50 border-gray-800"
