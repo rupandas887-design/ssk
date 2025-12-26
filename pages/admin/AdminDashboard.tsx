@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
@@ -13,7 +14,6 @@ interface OrgPerformance extends Organisation {
     enrollments: number;
 }
 
-// Extended member type for join data
 type MemberWithAgent = Member & {
     agent_profile?: { name: string, mobile: string }
 };
@@ -23,12 +23,11 @@ const AdminDashboard: React.FC = () => {
     const { addNotification } = useNotification();
     const [searchTerm, setSearchTerm] = useState('');
     const [organisations, setOrganisations] = useState<Organisation[]>([]);
-    const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
     const [members, setMembers] = useState<MemberWithAgent[]>([]);
+    const [volsRaw, setVolsRaw] = useState<any[]>([]);
     const [allProfiles, setAllProfiles] = useState<ProfileUser[]>([]);
     const [loading, setLoading] = useState(true);
 
-    // Password Update State
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
@@ -47,8 +46,8 @@ const AdminDashboard: React.FC = () => {
 
             if (orgsRes.data) setOrganisations(orgsRes.data);
             if (membersRes.data) setMembers(membersRes.data);
-            
             if (profilesRes.data) {
+                setVolsRaw(profilesRes.data);
                 const mappedProfiles: ProfileUser[] = profilesRes.data.map(p => ({
                     id: p.id,
                     name: p.name,
@@ -59,17 +58,6 @@ const AdminDashboard: React.FC = () => {
                     status: p.status
                 }));
                 setAllProfiles(mappedProfiles);
-                
-                if (membersRes.data) {
-                    const volunteersWithEnrollments: Volunteer[] = mappedProfiles
-                        .filter(p => p.role === Role.Volunteer)
-                        .map(v => ({
-                            ...v,
-                            organisationId: v.organisationId || '',
-                            enrollments: membersRes.data!.filter(m => m.volunteer_id === v.id).length,
-                        }));
-                    setVolunteers(volunteersWithEnrollments);
-                }
             }
         } catch (err) {
             addNotification("Sync fault in master dashboard.", "error");
@@ -82,32 +70,43 @@ const AdminDashboard: React.FC = () => {
         fetchData();
     }, []);
 
-    const orgPerformanceData = useMemo<OrgPerformance[]>(() => {
-        const orgEnrollments = members.reduce((acc, member) => {
-            acc[member.organisation_id] = (acc[member.organisation_id] || 0) + 1;
+    // Performance Optimized Calculations
+    const enrollmentMap = useMemo(() => {
+        return members.reduce((acc, m) => {
+            acc.vol[m.volunteer_id] = (acc.vol[m.volunteer_id] || 0) + 1;
+            acc.org[m.organisation_id] = (acc.org[m.organisation_id] || 0) + 1;
             return acc;
-        }, {} as Record<string, number>);
+        }, { vol: {} as Record<string, number>, org: {} as Record<string, number> });
+    }, [members]);
 
+    const orgPerformanceData = useMemo<OrgPerformance[]>(() => {
         return organisations.map(org => ({
             ...org,
-            enrollments: orgEnrollments[org.id] || 0,
+            enrollments: enrollmentMap.org[org.id] || 0,
         })).sort((a, b) => b.enrollments - a.enrollments);
-    }, [members, organisations]);
+    }, [organisations, enrollmentMap]);
 
-    const volunteerPerformanceData = useMemo<Volunteer[]>(() => {
-        return [...volunteers].sort((a, b) => b.enrollments - a.enrollments);
-    }, [volunteers]);
+    const volunteers = useMemo<Volunteer[]>(() => {
+        return allProfiles
+            .filter(p => p.role === Role.Volunteer)
+            .map(v => ({
+                ...v,
+                organisationId: v.organisationId || '',
+                enrollments: enrollmentMap.vol[v.id] || 0,
+            })).sort((a, b) => b.enrollments - a.enrollments);
+    }, [allProfiles, enrollmentMap]);
 
     const filteredOrgs = useMemo(() => {
         if (!searchTerm) return orgPerformanceData;
-        return orgPerformanceData.filter(org => org.mobile.includes(searchTerm) || org.name.toLowerCase().includes(searchTerm.toLowerCase()));
+        const term = searchTerm.toLowerCase();
+        return orgPerformanceData.filter(org => org.mobile.includes(term) || org.name.toLowerCase().includes(term));
     }, [searchTerm, orgPerformanceData]);
 
     const filteredVolunteers = useMemo(() => {
-        if (!searchTerm) return volunteerPerformanceData;
-        const matchingOrgIds = organisations.filter(org => org.mobile.includes(searchTerm)).map(org => org.id);
-        return volunteerPerformanceData.filter(vol => matchingOrgIds.includes(vol.organisationId) || vol.name.toLowerCase().includes(searchTerm.toLowerCase()));
-    }, [searchTerm, volunteerPerformanceData, organisations]);
+        if (!searchTerm) return volunteers;
+        const term = searchTerm.toLowerCase();
+        return volunteers.filter(vol => vol.name.toLowerCase().includes(term) || vol.mobile.includes(term));
+    }, [searchTerm, volunteers]);
 
     const recentMembers = useMemo(() => members.slice(0, 10), [members]);
 
@@ -137,90 +136,103 @@ const AdminDashboard: React.FC = () => {
 
     return (
         <DashboardLayout title="Master Admin Dashboard">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <Card className="flex items-center space-x-4 border-l-4 border-orange-500 bg-gray-900/40">
-                    <Shield className="text-orange-500" size={40} />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <Card className="p-8 border-l-4 border-orange-600 bg-[#080808] hover:bg-[#0a0a0a] transition-all group">
+                    <div className="flex justify-between items-center mb-4">
+                      <Shield className="text-orange-600 group-hover:scale-110 transition-transform" size={32} strokeWidth={1.5} />
+                      <span className="text-[9px] font-black text-orange-600/50 uppercase tracking-[0.2em]">Registered Sectors</span>
+                    </div>
                     <div>
-                        <p className="text-gray-400 text-xs uppercase tracking-widest font-bold">Organisations</p>
-                        <p className="text-2xl font-bold">{organisations.length}</p>
+                        <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Total Organisations</p>
+                        <p className="text-4xl font-black text-white">{organisations.length}</p>
                     </div>
                 </Card>
-                <Card className="flex items-center space-x-4 border-l-4 border-blue-500 bg-gray-900/40">
-                    <Users className="text-blue-500" size={40} />
+                <Card className="p-8 border-l-4 border-blue-600 bg-[#080808] hover:bg-[#0a0a0a] transition-all group">
+                    <div className="flex justify-between items-center mb-4">
+                      <Users className="text-blue-600 group-hover:scale-110 transition-transform" size={32} strokeWidth={1.5} />
+                      <span className="text-[9px] font-black text-blue-600/50 uppercase tracking-[0.2em]">Field Personnel</span>
+                    </div>
                     <div>
-                        <p className="text-gray-400 text-xs uppercase tracking-widest font-bold">Volunteers</p>
-                        <p className="text-2xl font-bold">{volunteers.length}</p>
+                        <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Active Volunteers</p>
+                        <p className="text-4xl font-black text-white">{volunteers.length}</p>
                     </div>
                 </Card>
-                <Card className="flex items-center space-x-4 border-l-4 border-green-500 bg-gray-900/40">
-                    <UserCheck className="text-green-500" size={40} />
+                <Card className="p-8 border-l-4 border-green-600 bg-[#080808] hover:bg-[#0a0a0a] transition-all group">
+                    <div className="flex justify-between items-center mb-4">
+                      <UserCheck className="text-green-600 group-hover:scale-110 transition-transform" size={32} strokeWidth={1.5} />
+                      <span className="text-[9px] font-black text-green-600/50 uppercase tracking-[0.2em]">Identity Database</span>
+                    </div>
                     <div>
-                        <p className="text-gray-400 text-xs uppercase tracking-widest font-bold">Memberships</p>
-                        <p className="text-2xl font-bold">{members.length}</p>
+                        <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Total Enrollments</p>
+                        <p className="text-4xl font-black text-white">{members.length}</p>
                     </div>
                 </Card>
             </div>
 
-            <div className="mt-8 grid grid-cols-1 xl:grid-cols-3 gap-8">
-                <div className="xl:col-span-2 space-y-8">
-                    <Card className="border-orange-500/10">
-                        <div className="flex items-center justify-between mb-8">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-orange-500/10 rounded-lg text-orange-500">
-                                    <Activity size={20} />
+            <div className="mt-12 grid grid-cols-1 xl:grid-cols-3 gap-10">
+                <div className="xl:col-span-2 space-y-10">
+                    <Card className="border-white/5 bg-[#050505] p-10 overflow-hidden relative">
+                        <div className="absolute top-0 right-0 p-10 opacity-[0.03] pointer-events-none">
+                            <Activity size={200} />
+                        </div>
+                        <div className="flex items-center justify-between mb-10 relative z-10">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-orange-600/10 rounded-2xl text-orange-600">
+                                    <Activity size={24} />
                                 </div>
-                                <h4 className="font-cinzel text-xl text-white uppercase tracking-widest">Global Live Identity Feed</h4>
+                                <div>
+                                  <h4 className="font-cinzel text-2xl text-white uppercase tracking-widest">Live Identity Stream</h4>
+                                  <p className="text-[9px] text-orange-600/60 font-black uppercase tracking-[0.3em] mt-1">Real-time Global Sync</p>
+                                </div>
                             </div>
-                            <button onClick={fetchData} className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors flex items-center gap-2">
-                                <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Synchronize
+                            <button onClick={fetchData} className="p-3 bg-white/5 rounded-xl border border-white/10 hover:border-orange-600/40 text-gray-500 hover:text-white transition-all">
+                                <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
                             </button>
                         </div>
                         
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto relative z-10">
                             <table className="w-full text-left">
-                                <thead>
-                                    <tr className="border-b border-gray-800">
-                                        <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black">Member Identity</th>
-                                        <th className="p-4 text-[10px] uppercase tracking-widest text-blue-500 font-black">Enrollment Source (Volunteer)</th>
-                                        <th className="p-4 text-[10px] uppercase tracking-widest text-gray-500 font-black text-right">Time</th>
+                                <thead className="border-b border-white/5">
+                                    <tr>
+                                        <th className="p-5 text-[10px] uppercase tracking-widest text-gray-500 font-black">Member Identity</th>
+                                        <th className="p-5 text-[10px] uppercase tracking-widest text-blue-500 font-black">Source Authentication</th>
+                                        <th className="p-5 text-[10px] uppercase tracking-widest text-gray-500 font-black text-right">Registry Time</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-900/50">
+                                <tbody className="divide-y divide-white/[0.03]">
                                     {loading ? (
-                                        <tr><td colSpan={3} className="p-12 text-center text-xs text-gray-600 animate-pulse">Syncing feed...</td></tr>
+                                        <tr><td colSpan={3} className="p-24 text-center text-xs text-gray-600 animate-pulse tracking-[0.3em] font-black uppercase">Establishing Uplink...</td></tr>
                                     ) : recentMembers.map(m => (
                                         <tr key={m.id} className="hover:bg-white/[0.02] transition-colors group">
-                                            <td className="p-4">
+                                            <td className="p-5">
                                                 <div className="flex flex-col">
-                                                    <span className="font-bold text-white group-hover:text-orange-500 transition-colors">{m.name} {m.surname}</span>
-                                                    <div className="flex items-center gap-2 text-[10px] text-gray-600 font-mono">
+                                                    <span className="font-bold text-white text-lg group-hover:text-orange-500 transition-colors">{m.name} {m.surname}</span>
+                                                    <div className="flex items-center gap-2 text-[10px] text-gray-600 font-mono tracking-tighter">
                                                         <span>{m.mobile}</span>
-                                                        <span className="h-0.5 w-0.5 rounded-full bg-gray-700"></span>
+                                                        <span className="h-0.5 w-0.5 rounded-full bg-gray-800"></span>
                                                         <span>{organisations.find(o => o.id === m.organisation_id)?.name || 'N/A'}</span>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="p-4">
+                                            <td className="p-5">
                                                 <div className="flex items-center gap-4">
-                                                    <div className="h-9 w-9 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-500 shrink-0">
-                                                        <UserCircle size={18} />
+                                                    <div className="h-10 w-10 rounded-xl bg-blue-600/10 border border-blue-600/20 flex items-center justify-center text-blue-600 shrink-0 shadow-lg group-hover:scale-105 transition-transform">
+                                                        <UserCircle size={22} />
                                                     </div>
                                                     <div className="flex flex-col">
                                                         <span className="text-[11px] font-black text-white uppercase tracking-widest">
                                                             {m.agent_profile?.name || allProfiles.find(p => p.id === m.volunteer_id)?.name || 'System Operator'}
                                                         </span>
-                                                        <span className="text-[9px] text-blue-500/60 font-mono font-bold tracking-widest flex items-center gap-1">
-                                                            <Phone size={8} /> {m.agent_profile?.mobile || 'PH: N/A'}
+                                                        <span className="text-[9px] text-blue-500/60 font-mono font-bold tracking-widest flex items-center gap-1.5 mt-0.5">
+                                                            <Phone size={10} /> {m.agent_profile?.mobile || 'PH: N/A'}
                                                         </span>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="p-4 text-right">
-                                                <div className="flex flex-col items-end">
-                                                    <div className="flex items-center gap-1 text-[10px] text-gray-500 font-mono">
-                                                        <Clock size={10} />
-                                                        <span>{m.submission_date.split('T')[0]}</span>
-                                                    </div>
+                                            <td className="p-5 text-right">
+                                                <div className="flex items-center justify-end gap-2 text-[10px] text-gray-500 font-mono font-bold">
+                                                    <Clock size={12} className="text-gray-700" />
+                                                    {m.submission_date.split('T')[0]}
                                                 </div>
                                             </td>
                                         </tr>
@@ -230,34 +242,34 @@ const AdminDashboard: React.FC = () => {
                         </div>
                     </Card>
 
-                    <Card title="Performance Intelligence">
-                        <div className="mb-6">
+                    <Card title="Performance Intelligence" className="bg-[#050505] border-white/5">
+                        <div className="mb-10">
                             <Input
                                 placeholder="Universal Search (Name, Sector, Mobile)..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="bg-black/50 border-gray-800"
+                                className="bg-black/50 border-white/5 focus:border-orange-500/50"
                             />
                         </div>
-                        {loading ? <div className="flex justify-center p-12"><RefreshCw className="animate-spin text-orange-500" size={32} /></div> : (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {loading ? <div className="flex justify-center p-20"><RefreshCw className="animate-spin text-orange-500" size={32} /></div> : (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                             <div>
-                                <h4 className="font-cinzel text-lg text-orange-400 mb-3 flex items-center gap-2 border-b border-orange-500/10 pb-2">
-                                    <Shield size={18} /> Organisation Ranking
+                                <h4 className="font-cinzel text-xl text-orange-500 mb-6 flex items-center gap-3 border-b border-white/5 pb-4 uppercase tracking-widest">
+                                    <Shield size={20} /> Organisation Ranking
                                 </h4>
-                                <div className="overflow-x-auto max-h-96 custom-scrollbar">
+                                <div className="overflow-x-auto max-h-96 custom-scrollbar pr-2">
                                     <table className="w-full text-left">
-                                        <thead className="border-b border-gray-700 sticky top-0 bg-gray-900">
+                                        <thead className="border-b border-white/5 sticky top-0 bg-[#050505] z-10">
                                             <tr>
-                                                <th className="p-2 text-[10px] uppercase tracking-wider text-gray-500">Entity</th>
-                                                <th className="p-2 text-[10px] uppercase tracking-wider text-gray-500 text-right">Count</th>
+                                                <th className="p-3 text-[9px] uppercase tracking-widest text-gray-600 font-black">Entity</th>
+                                                <th className="p-3 text-[9px] uppercase tracking-widest text-gray-600 font-black text-right">Enrollments</th>
                                             </tr>
                                         </thead>
-                                        <tbody>
+                                        <tbody className="divide-y divide-white/[0.02]">
                                             {filteredOrgs.map(org => (
-                                                <tr key={org.id} className="border-b border-gray-800 hover:bg-gray-800 transition-colors">
-                                                    <td className="p-2 text-sm font-medium">{org.name}</td>
-                                                    <td className="p-2 font-black text-orange-400 text-right">{org.enrollments}</td>
+                                                <tr key={org.id} className="hover:bg-white/[0.01] transition-colors">
+                                                    <td className="p-3 text-sm font-bold text-gray-200">{org.name}</td>
+                                                    <td className="p-3 font-black text-orange-500 text-right font-mono">{org.enrollments}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -266,22 +278,22 @@ const AdminDashboard: React.FC = () => {
                             </div>
 
                             <div>
-                                <h4 className="font-cinzel text-lg text-blue-400 mb-3 flex items-center gap-2 border-b border-blue-500/10 pb-2">
-                                    <Users size={18} /> Field Force Performance
+                                <h4 className="font-cinzel text-xl text-blue-500 mb-6 flex items-center gap-3 border-b border-white/5 pb-4 uppercase tracking-widest">
+                                    <Users size={20} /> Field Force Performance
                                 </h4>
-                                <div className="overflow-x-auto max-h-96 custom-scrollbar">
+                                <div className="overflow-x-auto max-h-96 custom-scrollbar pr-2">
                                     <table className="w-full text-left">
-                                        <thead className="border-b border-gray-700 sticky top-0 bg-gray-900">
+                                        <thead className="border-b border-white/5 sticky top-0 bg-[#050505] z-10">
                                             <tr>
-                                                <th className="p-2 text-[10px] uppercase tracking-wider text-gray-500">Agent</th>
-                                                <th className="p-2 text-[10px] uppercase tracking-wider text-gray-500 text-right">Count</th>
+                                                <th className="p-3 text-[9px] uppercase tracking-widest text-gray-600 font-black">Agent Node</th>
+                                                <th className="p-3 text-[9px] uppercase tracking-widest text-gray-600 font-black text-right">Enrollments</th>
                                             </tr>
                                         </thead>
-                                        <tbody>
+                                        <tbody className="divide-y divide-white/[0.02]">
                                             {filteredVolunteers.map(vol => (
-                                                <tr key={vol.id} className="border-b border-gray-800 hover:bg-gray-800 transition-colors">
-                                                    <td className="p-2 text-sm font-medium">{vol.name}</td>
-                                                    <td className="p-2 font-black text-blue-400 text-right">{vol.enrollments}</td>
+                                                <tr key={vol.id} className="hover:bg-white/[0.01] transition-colors">
+                                                    <td className="p-3 text-sm font-bold text-gray-200">{vol.name}</td>
+                                                    <td className="p-3 font-black text-blue-500 text-right font-mono">{vol.enrollments}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -293,23 +305,23 @@ const AdminDashboard: React.FC = () => {
                     </Card>
                 </div>
 
-                <div className="xl:col-span-1">
-                    <Card title="Security Configuration">
-                        <div className="flex items-center gap-3 mb-6 p-4 bg-orange-500/5 rounded border border-orange-500/10">
-                            <AlertCircle className="text-orange-500 flex-shrink-0" size={20} />
-                            <p className="text-[10px] text-orange-200/70 leading-relaxed uppercase tracking-widest font-bold">
-                                Updating your security key will immediate affect your next terminal login session.
+                <div className="xl:col-span-1 space-y-10">
+                    <Card title="Security Override Terminal" className="bg-[#050505] border-white/5">
+                        <div className="flex items-start gap-4 mb-8 p-6 bg-orange-600/5 rounded-2xl border border-orange-600/10">
+                            <AlertCircle className="text-orange-600 flex-shrink-0 mt-0.5" size={24} />
+                            <p className="text-[10px] text-orange-200/50 leading-relaxed uppercase tracking-widest font-black">
+                                Master security key rotation protocol. This affects your root administrative terminal access immediately.
                             </p>
                         </div>
                         
-                        <form onSubmit={handlePasswordUpdate} className="space-y-4">
+                        <form onSubmit={handlePasswordUpdate} className="space-y-6">
                             <Input 
                                 label="NEW SECURITY KEY"
                                 type="password"
                                 value={newPassword}
                                 onChange={(e) => setNewPassword(e.target.value)}
                                 placeholder="••••••••"
-                                className="bg-black/40 border-gray-800 text-sm font-mono"
+                                className="bg-black/40 border-white/5 text-sm font-mono tracking-widest"
                                 required
                             />
                             <Input 
@@ -318,35 +330,41 @@ const AdminDashboard: React.FC = () => {
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
                                 placeholder="••••••••"
-                                className="bg-black/40 border-gray-800 text-sm font-mono"
+                                className="bg-black/40 border-white/5 text-sm font-mono tracking-widest"
                                 required
                             />
                             
                             <Button 
                                 type="submit" 
                                 disabled={isUpdatingPassword || !newPassword}
-                                className="w-full py-4 text-[10px] tracking-[0.2em] font-black uppercase flex items-center justify-center gap-2"
+                                className="w-full py-5 text-[10px] tracking-[0.4em] font-black uppercase flex items-center justify-center gap-3 shadow-2xl bg-orange-600 hover:bg-orange-500"
                             >
                                 {isUpdatingPassword ? (
-                                    <RefreshCw className="animate-spin" size={14} />
+                                    <RefreshCw className="animate-spin" size={16} />
                                 ) : (
-                                    <Key size={14} />
+                                    <Key size={16} />
                                 )}
-                                {isUpdatingPassword ? 'SYNCHRONIZING...' : 'UPDATE SECURITY KEY'}
+                                {isUpdatingPassword ? 'ROTATING...' : 'APPLY SECURITY OVERRIDE'}
                             </Button>
                         </form>
                     </Card>
 
-                    <Card className="mt-8 border-gray-800 bg-black/40">
-                        <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500 mb-4">System Identity</h4>
-                        <div className="space-y-3">
+                    <Card className="border-white/5 bg-black/40 p-8 rounded-[2rem]">
+                        <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-600 mb-8">System Handshake Identity</h4>
+                        <div className="space-y-6">
                             <div className="flex justify-between items-center text-xs">
-                                <span className="text-gray-600">Active Profile:</span>
-                                <span className="text-white font-bold underline decoration-orange-500/50 underline-offset-4">Master Admin</span>
+                                <span className="text-gray-600 uppercase tracking-widest font-bold">Active Principal:</span>
+                                <span className="text-white font-black underline decoration-orange-600/40 underline-offset-8">MASTER ADMIN</span>
                             </div>
                             <div className="flex justify-between items-center text-xs">
-                                <span className="text-gray-600">Access Tier:</span>
-                                <span className="px-2 py-0.5 bg-orange-500/10 text-orange-500 rounded border border-orange-500/20 font-black">UNRESTRICTED</span>
+                                <span className="text-gray-600 uppercase tracking-widest font-bold">Access Node:</span>
+                                <span className="px-4 py-1.5 bg-orange-600/10 text-orange-500 rounded-full border border-orange-600/20 font-black uppercase tracking-widest">Global Root</span>
+                            </div>
+                            <div className="pt-6 border-t border-white/5">
+                                <p className="text-[9px] text-gray-700 font-bold uppercase tracking-widest leading-relaxed">
+                                  System Uptime: Verified<br/>
+                                  Last Sync: {new Date().toLocaleTimeString()}
+                                </p>
                             </div>
                         </div>
                     </Card>

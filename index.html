@@ -21,6 +21,26 @@
       #root {
         min-height: 100vh;
       }
+      
+      /* Custom scrollbar for a premium dark UI feel */
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 10px;
+      }
+
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(255, 100, 0, 0.2);
+        border-radius: 10px;
+      }
+
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 100, 0, 0.4);
+      }
     </style>
     <script type="importmap">
 {
@@ -32,9 +52,10 @@
     "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
     "react-router-dom": "https://esm.sh/react-router-dom@6.25.1?external=react,react-dom",
     "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.45.0",
-    "lucide-react": "https://esm.sh/lucide-react@0.424.0?external=react",
+    "lucide-react": "https://esm.sh/lucide-react@0.475.0?external=react",
     "recharts": "https://esm.sh/recharts@2.12.7?external=react,react-dom",
     "uuid": "https://esm.sh/uuid@9.0.1",
+    "react-is": "https://esm.sh/react-is@18.3.1",
     "vite": "https://esm.sh/vite@^7.3.0",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }

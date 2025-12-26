@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
@@ -299,7 +298,7 @@ const OrganisationReports: React.FC = () => {
                                             </span>
                                         </td>
                                         <td className="p-6 text-right">
-                                            <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
+                                            <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0 duration-300">
                                                 <button 
                                                     onClick={() => openDetails(member)} 
                                                     className="p-3 bg-white/5 rounded-xl border border-white/10 hover:border-blue-500/50 text-gray-400 hover:text-white transition-all"
@@ -383,7 +382,6 @@ const OrganisationReports: React.FC = () => {
                                 <DataPoint label="Residential Registry Address" value={viewingMember.address} icon={<MapPin size={14} />} />
                             </div>
                             <DataPoint label="Professional Status" value={viewingMember.occupation} icon={<Briefcase size={14} />} />
-                            {/* Fix: Changed ZapIcon to Zap to resolve 'Cannot find name ZapIcon' error */}
                             <DataPoint label="Support Requirement" value={viewingMember.support_need} icon={<Zap size={14} />} />
                             
                             <div className="p-8 bg-gradient-to-br from-blue-950/20 to-black border border-blue-500/20 rounded-[2rem] md:col-span-2 lg:col-span-1 group hover:border-blue-500/40 transition-all">
