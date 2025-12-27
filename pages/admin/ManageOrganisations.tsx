@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
@@ -26,7 +27,9 @@ import {
   Mail,
   Lock,
   Phone,
-  User
+  User,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 
 const ManageOrganisations: React.FC = () => {
@@ -34,7 +37,8 @@ const ManageOrganisations: React.FC = () => {
   const [newOrg, setNewOrg] = useState({ name: '', mobile: '', secretaryName: '', email: '', password: '' });
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showRepairTool, setShowRepairTool] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [orgToDelete, setOrgToDelete] = useState<Organisation | null>(null);
   
   // UI States
   const [showPassword, setShowPassword] = useState(false);
@@ -160,6 +164,33 @@ const ManageOrganisations: React.FC = () => {
     }
   };
 
+  const handleDeleteOrganisation = async () => {
+    if (!orgToDelete) return;
+    setIsDeleting(true);
+    try {
+      // Note: In a real app, you might want to handle cascade deletes 
+      // or check if volunteers exist first. 
+      // For now, we proceed with direct deletion.
+      const { error } = await supabase
+        .from('organisations')
+        .delete()
+        .eq('id', orgToDelete.id);
+
+      if (error) throw error;
+
+      // Also clean up associated profiles if necessary
+      await supabase.from('profiles').delete().eq('organisation_id', orgToDelete.id);
+
+      addNotification(`${orgToDelete.name} node purged from registry.`, 'success');
+      setOrgToDelete(null);
+      fetchOrganisations();
+    } catch (err: any) {
+      addNotification(`Purge failed: ${err.message}`, 'error');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const handleUpdateOrganisation = async () => {
     if (!editingOrg) return;
     setIsSubmitting(true);
@@ -280,7 +311,16 @@ const ManageOrganisations: React.FC = () => {
                                 </span>
                             </td>
                             <td className="p-6 text-right">
-                                <Button size="sm" variant="secondary" onClick={() => handleEditClick(org)} className="opacity-0 group-hover:opacity-100 transition-all scale-95 group-hover:scale-100">Modify Node</Button>
+                                <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all">
+                                    <Button size="sm" variant="secondary" onClick={() => handleEditClick(org)} className="scale-95 hover:scale-100">Modify Node</Button>
+                                    <button 
+                                        onClick={() => setOrgToDelete(org)}
+                                        className="p-2 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                                        title="Purge Sector"
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                         ))}
@@ -291,6 +331,7 @@ const ManageOrganisations: React.FC = () => {
         </div>
       </div>
 
+      {/* Edit Modal */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Modify Sector Parameters">
           {editingOrg && (
             <div className="space-y-6 p-2 max-h-[80vh] overflow-y-auto custom-scrollbar">
@@ -363,7 +404,7 @@ const ManageOrganisations: React.FC = () => {
                           icon={<Lock size={16} />}
                         />
                         <button 
-                          type="button"
+                          type="button" 
                           onClick={() => setShowEditPasswordReveal(!showEditPasswordReveal)}
                           className="absolute right-3 top-[10px] text-gray-500 hover:text-white transition-colors"
                         >
@@ -395,6 +436,32 @@ const ManageOrganisations: React.FC = () => {
                 </div>
             </div>
           )}
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal isOpen={!!orgToDelete} onClose={() => setOrgToDelete(null)} title="Security Protocol: Node Purge">
+        <div className="p-6 text-center space-y-8">
+            <div className="p-6 bg-red-500/10 rounded-full w-24 h-24 mx-auto flex items-center justify-center text-red-500 border border-red-500/20 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
+                <AlertTriangle size={48} />
+            </div>
+            <div>
+                <h4 className="text-2xl font-cinzel text-white mb-3">Irreversible Purge</h4>
+                <p className="text-sm text-gray-500 leading-relaxed uppercase tracking-widest font-black">
+                    You are about to purge <span className="text-red-500">"{orgToDelete?.name}"</span>. 
+                    This will disconnect all associated personnel and data nodes.
+                </p>
+            </div>
+            <div className="flex gap-4">
+                <Button variant="secondary" onClick={() => setOrgToDelete(null)} className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest">Abort</Button>
+                <Button 
+                    onClick={handleDeleteOrganisation} 
+                    disabled={isDeleting}
+                    className="flex-1 bg-red-600 hover:bg-red-700 py-4 text-[10px] font-black uppercase tracking-widest shadow-xl shadow-red-950/20"
+                >
+                    {isDeleting ? 'PURGING...' : 'Confirm Purge'}
+                </Button>
+            </div>
+        </div>
       </Modal>
     </DashboardLayout>
   );
