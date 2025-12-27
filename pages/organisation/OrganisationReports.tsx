@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
@@ -266,9 +265,9 @@ const OrganisationReports: React.FC = () => {
                                 ) : filteredMembers.map(member => (
                                     <tr key={member.id} className="group hover:bg-white/[0.02] transition-all">
                                         <td className="p-6">
-                                            <div className="flex flex-col gap-1">
+                                            <div className="flex flex-col gap-1 overflow-hidden">
                                                 <div className="flex items-center gap-3">
-                                                    <span className="font-bold text-white text-lg group-hover:text-blue-400 transition-colors">{member.name} {member.surname}</span>
+                                                    <span className="font-bold text-white text-lg group-hover:text-blue-400 transition-colors break-words line-clamp-1">{member.name} {member.surname}</span>
                                                     {member.member_image_url && <FileText size={14} className="text-blue-500/50" />}
                                                 </div>
                                                 <div className="flex items-center gap-3 text-[11px] text-gray-600 font-mono tracking-tighter">
@@ -283,8 +282,8 @@ const OrganisationReports: React.FC = () => {
                                                 <div className="h-10 w-10 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-500 shrink-0">
                                                     <UserCircle size={20} />
                                                 </div>
-                                                <div className="flex flex-col">
-                                                    <span className="text-[11px] font-black text-white uppercase tracking-widest">
+                                                <div className="flex flex-col overflow-hidden">
+                                                    <span className="text-[11px] font-black text-white uppercase tracking-widest break-words line-clamp-1">
                                                         {member.agent_profile?.name || allOrgProfiles.find(p => p.id === member.volunteer_id)?.name || 'Unknown operator'}
                                                     </span>
                                                     <span className="text-[9px] text-blue-500/60 font-mono font-bold tracking-widest mt-0.5">
@@ -351,9 +350,9 @@ const OrganisationReports: React.FC = () => {
                             )}
                             
                             <div className="flex-1 space-y-6 pt-4 relative z-10 overflow-hidden">
-                                <div>
+                                <div className="overflow-hidden">
                                     <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.4em] mb-2">Authenticated Identity Node</p>
-                                    <h4 className="text-2xl md:text-4xl font-cinzel text-white leading-tight tracking-tight break-words">{viewingMember.name} {viewingMember.surname}</h4>
+                                    <h4 className="text-2xl md:text-3xl font-cinzel text-white leading-tight tracking-tight break-words overflow-hidden line-clamp-2">{viewingMember.name} {viewingMember.surname}</h4>
                                 </div>
                                 <div className="flex flex-wrap gap-4">
                                     <div className="px-5 py-2.5 bg-black/60 rounded-2xl border border-white/5 flex items-center gap-2">
@@ -395,7 +394,7 @@ const OrganisationReports: React.FC = () => {
                                         <UserCircle size={32} />
                                     </div>
                                     <div className="flex flex-col overflow-hidden">
-                                        <p className="text-white font-black uppercase text-sm tracking-widest leading-none mb-1 break-words">
+                                        <p className="text-white font-black uppercase text-sm tracking-widest leading-none mb-1 break-words line-clamp-1">
                                             {viewingMember.agent_profile?.name || 'Unknown operator'}
                                         </p>
                                         <p className="text-[10px] text-blue-400 font-mono font-bold tracking-widest flex items-center gap-1.5">

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
@@ -16,9 +15,7 @@ import {
   Edit3,
   Save,
   User as UserIcon,
-  Image as ImageIcon,
   ExternalLink,
-  Filter,
   Trash2,
   AlertTriangle,
   Calendar,
@@ -26,7 +23,6 @@ import {
   Fingerprint,
   FileText,
   Activity,
-  Eye,
   UserCircle,
   ShieldCheck,
   Phone,
@@ -135,7 +131,7 @@ const AdminReports: React.FC = () => {
             setMemberToDelete(null);
             fetchData();
         } catch (err: any) {
-            addNotification(`Action failed.`, "error");
+            addNotification(`Purge failed.`, "error");
         } finally {
             setIsDeleting(false);
         }
@@ -161,12 +157,11 @@ const AdminReports: React.FC = () => {
             }).eq('id', editingMember.id);
             
             if (error) throw error;
-            addNotification("Member identity parameters synchronized.", "success");
+            addNotification("Member identity synchronized.", "success");
             setIsEditModalOpen(false);
             fetchData();
         } catch (err: any) {
-            console.error(err);
-            addNotification(`Database update failed.`, "error");
+            addNotification(`Update failed.`, "error");
         } finally {
             setIsUpdating(false);
         }
@@ -193,7 +188,7 @@ const AdminReports: React.FC = () => {
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = `Master_Registry_Export_${new Date().toISOString().split('T')[0]}.csv`;
+        link.download = `Registry_Export_${new Date().toISOString().split('T')[0]}.csv`;
         link.click();
     };
 
@@ -247,8 +242,8 @@ const AdminReports: React.FC = () => {
                                 ) : filteredMembers.map(m => (
                                     <tr key={m.id} className="group hover:bg-white/[0.02] transition-all">
                                         <td className="p-6">
-                                            <div className="flex flex-col">
-                                                <span className="font-bold text-white text-lg group-hover:text-orange-500 transition-colors">{m.name} {m.surname}</span>
+                                            <div className="flex flex-col overflow-hidden">
+                                                <span className="font-bold text-white text-lg group-hover:text-orange-500 transition-colors break-words line-clamp-1">{m.name} {m.surname}</span>
                                                 <div className="flex items-center gap-3 mt-1 text-[11px] text-gray-600 font-mono tracking-tighter">
                                                     <span>{m.mobile}</span>
                                                     <span className="h-1 w-1 rounded-full bg-gray-800"></span>
@@ -258,16 +253,16 @@ const AdminReports: React.FC = () => {
                                         </td>
                                         <td className="p-6">
                                             <div className="flex items-center gap-4">
-                                                <div className="h-10 w-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500">
+                                                <div className="h-10 w-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500 shrink-0">
                                                     <UserCircle size={20} />
                                                 </div>
-                                                <div className="flex flex-col">
-                                                    <span className="text-[11px] font-black text-white uppercase tracking-widest">
+                                                <div className="flex flex-col overflow-hidden">
+                                                    <span className="text-[11px] font-black text-white uppercase tracking-widest break-words line-clamp-1">
                                                         {m.agent_profile?.name || 'Unknown Agent'}
                                                     </span>
                                                     <div className="flex items-center gap-2 mt-0.5">
                                                         <Building2 size={10} className="text-orange-500/80" />
-                                                        <span className="text-[9px] text-orange-500/80 font-black uppercase tracking-widest">
+                                                        <span className="text-[9px] text-orange-500/80 font-black uppercase tracking-widest break-words line-clamp-1">
                                                             {m.agent_profile?.organisations?.name || 'Independent'}
                                                         </span>
                                                     </div>
@@ -292,7 +287,7 @@ const AdminReports: React.FC = () => {
                                     </tr>
                                 ))}
                                 {filteredMembers.length === 0 && !loading && (
-                                    <tr><td colSpan={4} className="p-40 text-center text-[11px] text-gray-700 uppercase tracking-[0.5em] font-black">No member records found in master registry.</td></tr>
+                                    <tr><td colSpan={4} className="p-40 text-center text-[11px] text-gray-700 uppercase tracking-[0.5em] font-black">No records found.</td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -300,12 +295,11 @@ const AdminReports: React.FC = () => {
                 </Card>
             </div>
 
-            <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Master Identity File Override">
+            <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Master Identity Override">
                 {editingMember && (
                     <div className="space-y-8 p-2 max-h-[85vh] overflow-y-auto custom-scrollbar">
-                        {/* Aadhaar Preview Section */}
                         <div className="flex flex-col md:flex-row gap-8 p-8 bg-orange-500/5 border border-orange-500/10 rounded-[2.5rem] relative overflow-hidden group">
-                             <div className="absolute top-0 right-0 p-10 opacity-[0.03] group-hover:rotate-12 transition-all duration-700 pointer-events-none">
+                             <div className="absolute top-0 right-0 p-10 opacity-[0.03] pointer-events-none">
                                 <Fingerprint size={100} />
                             </div>
                             
@@ -314,20 +308,20 @@ const AdminReports: React.FC = () => {
                                     <img src={editingMember.member_image_url} alt="Identity Document" className="w-full h-full object-cover" />
                                     <a href={editingMember.member_image_url} target="_blank" rel="noreferrer" className="absolute inset-0 bg-black/70 opacity-0 hover:opacity-100 flex flex-col items-center justify-center transition-opacity text-white gap-2">
                                         <ExternalLink size={20} />
-                                        <span className="text-[9px] font-black uppercase tracking-widest">Open Scan</span>
+                                        <span className="text-[9px] font-black uppercase tracking-widest">Verify Document</span>
                                     </a>
                                 </div>
                             ) : (
                                 <div className="h-40 w-full md:w-56 rounded-[2rem] bg-gray-950 border-2 border-white/5 flex flex-col items-center justify-center text-gray-800 shrink-0 gap-3">
                                     <FileText size={32} strokeWidth={1} />
-                                    <span className="text-[9px] font-black uppercase tracking-widest">No Doc</span>
+                                    <span className="text-[9px] font-black uppercase tracking-widest">No Doc Scan</span>
                                 </div>
                             )}
 
                             <div className="flex-1 space-y-4 pt-2">
                                 <div>
-                                    <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.4em] mb-1">Authenticated ID Node</p>
-                                    <h4 className="text-2xl font-cinzel text-white leading-tight break-words">{editingMember.name} {editingMember.surname}</h4>
+                                    <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.4em] mb-1">Target Identity Node</p>
+                                    <h4 className="text-2xl font-cinzel text-white leading-tight break-words overflow-hidden line-clamp-2">{editingMember.name} {editingMember.surname}</h4>
                                 </div>
                                 <div className="flex flex-wrap gap-3">
                                     <div className="px-4 py-2 bg-black/60 rounded-xl border border-white/5 flex items-center gap-2">
@@ -342,29 +336,28 @@ const AdminReports: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Editable Fields Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <Input label="Given Name" value={editingMember.name} onChange={(e) => setEditingMember({...editingMember, name: e.target.value})} icon={<UserIcon size={14} />} />
                             <Input label="Surname" value={editingMember.surname} onChange={(e) => setEditingMember({...editingMember, surname: e.target.value})} icon={<UserIcon size={14} />} />
-                            <Input label="Father / Guardian Name" value={editingMember.father_name} onChange={(e) => setEditingMember({...editingMember, father_name: e.target.value})} icon={<UserCircle size={14} />} />
-                            <Input label="Primary Mobile" value={editingMember.mobile} onChange={(e) => setEditingMember({...editingMember, mobile: e.target.value})} icon={<Phone size={14} />} />
+                            <Input label="Father / Guardian" value={editingMember.father_name} onChange={(e) => setEditingMember({...editingMember, father_name: e.target.value})} icon={<UserCircle size={14} />} />
+                            <Input label="Mobile" value={editingMember.mobile} onChange={(e) => setEditingMember({...editingMember, mobile: e.target.value})} icon={<Phone size={14} />} />
                             <Input label="Emergency Contact" value={editingMember.emergency_contact} onChange={(e) => setEditingMember({...editingMember, emergency_contact: e.target.value})} icon={<ShieldCheck size={14} />} />
-                            <Input label="Date of Birth" type="date" value={editingMember.dob} onChange={(e) => setEditingMember({...editingMember, dob: e.target.value})} icon={<Calendar size={14} />} />
-                            <Select label="Gender Identity" value={editingMember.gender} onChange={(e) => setEditingMember({...editingMember, gender: e.target.value as Gender})}>
+                            <Input label="DOB" type="date" value={editingMember.dob} onChange={(e) => setEditingMember({...editingMember, dob: e.target.value})} icon={<Calendar size={14} />} />
+                            <Select label="Gender" value={editingMember.gender} onChange={(e) => setEditingMember({...editingMember, gender: e.target.value as Gender})}>
                                 {Object.values(Gender).map(g => <option key={g} value={g}>{g}</option>)}
                             </Select>
-                            <Input label="Postal Pincode" value={editingMember.pincode} onChange={(e) => setEditingMember({...editingMember, pincode: e.target.value})} icon={<MapPin size={14} />} />
+                            <Input label="Pincode" value={editingMember.pincode} onChange={(e) => setEditingMember({...editingMember, pincode: e.target.value})} icon={<MapPin size={14} />} />
                             <div className="md:col-span-2">
-                                <Input label="Residential Registry Address" value={editingMember.address} onChange={(e) => setEditingMember({...editingMember, address: e.target.value})} icon={<MapPin size={14} />} />
+                                <Input label="Full Address" value={editingMember.address} onChange={(e) => setEditingMember({...editingMember, address: e.target.value})} icon={<MapPin size={14} />} />
                             </div>
-                            <Select label="Professional Status" value={editingMember.occupation} onChange={(e) => setEditingMember({...editingMember, occupation: e.target.value as Occupation})}>
+                            <Select label="Occupation" value={editingMember.occupation} onChange={(e) => setEditingMember({...editingMember, occupation: e.target.value as Occupation})}>
                                 {Object.values(Occupation).map(o => <option key={o} value={o}>{o}</option>)}
                             </Select>
-                            <Select label="Support Requirement" value={editingMember.support_need} onChange={(e) => setEditingMember({...editingMember, support_need: e.target.value as SupportNeed})}>
+                            <Select label="Support Need" value={editingMember.support_need} onChange={(e) => setEditingMember({...editingMember, support_need: e.target.value as SupportNeed})}>
                                 {Object.values(SupportNeed).map(s => <option key={s} value={s}>{s}</option>)}
                             </Select>
                             <div className="md:col-span-2">
-                                <Select label="Verification Status Override" value={editingMember.status} onChange={(e) => setEditingMember({...editingMember, status: e.target.value as MemberStatus})}>
+                                <Select label="Verification Override" value={editingMember.status} onChange={(e) => setEditingMember({...editingMember, status: e.target.value as MemberStatus})}>
                                     <option value={MemberStatus.Pending}>Pending Verification</option>
                                     <option value={MemberStatus.Accepted}>Accepted / Verified</option>
                                 </Select>
@@ -372,27 +365,25 @@ const AdminReports: React.FC = () => {
                         </div>
 
                         <div className="flex justify-end gap-4 pt-10 border-t border-white/5 mt-8 sticky bottom-0 bg-gray-900 pb-4 z-10">
-                            <Button variant="secondary" onClick={() => setIsEditModalOpen(false)} className="px-10 py-4 text-[10px] font-black uppercase tracking-widest">Cancel Abort</Button>
+                            <Button variant="secondary" onClick={() => setIsEditModalOpen(false)} className="px-10 py-4 text-[10px] font-black uppercase tracking-widest">Cancel</Button>
                             <Button onClick={handleUpdateMember} disabled={isUpdating} className="px-12 py-4 text-[10px] font-black uppercase tracking-widest shadow-2xl bg-orange-600 hover:bg-orange-500 flex items-center gap-2">
                                 {isUpdating ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                                {isUpdating ? 'Synchronizing...' : 'Save Parameters'}
+                                {isUpdating ? 'Syncing...' : 'Update File'}
                             </Button>
                         </div>
                     </div>
                 )}
             </Modal>
 
-            {/* Delete Confirmation Modal */}
-            <Modal isOpen={!!memberToDelete} onClose={() => setMemberToDelete(null)} title="Security Protocol: Purge Identity">
+            <Modal isOpen={!!memberToDelete} onClose={() => setMemberToDelete(null)} title="Security Protocol: Purge Node">
                 <div className="p-6 text-center space-y-8">
-                    <div className="p-6 bg-red-500/10 rounded-full w-24 h-24 mx-auto flex items-center justify-center text-red-500 border border-red-500/20 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
+                    <div className="p-6 bg-red-500/10 rounded-full w-24 h-24 mx-auto flex items-center justify-center text-red-500 border border-red-500/20">
                         <AlertTriangle size={48} />
                     </div>
                     <div>
                         <h4 className="text-2xl font-cinzel text-white mb-3">Irreversible Purge</h4>
                         <p className="text-sm text-gray-500 leading-relaxed uppercase tracking-widest font-black">
-                            You are about to purge an identity node from the master registry. 
-                            This action is final and all associated document links will be lost.
+                            Confirm total node deletion. This action cannot be undone.
                         </p>
                     </div>
                     <div className="flex gap-4">
@@ -400,9 +391,9 @@ const AdminReports: React.FC = () => {
                         <Button 
                             onClick={handleDeleteMember} 
                             disabled={isDeleting}
-                            className="flex-1 bg-red-600 hover:bg-red-700 py-4 text-[10px] font-black uppercase tracking-widest shadow-xl"
+                            className="flex-1 bg-red-600 hover:bg-red-700 py-4 text-[10px] font-black uppercase tracking-widest"
                         >
-                            {isDeleting ? 'PURGING...' : 'Confirm Purge'}
+                            {isDeleting ? 'PURGING...' : 'Purge Registry'}
                         </Button>
                     </div>
                 </div>
