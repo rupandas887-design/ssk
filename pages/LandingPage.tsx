@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
@@ -9,7 +10,7 @@ import Leaderboard from '../components/Leaderboard';
 import Rewards from '../components/Rewards';
 import { supabase } from '../supabase/client';
 import { Member, Organisation, Role } from '../types';
-import { Users, BarChart3, TrendingUp, RefreshCw, Zap, Globe, Activity } from 'lucide-react';
+import { Users, RefreshCw, Globe, Activity } from 'lucide-react';
 
 const LandingPage: React.FC = () => {
   const [members, setMembers] = useState<Member[]>([]);
@@ -20,6 +21,7 @@ const LandingPage: React.FC = () => {
 
   const fetchData = useCallback(async () => {
     try {
+      // Fetching from tables that now have public read access via RLS
       const [mRes, oRes, pRes] = await Promise.all([
         supabase.from('members').select('*'),
         supabase.from('organisations').select('*'),
@@ -30,10 +32,13 @@ const LandingPage: React.FC = () => {
       if (oRes.data) setOrganisations(oRes.data);
       
       if (pRes.data) {
-        // Filter volunteers locally to be robust against role naming variants
-        const filteredVols = pRes.data.filter(p => 
-          p.role && p.role.toLowerCase().includes('volunteer')
-        );
+        // We filter for volunteers. We check specifically for 'Volunteer' string 
+        // regardless of how it was typed in the database (case-insensitive)
+        const filteredVols = pRes.data.filter(p => {
+          if (!p.role) return false;
+          const roleStr = String(p.role).toLowerCase();
+          return roleStr === 'volunteer';
+        });
         setVolsData(filteredVols);
       }
       
@@ -49,23 +54,23 @@ const LandingPage: React.FC = () => {
     fetchData();
 
     // Establish Live Realtime Sync via Supabase Channel
+    // This makes the counts update automatically when a new member is added
     const channel = supabase
-      .channel('live-analytics')
+      .channel('public-registry-monitor')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'members' },
-        () => {
-          console.debug("Live Member Delta Detected");
-          fetchData();
-        }
+        () => fetchData()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        () => fetchData()
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'organisations' },
-        () => {
-          console.debug("Live Sector Delta Detected");
-          fetchData();
-        }
+        () => fetchData()
       )
       .subscribe();
 
@@ -77,8 +82,11 @@ const LandingPage: React.FC = () => {
   const volunteers = useMemo(() => {
     if (!volsData.length) return [];
     
+    // Map of volunteer_id -> enrollment count
     const enrollmentMap = members.reduce((acc, m) => {
-      acc[m.volunteer_id] = (acc[m.volunteer_id] || 0) + 1;
+      if (m.volunteer_id) {
+        acc[m.volunteer_id] = (acc[m.volunteer_id] || 0) + 1;
+      }
       return acc;
     }, {} as Record<string, number>);
 
@@ -86,7 +94,7 @@ const LandingPage: React.FC = () => {
       id: v.id,
       name: v.name || 'Anonymous Agent',
       email: v.email,
-      role: v.role,
+      role: Role.Volunteer,
       organisationId: v.organisation_id,
       mobile: v.mobile,
       enrollments: enrollmentMap[v.id] || 0,
@@ -101,9 +109,9 @@ const LandingPage: React.FC = () => {
 
       {/* Community Heritage Section */}
       <section className="relative pt-48 pb-20 px-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-cinzel font-bold uppercase tracking-tight leading-[1.2] drop-shadow-[0_2px_10px_rgba(255,255,255,0.05)]">
+        <div className="max-w-5xl mx-auto text-center">
+          <div className="mb-16">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-cinzel font-bold uppercase tracking-tight leading-[1.2]">
               <span className="text-white block">THE SOMAVAMSHA SAHASRARJUNA</span>
               <span className="text-[#FF6600] block mt-1 drop-shadow-[0_2px_8px_rgba(255,102,0,0.25)]">KSHATRIYA (SSK)</span>
             </h1>
@@ -111,14 +119,14 @@ const LandingPage: React.FC = () => {
           
           <div className="space-y-8 text-gray-300 text-lg leading-relaxed text-left max-w-4xl mx-auto font-light">
             <p>
-              The Somavamsha Sahasrarjuna Kshatriya (SSK) community belongs to the Somavamsha or Chandravamsha (Lunar Dynasty), one of the three main Kshatriya lineages in India, alongside Surya and Agni Vamshas. Descended from Soma (the Moon), they are known as warriors of the Moon Dynasty.
+              The Somavamsha Sahasrarjuna Kshatriya (SSK) community belongs to the Somavamsha or Chandravamsha (Lunar Dynasty), one of the three main Kshatriya lineages in India. Descended from Soma (the Moon), they are known as warriors of the Moon Dynasty.
             </p>
             <p>
-              The name Sahasrarjuna refers to the great emperor Kartavirya Arjuna, who was blessed by Lord Dattatreya with a thousand hands for his devotion and strength. Sahasrarjuna is celebrated as one of the greatest emperors in Indian mythology.
+              The name Sahasrarjuna refers to the great emperor Kartavirya Arjuna, who was blessed with a thousand hands for his devotion and strength. 
             </p>
           </div>
 
-          <div className="mt-24 flex justify-center">
+          <div className="mt-20 flex justify-center">
             <div className="relative group max-w-3xl">
               <div className="absolute -inset-1 bg-gradient-to-r from-orange-600/20 to-orange-900/10 rounded-2xl blur opacity-25"></div>
               <div className="relative rounded-2xl overflow-hidden shadow-[0_0_80px_rgba(255,100,0,0.08)] border border-white/5">
@@ -133,11 +141,10 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Analytics & Registry Tools */}
+      {/* Live Analytics Dashboard */}
       <main className="container mx-auto px-6 py-24 space-y-32">
         <section id="analytics">
           <div className="flex flex-col items-center mb-16">
-            <div className="h-px w-24 bg-gradient-to-r from-transparent via-orange-500 to-transparent mb-8"></div>
             <div className="flex items-center gap-3">
                <span className="relative flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
@@ -148,15 +155,15 @@ const LandingPage: React.FC = () => {
               </h2>
             </div>
             <p className="text-[10px] font-black text-gray-600 uppercase tracking-[0.4em] mt-4">
-              Realtime Synced: {lastSync.toLocaleTimeString()}
+              Real-time Uplink: {lastSync.toLocaleTimeString()}
             </p>
           </div>
 
-          {!loading && (
+          {!loading ? (
             <div className="space-y-12">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <Card className="flex flex-col items-center justify-center p-12 bg-[#050505] border-white/5 group hover:border-orange-500/30 transition-all duration-700 relative overflow-hidden">
-                   <div className="absolute top-0 right-0 p-4 opacity-[0.02] pointer-events-none">
+                  <div className="absolute top-0 right-0 p-4 opacity-[0.02] pointer-events-none">
                       <Globe size={120} />
                   </div>
                   <Users className="text-orange-500/20 group-hover:text-orange-500 transition-colors mb-6" size={64} strokeWidth={1} />
@@ -182,8 +189,10 @@ const LandingPage: React.FC = () => {
                       <div className="p-6 bg-orange-500/10 rounded-full text-orange-500 mb-6">
                           <Activity size={48} />
                       </div>
+                      {/* Active Field Nodes is the Volunteer Count */}
                       <p className="text-4xl font-black text-white mb-2">{volunteers.length}</p>
                       <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Active Field Nodes</p>
+                      
                       <div className="mt-8 pt-8 border-t border-white/5 w-full">
                           <p className="text-4xl font-black text-white mb-2">{organisations.length}</p>
                           <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Sector Units</p>
@@ -191,28 +200,25 @@ const LandingPage: React.FC = () => {
                   </Card>
               </div>
             </div>
-          )}
-
-          {loading && (
+          ) : (
             <div className="flex flex-col items-center justify-center p-32 gap-6">
               <RefreshCw className="animate-spin text-orange-500" size={48} />
-              <p className="text-[10px] font-black uppercase tracking-[0.5em] text-gray-600">Establishing Master Uplink...</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.5em] text-gray-600">Syncing Master Node...</p>
             </div>
           )}
         </section>
 
-        {/* Top Contributors */}
+        {/* Top Performers Section */}
         <section>
           <div className="flex flex-col items-center mb-16">
             <h2 className="text-4xl font-cinzel text-center uppercase tracking-widest">
               Master <span className="text-orange-500">Nodes</span>
             </h2>
-            <p className="text-[10px] font-black text-gray-600 uppercase tracking-[0.4em] mt-4">Top Enrollment Performance</p>
           </div>
-          {loading ? (
-             <p className="text-center text-gray-700 animate-pulse font-black text-[10px] uppercase tracking-widest">Syncing Contributors...</p>
-          ) : (
+          {!loading ? (
             <Leaderboard members={members} organisations={organisations} volunteers={volunteers} />
+          ) : (
+            <p className="text-center text-gray-700 animate-pulse font-black text-[10px] uppercase tracking-widest">Calculating Performance...</p>
           )}
         </section>
 
@@ -222,17 +228,15 @@ const LandingPage: React.FC = () => {
 
         <section className="text-center pb-20">
           <div className="max-w-4xl mx-auto p-16 bg-gradient-to-br from-[#080808] to-black rounded-[3rem] border border-orange-500/10 relative overflow-hidden group">
-            <div className="absolute inset-0 bg-orange-500/[0.01] opacity-0 group-hover:opacity-100 transition-opacity"></div>
             <h2 className="text-4xl font-cinzel text-white uppercase tracking-widest mb-8">Join the Registry</h2>
             <p className="text-gray-400 font-light text-lg mb-12 max-w-2xl mx-auto leading-relaxed">
-              Become a verified contributor to the global SSK database. Contact your local organisation node to receive authorized access credentials.
+              Become a verified contributor to the global SSK database.
             </p>
             <div className="inline-block px-12 py-6 bg-orange-600 hover:bg-orange-500 rounded-full shadow-[0_20px_50px_-10px_rgba(255,100,0,0.2)] transition-all duration-500 active:scale-95">
               <a href="tel:+918884449689" className="text-2xl font-black text-white tracking-widest">
                 +91 888 444 9689
               </a>
             </div>
-            <p className="mt-10 text-[10px] text-gray-600 font-black uppercase tracking-[0.5em]">SSK Samaj Bangalore Global HQ</p>
           </div>
         </section>
       </main>
