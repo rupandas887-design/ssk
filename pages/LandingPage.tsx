@@ -54,7 +54,6 @@ const LandingPage: React.FC = () => {
     fetchData();
 
     // Establish Live Realtime Sync via Supabase Channel
-    // This makes the counts update automatically when a new member is added
     const channel = supabase
       .channel('public-registry-monitor')
       .on(
@@ -127,7 +126,8 @@ const LandingPage: React.FC = () => {
           </div>
 
           <div className="mt-20 flex justify-center">
-            <div className="relative group max-w-3xl">
+            {/* Reduced max-width from 3xl to md */}
+            <div className="relative group max-w-md">
               <div className="absolute -inset-1 bg-gradient-to-r from-orange-600/20 to-orange-900/10 rounded-2xl blur opacity-25"></div>
               <div className="relative rounded-2xl overflow-hidden shadow-[0_0_80px_rgba(255,100,0,0.08)] border border-white/5">
                 <img 
@@ -189,7 +189,6 @@ const LandingPage: React.FC = () => {
                       <div className="p-6 bg-orange-500/10 rounded-full text-orange-500 mb-6">
                           <Activity size={48} />
                       </div>
-                      {/* Active Field Nodes is the Volunteer Count */}
                       <p className="text-4xl font-black text-white mb-2">{volunteers.length}</p>
                       <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Active Field Nodes</p>
                       
@@ -222,9 +221,13 @@ const LandingPage: React.FC = () => {
           )}
         </section>
 
-        <section>
-          <Rewards />
-        </section>
+        {!loading && (
+          <Rewards 
+            members={members} 
+            volunteers={volunteers} 
+            organisations={organisations} 
+          />
+        )}
 
         <section className="text-center pb-20">
           <div className="max-w-4xl mx-auto p-16 bg-gradient-to-br from-[#080808] to-black rounded-[3rem] border border-orange-500/10 relative overflow-hidden group">
