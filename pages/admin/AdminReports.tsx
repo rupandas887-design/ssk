@@ -30,7 +30,11 @@ import {
   UserCircle,
   ShieldCheck,
   Phone,
-  BadgeCheck
+  BadgeCheck,
+  MapPin,
+  Briefcase,
+  Zap,
+  Loader2
 } from 'lucide-react';
 
 type MemberWithAgent = Member & {
@@ -50,8 +54,6 @@ const AdminReports: React.FC = () => {
     
     const [selectedOrgId, setSelectedOrgId] = useState<string>('');
     const [selectedVolunteerId, setSelectedVolunteerId] = useState<string>('');
-    const [startDate, setStartDate] = useState('');
-    const [endDate, setEndDate] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
 
     const [editingMember, setEditingMember] = useState<MemberWithAgent | null>(null);
@@ -112,7 +114,8 @@ const AdminReports: React.FC = () => {
             const matchSearch = !searchQuery || 
                 m.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                 m.surname.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                m.mobile.includes(searchQuery);
+                m.mobile.includes(searchQuery) ||
+                m.aadhaar.includes(searchQuery);
             return matchOrg && matchVol && matchSearch;
         });
     }, [members, selectedOrgId, selectedVolunteerId, searchQuery]);
@@ -145,17 +148,53 @@ const AdminReports: React.FC = () => {
             const { error } = await supabase.from('members').update({
                 name: editingMember.name,
                 surname: editingMember.surname,
+                father_name: editingMember.father_name,
+                mobile: editingMember.mobile,
+                emergency_contact: editingMember.emergency_contact,
+                dob: editingMember.dob,
+                gender: editingMember.gender,
+                pincode: editingMember.pincode,
+                address: editingMember.address,
+                occupation: editingMember.occupation,
+                support_need: editingMember.support_need,
                 status: editingMember.status,
             }).eq('id', editingMember.id);
+            
             if (error) throw error;
-            addNotification("Data synchronized.", "success");
+            addNotification("Member identity parameters synchronized.", "success");
             setIsEditModalOpen(false);
             fetchData();
         } catch (err: any) {
-            addNotification(`Update failed.`, "error");
+            console.error(err);
+            addNotification(`Database update failed.`, "error");
         } finally {
             setIsUpdating(false);
         }
+    };
+
+    const handleExport = () => {
+        const headers = ['Aadhaar', 'Full Name', 'Father Name', 'Mobile', 'DOB', 'Gender', 'Address', 'Pincode', 'Occupation', 'Support Need', 'Volunteer', 'Sector', 'Status'];
+        const rows = filteredMembers.map(m => [
+            m.aadhaar, 
+            `${m.name} ${m.surname}`, 
+            m.father_name, 
+            m.mobile, 
+            m.dob, 
+            m.gender,
+            m.address,
+            m.pincode,
+            m.occupation,
+            m.support_need,
+            m.agent_profile?.name || 'N/A',
+            m.agent_profile?.organisations?.name || 'N/A',
+            m.status
+        ]);
+        const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `Master_Registry_Export_${new Date().toISOString().split('T')[0]}.csv`;
+        link.click();
     };
 
     return (
@@ -164,29 +203,34 @@ const AdminReports: React.FC = () => {
                 <Card className="bg-gray-950 border-white/5 p-8 rounded-[2rem] shadow-2xl relative overflow-hidden">
                     <div className="flex items-center gap-2 mb-8 text-orange-500 relative z-10">
                         <Activity size={18} />
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.4em]">Multi-Vector Registry Search</h3>
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.4em]">Multi-Vector Registry Intelligence</h3>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10">
-                        <Select label="Filter by Sector" value={selectedOrgId} onChange={(e) => setSelectedOrgId(e.target.value)}>
-                            <option value="">All Organizations</option>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 relative z-10">
+                        <Select label="Filter by Sector" value={selectedOrgId} onChange={(e) => setSelectedOrgId(e.target.value)} className="bg-black/40 border-gray-800">
+                            <option value="">All Organisations</option>
                             {organisations.map(org => <option key={org.id} value={org.id}>{org.name}</option>)}
                         </Select>
                         <Input 
-                            placeholder="Search by Name/Mobile..." 
+                            label="Universal Search"
+                            placeholder="Name, Mobile, Aadhaar..." 
                             value={searchQuery} 
                             onChange={(e) => setSearchQuery(e.target.value)} 
                             icon={<Search size={16} />}
+                            className="bg-black/40 border-gray-800"
                         />
-                        <div className="flex gap-4 items-end">
+                        <div className="md:col-span-2 flex gap-4 items-end">
                             <Button onClick={fetchData} variant="secondary" className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest gap-2">
-                                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Sync
+                                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Sync Node
+                            </Button>
+                            <Button onClick={handleExport} className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest gap-2 bg-blue-600 hover:bg-blue-700">
+                                <FileSpreadsheet size={16} /> Export CSV
                             </Button>
                         </div>
                     </div>
                 </Card>
 
-                <Card title="Global Enrolled Members">
+                <Card title="Global Identity Registry">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead className="border-b border-gray-800">
@@ -204,8 +248,12 @@ const AdminReports: React.FC = () => {
                                     <tr key={m.id} className="group hover:bg-white/[0.02] transition-all">
                                         <td className="p-6">
                                             <div className="flex flex-col">
-                                                <span className="font-bold text-white text-lg">{m.name} {m.surname}</span>
-                                                <span className="text-[11px] text-gray-600 font-mono">{m.mobile}</span>
+                                                <span className="font-bold text-white text-lg group-hover:text-orange-500 transition-colors">{m.name} {m.surname}</span>
+                                                <div className="flex items-center gap-3 mt-1 text-[11px] text-gray-600 font-mono tracking-tighter">
+                                                    <span>{m.mobile}</span>
+                                                    <span className="h-1 w-1 rounded-full bg-gray-800"></span>
+                                                    <span>{m.aadhaar.slice(-4).padStart(12, '•')}</span>
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="p-6">
@@ -232,38 +280,132 @@ const AdminReports: React.FC = () => {
                                             </span>
                                         </td>
                                         <td className="p-6 text-right">
-                                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                                                <button onClick={() => handleEditMember(m)} className="p-3 text-gray-400 hover:text-white">
+                                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
+                                                <button onClick={() => handleEditMember(m)} className="p-3 bg-white/5 rounded-xl border border-white/10 hover:border-orange-500/50 text-gray-400 hover:text-white transition-all" title="Modify Master File">
                                                     <Edit3 size={18} />
                                                 </button>
-                                                <button onClick={() => setMemberToDelete(m.id)} className="p-3 text-red-500/60 hover:text-red-500">
+                                                <button onClick={() => setMemberToDelete(m.id)} className="p-3 bg-red-500/5 rounded-xl border border-red-500/10 text-red-500/60 hover:text-red-500 transition-all" title="Purge Identity">
                                                     <Trash2 size={18} />
                                                 </button>
                                             </div>
                                         </td>
                                     </tr>
                                 ))}
+                                {filteredMembers.length === 0 && !loading && (
+                                    <tr><td colSpan={4} className="p-40 text-center text-[11px] text-gray-700 uppercase tracking-[0.5em] font-black">No member records found in master registry.</td></tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
                 </Card>
             </div>
 
-            <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Modify Member Identity">
+            <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Master Identity File Override">
                 {editingMember && (
-                    <div className="space-y-6">
-                        <Input label="Name" value={editingMember.name} onChange={(e) => setEditingMember({...editingMember, name: e.target.value})} />
-                        <Input label="Surname" value={editingMember.surname} onChange={(e) => setEditingMember({...editingMember, surname: e.target.value})} />
-                        <Select label="Status" value={editingMember.status} onChange={(e) => setEditingMember({...editingMember, status: e.target.value as MemberStatus})}>
-                            <option value={MemberStatus.Pending}>Pending</option>
-                            <option value={MemberStatus.Accepted}>Accepted</option>
-                        </Select>
-                        <div className="flex justify-end gap-4 pt-6">
-                            <Button variant="secondary" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
-                            <Button onClick={handleUpdateMember} disabled={isUpdating}>{isUpdating ? 'Saving...' : 'Save Changes'}</Button>
+                    <div className="space-y-8 p-2 max-h-[85vh] overflow-y-auto custom-scrollbar">
+                        {/* Aadhaar Preview Section */}
+                        <div className="flex flex-col md:flex-row gap-8 p-8 bg-orange-500/5 border border-orange-500/10 rounded-[2.5rem] relative overflow-hidden group">
+                             <div className="absolute top-0 right-0 p-10 opacity-[0.03] group-hover:rotate-12 transition-all duration-700 pointer-events-none">
+                                <Fingerprint size={100} />
+                            </div>
+                            
+                            {editingMember.member_image_url ? (
+                                <div className="relative h-40 w-full md:w-56 rounded-[2rem] overflow-hidden border-2 border-white/10 shrink-0 shadow-2xl">
+                                    <img src={editingMember.member_image_url} alt="Identity Document" className="w-full h-full object-cover" />
+                                    <a href={editingMember.member_image_url} target="_blank" rel="noreferrer" className="absolute inset-0 bg-black/70 opacity-0 hover:opacity-100 flex flex-col items-center justify-center transition-opacity text-white gap-2">
+                                        <ExternalLink size={20} />
+                                        <span className="text-[9px] font-black uppercase tracking-widest">Open Scan</span>
+                                    </a>
+                                </div>
+                            ) : (
+                                <div className="h-40 w-full md:w-56 rounded-[2rem] bg-gray-950 border-2 border-white/5 flex flex-col items-center justify-center text-gray-800 shrink-0 gap-3">
+                                    <FileText size={32} strokeWidth={1} />
+                                    <span className="text-[9px] font-black uppercase tracking-widest">No Doc</span>
+                                </div>
+                            )}
+
+                            <div className="flex-1 space-y-4 pt-2">
+                                <div>
+                                    <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.4em] mb-1">Authenticated ID Node</p>
+                                    <h4 className="text-2xl font-cinzel text-white leading-tight break-words">{editingMember.name} {editingMember.surname}</h4>
+                                </div>
+                                <div className="flex flex-wrap gap-3">
+                                    <div className="px-4 py-2 bg-black/60 rounded-xl border border-white/5 flex items-center gap-2">
+                                        <Fingerprint size={12} className="text-orange-500/50" />
+                                        <span className="text-[10px] font-mono text-gray-400 uppercase tracking-[0.2em]">{editingMember.aadhaar}</span>
+                                    </div>
+                                    <div className={`px-4 py-2 rounded-xl border flex items-center gap-2 ${editingMember.status === MemberStatus.Accepted ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-orange-500/10 border-orange-500/20 text-orange-400'}`}>
+                                        <BadgeCheck size={12} />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">{editingMember.status}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Editable Fields Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <Input label="Given Name" value={editingMember.name} onChange={(e) => setEditingMember({...editingMember, name: e.target.value})} icon={<UserIcon size={14} />} />
+                            <Input label="Surname" value={editingMember.surname} onChange={(e) => setEditingMember({...editingMember, surname: e.target.value})} icon={<UserIcon size={14} />} />
+                            <Input label="Father / Guardian Name" value={editingMember.father_name} onChange={(e) => setEditingMember({...editingMember, father_name: e.target.value})} icon={<UserCircle size={14} />} />
+                            <Input label="Primary Mobile" value={editingMember.mobile} onChange={(e) => setEditingMember({...editingMember, mobile: e.target.value})} icon={<Phone size={14} />} />
+                            <Input label="Emergency Contact" value={editingMember.emergency_contact} onChange={(e) => setEditingMember({...editingMember, emergency_contact: e.target.value})} icon={<ShieldCheck size={14} />} />
+                            <Input label="Date of Birth" type="date" value={editingMember.dob} onChange={(e) => setEditingMember({...editingMember, dob: e.target.value})} icon={<Calendar size={14} />} />
+                            <Select label="Gender Identity" value={editingMember.gender} onChange={(e) => setEditingMember({...editingMember, gender: e.target.value as Gender})}>
+                                {Object.values(Gender).map(g => <option key={g} value={g}>{g}</option>)}
+                            </Select>
+                            <Input label="Postal Pincode" value={editingMember.pincode} onChange={(e) => setEditingMember({...editingMember, pincode: e.target.value})} icon={<MapPin size={14} />} />
+                            <div className="md:col-span-2">
+                                <Input label="Residential Registry Address" value={editingMember.address} onChange={(e) => setEditingMember({...editingMember, address: e.target.value})} icon={<MapPin size={14} />} />
+                            </div>
+                            <Select label="Professional Status" value={editingMember.occupation} onChange={(e) => setEditingMember({...editingMember, occupation: e.target.value as Occupation})}>
+                                {Object.values(Occupation).map(o => <option key={o} value={o}>{o}</option>)}
+                            </Select>
+                            <Select label="Support Requirement" value={editingMember.support_need} onChange={(e) => setEditingMember({...editingMember, support_need: e.target.value as SupportNeed})}>
+                                {Object.values(SupportNeed).map(s => <option key={s} value={s}>{s}</option>)}
+                            </Select>
+                            <div className="md:col-span-2">
+                                <Select label="Verification Status Override" value={editingMember.status} onChange={(e) => setEditingMember({...editingMember, status: e.target.value as MemberStatus})}>
+                                    <option value={MemberStatus.Pending}>Pending Verification</option>
+                                    <option value={MemberStatus.Accepted}>Accepted / Verified</option>
+                                </Select>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-4 pt-10 border-t border-white/5 mt-8 sticky bottom-0 bg-gray-900 pb-4 z-10">
+                            <Button variant="secondary" onClick={() => setIsEditModalOpen(false)} className="px-10 py-4 text-[10px] font-black uppercase tracking-widest">Cancel Abort</Button>
+                            <Button onClick={handleUpdateMember} disabled={isUpdating} className="px-12 py-4 text-[10px] font-black uppercase tracking-widest shadow-2xl bg-orange-600 hover:bg-orange-500 flex items-center gap-2">
+                                {isUpdating ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                                {isUpdating ? 'Synchronizing...' : 'Save Parameters'}
+                            </Button>
                         </div>
                     </div>
                 )}
+            </Modal>
+
+            {/* Delete Confirmation Modal */}
+            <Modal isOpen={!!memberToDelete} onClose={() => setMemberToDelete(null)} title="Security Protocol: Purge Identity">
+                <div className="p-6 text-center space-y-8">
+                    <div className="p-6 bg-red-500/10 rounded-full w-24 h-24 mx-auto flex items-center justify-center text-red-500 border border-red-500/20 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
+                        <AlertTriangle size={48} />
+                    </div>
+                    <div>
+                        <h4 className="text-2xl font-cinzel text-white mb-3">Irreversible Purge</h4>
+                        <p className="text-sm text-gray-500 leading-relaxed uppercase tracking-widest font-black">
+                            You are about to purge an identity node from the master registry. 
+                            This action is final and all associated document links will be lost.
+                        </p>
+                    </div>
+                    <div className="flex gap-4">
+                        <Button variant="secondary" onClick={() => setMemberToDelete(null)} className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest">Abort</Button>
+                        <Button 
+                            onClick={handleDeleteMember} 
+                            disabled={isDeleting}
+                            className="flex-1 bg-red-600 hover:bg-red-700 py-4 text-[10px] font-black uppercase tracking-widest shadow-xl"
+                        >
+                            {isDeleting ? 'PURGING...' : 'Confirm Purge'}
+                        </Button>
+                    </div>
+                </div>
             </Modal>
         </DashboardLayout>
     );

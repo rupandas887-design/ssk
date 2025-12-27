@@ -151,7 +151,6 @@ const OrganisationReports: React.FC = () => {
         const headers = ['Aadhaar', 'Full Name', 'Father Name', 'Mobile', 'DOB', 'Pincode', 'Address', 'VOLUNTEER', 'VOL_MOBILE', 'Date', 'Status'];
         const rows = filteredMembers.map(m => [
             m.aadhaar, `${m.name} ${m.surname}`, m.father_name, m.mobile, m.dob, m.pincode, m.address,
-            // Fix: Replaced 'member.volunteer_id' with 'm.volunteer_id' to resolve "Cannot find name 'member'" error.
             m.agent_profile?.name || allOrgProfiles.find(p => p.id === m.volunteer_id)?.name || 'N/A',
             m.agent_profile?.mobile || 'N/A',
             m.submission_date.split('T')[0], m.status
@@ -332,7 +331,7 @@ const OrganisationReports: React.FC = () => {
                 {viewingMember && (
                     <div className="space-y-8 p-2 max-h-[85vh] overflow-y-auto custom-scrollbar">
                         <div className="flex flex-col md:flex-row gap-8 p-10 bg-blue-500/5 border border-blue-500/10 rounded-[3rem] relative overflow-hidden group/modal-head">
-                            <div className="absolute top-0 right-0 p-10 opacity-5 group-hover/modal-head:rotate-12 transition-all duration-700">
+                            <div className="absolute top-0 right-0 p-10 opacity-5 group-hover/modal-head:rotate-12 transition-all duration-700 pointer-events-none">
                                 <Fingerprint size={120} />
                             </div>
                             
@@ -351,10 +350,10 @@ const OrganisationReports: React.FC = () => {
                                 </div>
                             )}
                             
-                            <div className="flex-1 space-y-6 pt-4 relative z-10">
+                            <div className="flex-1 space-y-6 pt-4 relative z-10 overflow-hidden">
                                 <div>
                                     <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.4em] mb-2">Authenticated Identity Node</p>
-                                    <h4 className="text-4xl font-cinzel text-white leading-none tracking-tight">{viewingMember.name} {viewingMember.surname}</h4>
+                                    <h4 className="text-2xl md:text-4xl font-cinzel text-white leading-tight tracking-tight break-words">{viewingMember.name} {viewingMember.surname}</h4>
                                 </div>
                                 <div className="flex flex-wrap gap-4">
                                     <div className="px-5 py-2.5 bg-black/60 rounded-2xl border border-white/5 flex items-center gap-2">
@@ -386,17 +385,17 @@ const OrganisationReports: React.FC = () => {
                             <DataPoint label="Professional Status" value={viewingMember.occupation} icon={<Briefcase size={14} />} />
                             <DataPoint label="Support Requirement" value={viewingMember.support_need} icon={<Zap size={14} />} />
                             
-                            <div className="p-8 bg-gradient-to-br from-blue-950/20 to-black border border-blue-500/20 rounded-[2rem] md:col-span-2 lg:col-span-1 group hover:border-blue-500/40 transition-all">
+                            <div className="p-8 bg-gradient-to-br from-blue-950/20 to-black border border-blue-500/20 rounded-[2rem] md:col-span-2 lg:col-span-1 group hover:border-blue-500/40 transition-all overflow-hidden">
                                 <div className="flex items-center gap-2 mb-6 text-blue-500">
                                     <BadgeCheck size={18} />
                                     <span className="text-[10px] font-black uppercase tracking-[0.3em]">Source Authentication</span>
                                 </div>
                                 <div className="flex items-center gap-4">
-                                    <div className="h-14 w-14 rounded-2xl bg-blue-600/10 flex items-center justify-center text-blue-500 border border-blue-500/10 group-hover:scale-105 transition-transform">
+                                    <div className="h-14 w-14 rounded-2xl bg-blue-600/10 flex items-center justify-center text-blue-500 border border-blue-500/10 group-hover:scale-105 transition-transform shrink-0">
                                         <UserCircle size={32} />
                                     </div>
-                                    <div className="flex flex-col">
-                                        <p className="text-white font-black uppercase text-sm tracking-widest leading-none mb-1">
+                                    <div className="flex flex-col overflow-hidden">
+                                        <p className="text-white font-black uppercase text-sm tracking-widest leading-none mb-1 break-words">
                                             {viewingMember.agent_profile?.name || 'Unknown operator'}
                                         </p>
                                         <p className="text-[10px] text-blue-400 font-mono font-bold tracking-widest flex items-center gap-1.5">
@@ -424,12 +423,12 @@ const OrganisationReports: React.FC = () => {
 };
 
 const DataPoint: React.FC<{ label: string, value: string, icon: React.ReactNode }> = ({ label, value, icon }) => (
-    <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl group hover:border-blue-500/20 transition-all">
+    <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl group hover:border-blue-500/20 transition-all overflow-hidden">
         <div className="flex items-center gap-2 mb-3 text-gray-500 group-hover:text-blue-500 transition-colors">
             {icon}
             <span className="text-[9px] font-black uppercase tracking-[0.2em]">{label}</span>
         </div>
-        <p className="text-white font-bold tracking-tight">{value || 'N/A'}</p>
+        <p className="text-white font-bold tracking-tight break-words whitespace-pre-wrap">{value || 'N/A'}</p>
     </div>
 );
 
