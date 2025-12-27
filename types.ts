@@ -8,12 +8,12 @@ export enum Role {
 export interface User {
   id: string;
   name: string;
-  role: Role;
+  role: Role | string; // Keep as string fallback for historical data/filtering
   email: string;
   organisationId?: string; 
   organisationName?: string;
   mobile?: string;
-  status?: 'Active' | 'Deactivated'; // Added status
+  status?: 'Active' | 'Deactivated';
 }
 
 export interface Organisation {

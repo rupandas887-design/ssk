@@ -4,7 +4,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import Header from './Header';
 import { useAuth } from '../../context/AuthContext';
 import { Role } from '../../types';
-import { Shield, Users, FileDown, UserPlus, LogOut, User as UserIcon, LayoutDashboard, Building2 } from 'lucide-react';
+import { Shield, Users, FileDown, LogOut, User as UserIcon, LayoutDashboard, Building2, UserPlus } from 'lucide-react';
 
 interface NavItem {
   path: string;
@@ -18,15 +18,15 @@ const adminNavItems: NavItem[] = [
   { path: '/admin/reports', label: 'Reports', icon: <FileDown size={20} /> },
 ];
 
-const orgNavItems: NavItem[] = [
+const organisationNavItems: NavItem[] = [
   { path: '/organisation', label: 'Overview', icon: <LayoutDashboard size={20} /> },
   { path: '/organisation/volunteers', label: 'Volunteers', icon: <Users size={20} /> },
   { path: '/organisation/reports', label: 'Reports', icon: <FileDown size={20} /> },
 ];
 
 const volunteerNavItems: NavItem[] = [
-  { path: '/volunteer', label: 'My Submissions', icon: <Users size={20} /> },
-  { path: '/volunteer/new-member', label: 'Enroll Member', icon: <UserPlus size={20} /> },
+  { path: '/volunteer', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
+  { path: '/volunteer/new-member', label: 'New Member', icon: <UserPlus size={20} /> },
 ];
 
 const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> = ({ children, title }) => {
@@ -38,26 +38,30 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
         navigate('/login');
     };
 
-    let navItems: NavItem[] = [];
-    let roleLabel = '';
-    let roleColor = 'text-orange-500';
-    let roleBg = 'bg-orange-500/10';
-    let roleBorder = 'border-orange-500/20';
-    
-    if (user?.role === Role.MasterAdmin) {
-        navItems = adminNavItems;
-        roleLabel = 'MASTER ADMIN';
-    } else if (user?.role === Role.Organisation) {
-        navItems = orgNavItems;
-        roleLabel = 'ADMIN';
-        roleColor = 'text-orange-400';
-    } else if (user?.role === Role.Volunteer) {
-        navItems = volunteerNavItems;
-        roleLabel = 'VOLUNTEER';
-        roleColor = 'text-blue-500';
-        roleBg = 'bg-blue-500/10';
-        roleBorder = 'border-blue-500/20';
-    }
+    // Fix: Select NavItems based on user role
+    const getNavItems = () => {
+        if (user?.role === Role.MasterAdmin) return adminNavItems;
+        if (user?.role === Role.Organisation) return organisationNavItems;
+        if (user?.role === Role.Volunteer) return volunteerNavItems;
+        return [];
+    };
+
+    // Fix: Select Role visual config based on user role
+    const getRoleConfig = () => {
+        switch (user?.role) {
+            case Role.MasterAdmin:
+                return { label: 'MASTER ADMIN', color: 'text-orange-500', bg: 'bg-orange-500/10', border: 'border-orange-500/20' };
+            case Role.Organisation:
+                return { label: 'ORGANISATION', color: 'text-blue-500', bg: 'bg-blue-500/10', border: 'border-blue-500/20' };
+            case Role.Volunteer:
+                return { label: 'VOLUNTEER', color: 'text-green-500', bg: 'bg-green-500/10', border: 'border-green-500/20' };
+            default:
+                return { label: 'GUEST', color: 'text-gray-500', bg: 'bg-gray-500/10', border: 'border-gray-500/20' };
+        }
+    };
+
+    const navItems = getNavItems();
+    const { label: roleLabel, color: roleColor, bg: roleBg, border: roleBorder } = getRoleConfig();
 
     return (
         <div className="min-h-screen bg-black flex flex-col">
@@ -105,12 +109,6 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
                                     <p className={`text-[10px] font-bold uppercase tracking-wider ${roleColor}`}>{roleLabel}</p>
                                 </div>
                             </div>
-                            {user?.organisationName && (
-                                <div className="flex items-center gap-2 px-2 py-1.5 bg-black/40 rounded border border-gray-800">
-                                    <Building2 size={12} className="text-gray-500" />
-                                    <span className="text-[9px] text-gray-400 font-black uppercase truncate tracking-widest">{user.organisationName}</span>
-                                </div>
-                            )}
                         </div>
                         <button 
                             onClick={handleLogout}

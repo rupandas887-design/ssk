@@ -18,14 +18,13 @@ const Header: React.FC<{ isLandingPage?: boolean }> = ({ isLandingPage = false }
     }
   };
   
+  // Fix: Dynamically determine dashboard path based on user role
   const getDashboardPath = () => {
       if (!user) return "/";
-      switch(user.role) {
-          case Role.MasterAdmin: return "/admin";
-          case Role.Organisation: return "/organisation";
-          case Role.Volunteer: return "/volunteer";
-          default: return "/";
-      }
+      if (user.role === Role.MasterAdmin) return "/admin";
+      if (user.role === Role.Organisation) return "/organisation";
+      if (user.role === Role.Volunteer) return "/volunteer";
+      return "/";
   }
 
   return (

@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 import { User, Role } from '../types';
 import { supabase } from '../supabase/client';
@@ -13,23 +14,21 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const mapStringToRole = (roleStr: any): Role => {
-    if (!roleStr) return Role.Volunteer;
+// Fix: Update mapStringToRole to correctly handle and return Organisation and Volunteer roles
+export const mapStringToRole = (roleStr: any): Role | string => {
+    if (!roleStr) return 'Guest';
     const normalized = String(roleStr).toLowerCase().trim();
     if (normalized === 'masteradmin' || normalized === 'superadmin' || normalized === 'master_admin') {
         return Role.MasterAdmin;
     }
-    if (
-        normalized === 'organisation' || 
-        normalized === 'organization' || 
-        normalized === 'admin' || 
-        normalized === 'org' ||
-        normalized === 'organisation_admin' ||
-        normalized === 'org_admin'
-    ) {
+    if (normalized === 'organisation' || normalized === 'org' || normalized === 'organisationadmin') {
         return Role.Organisation;
     }
-    return Role.Volunteer;
+    if (normalized === 'volunteer') {
+        return Role.Volunteer;
+    }
+    // Return the string as is for data categorization, but App.tsx will block access
+    return roleStr;
 };
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -38,7 +37,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const fetchProfile = useCallback(async (userId: string, authUser?: any): Promise<User | null> => {
     try {
-      // Step 1: Extract Metadata as Initial Source of Truth
       const metadataRole = authUser?.app_metadata?.role || authUser?.user_metadata?.role;
       const metadataOrgId = authUser?.app_metadata?.organisation_id || authUser?.user_metadata?.organisation_id;
       
@@ -49,8 +47,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           .maybeSingle();
 
       if (error) {
-          console.warn("DB Profile Fetch Blocked:", error.message);
-          // If recursion or RLS blocks the read, we fallback strictly to Auth Metadata
           if (authUser) {
               return {
                   id: authUser.id,
@@ -65,23 +61,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       
       if (profile) {
+          const role = mapStringToRole(profile.role || metadataRole);
+          
+          // Fix: Allow roles other than MasterAdmin to authenticate successfully
           return {
               id: profile.id,
               name: profile.name,
               email: profile.email,
-              role: mapStringToRole(profile.role || metadataRole),
+              role: role,
               organisationId: profile.organisation_id || metadataOrgId,
               organisationName: profile.organisations?.name || undefined,
               mobile: profile.mobile,
               status: (profile.status as 'Active' | 'Deactivated') || 'Active'
           };
       } else if (authUser) {
-          // Fallback: Use JWT data to provide access even if 'profiles' row is missing or blocked
+          const role = mapStringToRole(metadataRole);
           return {
               id: authUser.id,
               name: authUser.user_metadata?.name || 'Authorized User',
               email: authUser.email || '',
-              role: mapStringToRole(metadataRole),
+              role: role,
               organisationId: metadataOrgId,
               status: 'Active'
           };
@@ -107,7 +106,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 setUser(profile);
                 return { user: profile };
             }
-            return { user: null, error: "Access Denied: Sync protocol failed to establish identity.", code: 'SYNC_ERROR' };
+            return { user: null, error: "Access Denied: Account not authorized for registry access.", code: 'UNAUTHORIZED' };
         }
         return { user: null, error: "Authentication Handshake Failed." };
     } catch (err: any) {
