@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import DashboardLayout from '../../components/layout/DashboardLayout';
@@ -215,41 +216,41 @@ const NewMemberForm: React.FC = () => {
 
   return (
     <DashboardLayout title="Member Enrollment Terminal">
-      <div className="w-full max-w-5xl mx-auto space-y-8 pb-20">
-          <div className="bg-orange-600/10 border border-orange-500/20 rounded-3xl p-6 flex items-center justify-between">
+      <div className="w-full max-w-5xl mx-auto space-y-6 md:space-y-8 pb-20">
+          <div className="bg-orange-600/10 border border-orange-500/20 rounded-2xl md:rounded-3xl p-4 md:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                   <div className="p-3 bg-orange-600/20 rounded-2xl text-orange-500">
                       <Fingerprint size={24} />
                   </div>
                   <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-orange-500/60 leading-none mb-1">Active Operator</p>
-                      <h4 className="text-xl font-bold text-white uppercase tracking-tight">{user?.name}</h4>
+                      <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-orange-500/60 leading-none mb-1">Active Operator</p>
+                      <h4 className="text-base md:text-xl font-bold text-white uppercase tracking-tight">{user?.name}</h4>
                   </div>
               </div>
-              <div className="text-right hidden md:block">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Sector Authority</p>
-                  <p className="text-xs font-bold text-gray-400 uppercase">{user?.organisationName}</p>
+              <div className="sm:text-right w-full sm:w-auto">
+                  <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Sector Authority</p>
+                  <p className="text-[11px] md:text-xs font-bold text-gray-400 uppercase">{user?.organisationName}</p>
               </div>
           </div>
 
-          <div className="relative pt-6">
-              <div className="flex justify-between items-center mb-6 relative z-10 px-2">
+          <div className="relative pt-4 px-2">
+              <div className="flex justify-between items-center mb-6 relative z-10">
                   {[1, 2, 3].map(s => (
-                      <div key={s} className={`flex flex-col items-center gap-2 transition-all duration-500 ${step >= s ? 'scale-110' : 'opacity-40'}`}>
-                          <div className={`h-12 w-12 rounded-full border-2 flex items-center justify-center transition-all ${step >= s ? 'bg-orange-500 border-orange-400 shadow-[0_0_15px_rgba(255,100,0,0.4)]' : 'bg-gray-900 border-gray-800'}`}>
-                              <span className="text-sm font-black text-white">{s}</span>
+                      <div key={s} className={`flex flex-col items-center gap-2 transition-all duration-500 ${step >= s ? 'scale-100' : 'opacity-40'}`}>
+                          <div className={`h-10 w-10 md:h-12 md:w-12 rounded-full border-2 flex items-center justify-center transition-all ${step >= s ? 'bg-orange-500 border-orange-400 shadow-[0_0_15px_rgba(255,100,0,0.4)]' : 'bg-gray-900 border-gray-800'}`}>
+                              <span className="text-xs md:text-sm font-black text-white">{s}</span>
                           </div>
                       </div>
                   ))}
               </div>
-              <div className="absolute top-[3.2rem] left-0 w-full h-0.5 bg-gray-900 rounded-full overflow-hidden">
+              <div className="absolute top-[2.7rem] md:top-[3.2rem] left-0 w-full h-0.5 bg-gray-900 rounded-full overflow-hidden">
                   <div className="h-full bg-orange-600 transition-all duration-700" style={{ width: `${((step - 1) / 2) * 100}%` }}></div>
               </div>
           </div>
           
           <div className="animate-in fade-in slide-in-from-bottom-6 duration-700">
             {step === 1 && (
-                <div className="space-y-8">
+                <div className="space-y-6 md:space-y-8">
                     <Card title="Registry Validation" className="bg-[#050505]">
                         <div className="space-y-6">
                             <Input 
@@ -259,7 +260,7 @@ const NewMemberForm: React.FC = () => {
                                 onChange={handleChange} 
                                 maxLength={12} 
                                 placeholder="Enter 12-digit Aadhaar"
-                                className="text-lg font-mono tracking-[0.2em]" 
+                                className="text-base md:text-lg font-mono tracking-[0.2em]" 
                                 required
                             />
                             <Input 
@@ -274,15 +275,15 @@ const NewMemberForm: React.FC = () => {
                             />
                             {validationError && (
                                 <div className="flex items-center gap-2 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
-                                    <ShieldAlert size={16} className="text-red-500" />
-                                    <p className="text-xs text-red-400 font-bold uppercase tracking-widest leading-relaxed">
+                                    <ShieldAlert size={16} className="text-red-500 shrink-0" />
+                                    <p className="text-[11px] text-red-400 font-bold uppercase tracking-widest leading-relaxed">
                                         {validationError}
                                     </p>
                                 </div>
                             )}
                         </div>
                         <div className="mt-8 flex justify-end">
-                            <Button onClick={handleStep1Next} disabled={isValidating} className="py-4 px-12 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                            <Button onClick={handleStep1Next} disabled={isValidating} className="w-full sm:w-auto py-4 px-12 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2">
                                 {isValidating ? <RefreshCw className="animate-spin" size={14} /> : 'Validate Registry'}
                             </Button>
                         </div>
@@ -292,7 +293,7 @@ const NewMemberForm: React.FC = () => {
             
             {step === 2 && (
                 <Card title="Profile & Document Enrollment" className="bg-[#050505]">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                         <Input label="GIVEN NAME *" name="name" value={formData.name} onChange={handleChange} required />
                         <Input label="SURNAME *" name="surname" value={formData.surname} onChange={handleChange} required />
                         <Input label="FATHER / GUARDIAN NAME *" name="fatherName" value={formData.fatherName} onChange={handleChange} required />
@@ -307,12 +308,12 @@ const NewMemberForm: React.FC = () => {
                         </div>
                         
                         <div className="md:col-span-2">
-                            <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-4">AADHAAR CARD DOCUMENT IMAGE *</label>
-                            <div className="mt-1 flex flex-col items-center justify-center p-12 border-2 border-gray-800 border-dashed rounded-[2.5rem] bg-black/40 hover:border-orange-500/40 transition-colors group">
+                            <label className="block text-[9px] md:text-[10px] font-black uppercase tracking-widest text-gray-500 mb-4">AADHAAR CARD DOCUMENT IMAGE *</label>
+                            <div className="mt-1 flex flex-col items-center justify-center p-6 md:p-12 border-2 border-gray-800 border-dashed rounded-[1.5rem] md:rounded-[2.5rem] bg-black/40 hover:border-orange-500/40 transition-colors group">
                                 {imagePreview ? (
                                     <div className="text-center">
                                         <div className="relative inline-block">
-                                            <img src={imagePreview} className="mx-auto h-56 rounded-3xl shadow-2xl border-2 border-white/10" />
+                                            <img src={imagePreview} className="mx-auto h-40 md:h-56 rounded-2xl md:rounded-3xl shadow-2xl border-2 border-white/10" />
                                             <button 
                                                 onClick={handleRemoveImage}
                                                 className="absolute -top-3 -right-3 h-8 w-8 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors"
@@ -320,24 +321,24 @@ const NewMemberForm: React.FC = () => {
                                                 &times;
                                             </button>
                                         </div>
-                                        <p className="mt-4 text-[10px] font-black text-green-500 uppercase tracking-widest">Aadhaar Image Loaded</p>
+                                        <p className="mt-4 text-[9px] md:text-[10px] font-black text-green-500 uppercase tracking-widest">Aadhaar Image Loaded</p>
                                     </div>
                                 ) : (
-                                    <div className="flex flex-col items-center gap-6">
-                                        <div className="p-6 bg-gray-900 rounded-3xl text-gray-700 group-hover:text-orange-500 transition-colors">
-                                            <FileText size={48} />
+                                    <div className="flex flex-col items-center gap-4 md:gap-6 w-full">
+                                        <div className="p-4 md:p-6 bg-gray-900 rounded-2xl md:rounded-3xl text-gray-700 group-hover:text-orange-500 transition-colors">
+                                            <FileText size={40} md:size={48} />
                                         </div>
-                                        <div className="flex gap-4">
-                                            <Button size="sm" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2">
+                                        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                                            <Button size="sm" onClick={() => fileInputRef.current?.click()} className="flex items-center justify-center gap-2">
                                                 <UploadCloud size={14} /> Upload Scan
                                             </Button>
-                                            <span className="text-gray-700 self-center font-bold">OR</span>
-                                            <Button size="sm" variant="secondary" onClick={openCamera} className="flex items-center gap-2">
+                                            <span className="text-gray-700 self-center font-bold hidden sm:block">OR</span>
+                                            <Button size="sm" variant="secondary" onClick={openCamera} className="flex items-center justify-center gap-2">
                                                 <Camera size={14} /> Scan Card
                                             </Button>
                                             <input ref={fileInputRef} type="file" className="sr-only" onChange={handleFileChange} accept="image/*" />
                                         </div>
-                                        <p className="text-[9px] text-gray-600 font-bold uppercase tracking-widest">Image must be bright and all text clearly readable.</p>
+                                        <p className="text-[8px] md:text-[9px] text-gray-600 font-bold uppercase tracking-widest text-center">Image must be bright and all text clearly readable.</p>
                                     </div>
                                 )}
                             </div>
@@ -346,22 +347,22 @@ const NewMemberForm: React.FC = () => {
                     
                     {validationError && (
                         <div className="mt-6 flex items-center gap-2 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
-                            <ShieldAlert size={16} className="text-red-500" />
-                            <p className="text-xs text-red-400 font-bold uppercase tracking-widest">{validationError}</p>
+                            <ShieldAlert size={16} className="text-red-500 shrink-0" />
+                            <p className="text-[11px] text-red-400 font-bold uppercase tracking-widest">{validationError}</p>
                         </div>
                     )}
 
-                    <div className="mt-8 flex justify-between">
-                        <Button variant="secondary" onClick={() => setStep(1)}>Back</Button>
-                        <Button onClick={handleStep2Next}>Continue Enrollment</Button>
+                    <div className="mt-8 flex flex-col sm:flex-row justify-between gap-4">
+                        <Button variant="secondary" onClick={() => setStep(1)} className="w-full sm:w-auto order-2 sm:order-1">Back</Button>
+                        <Button onClick={handleStep2Next} className="w-full sm:w-auto order-1 sm:order-2">Continue Enrollment</Button>
                     </div>
                 </Card>
             )}
-
+            
             {step === 3 && (
                 <Card title="Final Review" className="bg-[#050505]">
-                    <div className="space-y-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-6 md:space-y-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                             <Select label="PRIMARY OCCUPATION *" name="occupation" value={formData.occupation} onChange={handleChange}>
                                 {Object.values(Occupation).map(o => <option key={o} value={o}>{o}</option>)}
                             </Select>
@@ -370,19 +371,19 @@ const NewMemberForm: React.FC = () => {
                             </Select>
                         </div>
 
-                        <div className="p-8 bg-orange-600/5 border border-orange-500/20 rounded-[2rem] flex items-center gap-6">
+                        <div className="p-6 md:p-8 bg-orange-600/5 border border-orange-500/20 rounded-2xl md:rounded-[2rem] flex items-center gap-4 md:gap-6">
                             <CheckCircle2 size={32} className="text-orange-500 shrink-0" />
                             <div>
-                                <p className="text-xs text-gray-400 leading-relaxed uppercase tracking-wider font-bold">
+                                <p className="text-[10px] md:text-xs text-gray-400 leading-relaxed uppercase tracking-wider font-bold">
                                     Operator Certification: I, {user?.name}, verify that the attached Aadhaar card image matches the enrollee's identification and all data points are verified.
                                 </p>
                             </div>
                         </div>
                     </div>
                     
-                    <div className="mt-12 flex justify-between">
-                        <Button variant="secondary" onClick={() => setStep(2)}>Review Profile</Button>
-                        <Button onClick={handleSubmit} disabled={isSubmitting} className="py-4 px-12 text-[10px] font-black uppercase tracking-widest shadow-2xl">
+                    <div className="mt-10 md:mt-12 flex flex-col sm:flex-row justify-between gap-4">
+                        <Button variant="secondary" onClick={() => setStep(2)} className="w-full sm:w-auto order-2 sm:order-1">Review Profile</Button>
+                        <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full sm:w-auto order-1 sm:order-2 py-4 px-12 text-[10px] font-black uppercase tracking-widest shadow-2xl">
                             {isSubmitting ? 'Syncing Global Registry...' : 'Finalize Enrollment'}
                         </Button>
                     </div>
@@ -392,16 +393,16 @@ const NewMemberForm: React.FC = () => {
       </div>
       
       {isCameraOpen && (
-          <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[100] p-6 backdrop-blur-md">
+          <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[100] p-4 md:p-6 backdrop-blur-md">
               <div className="w-full max-w-2xl">
                   <div className="flex justify-between items-center mb-6">
-                      <h4 className="text-xl font-cinzel text-white">Document Scanner</h4>
+                      <h4 className="text-lg md:text-xl font-cinzel text-white">Document Scanner</h4>
                       <button onClick={closeCamera} className="text-gray-500 hover:text-white text-3xl">&times;</button>
                   </div>
-                  <video ref={videoRef} autoPlay playsInline className="w-full rounded-[2.5rem] border-2 border-white/10 shadow-3xl mb-8 bg-black"></video>
-                  <div className="flex justify-center gap-6">
-                      <Button onClick={handleCapture} className="px-12 py-4 text-[10px] font-black uppercase tracking-widest">Capture Document</Button>
-                      <Button variant="secondary" onClick={closeCamera} className="px-8 py-4 text-[10px] font-black uppercase tracking-widest">Abort</Button>
+                  <video ref={videoRef} autoPlay playsInline className="w-full rounded-2xl md:rounded-[2.5rem] border-2 border-white/10 shadow-3xl mb-8 bg-black aspect-video object-cover"></video>
+                  <div className="flex flex-col sm:flex-row justify-center gap-4 md:gap-6">
+                      <Button onClick={handleCapture} className="w-full sm:w-auto px-12 py-4 text-[10px] font-black uppercase tracking-widest">Capture Document</Button>
+                      <Button variant="secondary" onClick={closeCamera} className="w-full sm:w-auto px-8 py-4 text-[10px] font-black uppercase tracking-widest">Abort</Button>
                   </div>
               </div>
           </div>

@@ -1,10 +1,21 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import Header from './Header';
 import { useAuth } from '../../context/AuthContext';
 import { Role } from '../../types';
-import { Shield, Users, FileDown, LogOut, User as UserIcon, LayoutDashboard, Building2, UserPlus } from 'lucide-react';
+import { 
+  Shield, 
+  Users, 
+  FileDown, 
+  LogOut, 
+  User as UserIcon, 
+  LayoutDashboard, 
+  Building2, 
+  UserPlus,
+  Menu,
+  X
+} from 'lucide-react';
 
 interface NavItem {
   path: string;
@@ -32,13 +43,13 @@ const volunteerNavItems: NavItem[] = [
 const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> = ({ children, title }) => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const handleLogout = async () => {
         await logout();
         navigate('/login');
     };
 
-    // Fix: Select NavItems based on user role
     const getNavItems = () => {
         if (user?.role === Role.MasterAdmin) return adminNavItems;
         if (user?.role === Role.Organisation) return organisationNavItems;
@@ -46,7 +57,6 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
         return [];
     };
 
-    // Fix: Select Role visual config based on user role
     const getRoleConfig = () => {
         switch (user?.role) {
             case Role.MasterAdmin:
@@ -66,8 +76,22 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
     return (
         <div className="min-h-screen bg-black flex flex-col">
             <Header />
-            <div className="flex flex-1 overflow-hidden">
-                {/* Sidebar */}
+            
+            {/* Mobile Header Toggle */}
+            <div className="md:hidden flex items-center justify-between p-4 bg-gray-950 border-b border-white/5">
+                <button 
+                  onClick={() => setIsMobileMenuOpen(true)}
+                  className="p-2 text-gray-400 hover:text-white"
+                >
+                    <Menu size={24} />
+                </button>
+                <div className={`px-3 py-1 rounded-full border ${roleBg} ${roleColor} ${roleBorder} text-[9px] font-black tracking-widest`}>
+                    {roleLabel}
+                </div>
+            </div>
+
+            <div className="flex flex-1 overflow-hidden relative">
+                {/* Desktop Sidebar */}
                 <aside className="w-64 bg-gray-900 border-r border-gray-800 hidden md:flex flex-col">
                     <div className="p-4 flex-1">
                         <div className="mb-8 px-2">
@@ -97,7 +121,6 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
                         </div>
                     </div>
 
-                    {/* Sidebar User Profile & Logout */}
                     <div className="p-4 border-t border-gray-800 bg-gray-900/50">
                         <div className="flex flex-col gap-3 mb-4 px-2">
                             <div className="flex items-center gap-3">
@@ -120,24 +143,75 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
                     </div>
                 </aside>
 
+                {/* Mobile Slide-over Sidebar */}
+                {isMobileMenuOpen && (
+                    <>
+                        <div 
+                          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 md:hidden"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        ></div>
+                        <aside className="fixed inset-y-0 left-0 w-72 bg-gray-950 z-50 flex flex-col shadow-2xl animate-in slide-in-from-left duration-300 md:hidden border-r border-white/5">
+                            <div className="p-6 flex items-center justify-between border-b border-white/5">
+                                <span className="text-xl font-bold font-cinzel text-white">SSK<span className="text-orange-500">PEOPLE</span></span>
+                                <button onClick={() => setIsMobileMenuOpen(false)} className="text-gray-500 hover:text-white">
+                                    <X size={24} />
+                                </button>
+                            </div>
+                            <div className="p-6 flex-1 overflow-y-auto">
+                                <div className={`inline-block px-3 py-1 rounded-full border ${roleBg} ${roleColor} ${roleBorder} text-[9px] font-black tracking-[0.2em] mb-8`}>
+                                    {roleLabel}
+                                </div>
+                                <nav className="space-y-2">
+                                    {navItems.map(item => (
+                                        <NavLink
+                                            key={item.path}
+                                            to={item.path}
+                                            onClick={() => setIsMobileMenuOpen(false)}
+                                            className={({ isActive }) =>
+                                                `flex items-center space-x-4 p-4 rounded-xl transition-all ${
+                                                isActive
+                                                    ? 'bg-orange-600 text-white shadow-xl'
+                                                    : 'text-gray-400 hover:bg-white/5'
+                                                }`
+                                            }
+                                        >
+                                            {item.icon}
+                                            <span className="font-bold text-sm">{item.label}</span>
+                                        </NavLink>
+                                    ))}
+                                </nav>
+                            </div>
+                            <div className="p-6 border-t border-white/5 bg-black/40">
+                                <div className="flex items-center gap-4 mb-6">
+                                    <div className="h-12 w-12 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500">
+                                        <UserIcon size={24} />
+                                    </div>
+                                    <div className="overflow-hidden">
+                                        <p className="text-sm font-bold text-white truncate">{user?.name}</p>
+                                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Active Session</p>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={handleLogout}
+                                    className="w-full flex items-center justify-center gap-3 p-4 rounded-xl bg-red-600 hover:bg-red-700 text-white transition-all text-xs font-black tracking-widest"
+                                >
+                                    <LogOut size={16} />
+                                    <span>SIGN OUT</span>
+                                </button>
+                            </div>
+                        </aside>
+                    </>
+                )}
+
                 {/* Main Content */}
-                <main className="flex-1 p-6 lg:p-10 overflow-y-auto bg-black">
-                    <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <main className="flex-1 p-4 md:p-10 overflow-y-auto bg-black custom-scrollbar">
+                    <div className="mb-8 flex flex-col lg:flex-row lg:items-end justify-between gap-4">
                         <div>
                             <div className="flex items-center gap-2 text-orange-500 mb-1">
                                 <div className="h-1 w-6 bg-orange-600 rounded-full"></div>
-                                <span className="text-[10px] uppercase tracking-[0.3em] font-black">{roleLabel} ACCESS LEVEL</span>
+                                <span className="text-[9px] md:text-[10px] uppercase tracking-[0.3em] font-black">{roleLabel} ACCESS LEVEL</span>
                             </div>
-                            <h1 className="font-cinzel text-3xl lg:text-4xl text-white tracking-tight">{title}</h1>
-                        </div>
-                        <div className="md:hidden">
-                            <button 
-                                onClick={handleLogout}
-                                className="flex items-center gap-2 px-4 py-2 rounded-md bg-red-900/20 text-red-400 text-xs font-bold border border-red-900/30 w-full justify-center"
-                            >
-                                <LogOut size={14} />
-                                <span>SIGN OUT</span>
-                            </button>
+                            <h1 className="font-cinzel text-2xl md:text-4xl text-white tracking-tight leading-tight">{title}</h1>
                         </div>
                     </div>
                     <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
