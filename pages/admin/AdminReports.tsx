@@ -33,7 +33,6 @@ import {
   BadgeCheck
 } from 'lucide-react';
 
-// Extended member type for join data
 type MemberWithAgent = Member & {
     agent_profile?: { 
         name: string, 
@@ -49,14 +48,12 @@ const AdminReports: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const { addNotification } = useNotification();
     
-    // Filters State
     const [selectedOrgId, setSelectedOrgId] = useState<string>('');
     const [selectedVolunteerId, setSelectedVolunteerId] = useState<string>('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
 
-    // Modal & Action State
     const [editingMember, setEditingMember] = useState<MemberWithAgent | null>(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -108,37 +105,17 @@ const AdminReports: React.FC = () => {
         fetchData();
     }, []);
 
-    // Filter Logic
     const filteredMembers = useMemo(() => {
         return members.filter(m => {
             const matchOrg = !selectedOrgId || m.organisation_id === selectedOrgId;
             const matchVol = !selectedVolunteerId || m.volunteer_id === selectedVolunteerId;
-            
-            const subDate = new Date(m.submission_date);
-            const start = startDate ? new Date(startDate) : null;
-            const end = endDate ? new Date(endDate) : null;
-            if (end) end.setHours(23, 59, 59, 999);
-
-            const matchStart = !start || subDate >= start;
-            const matchEnd = !end || subDate <= end;
-            
             const matchSearch = !searchQuery || 
                 m.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                 m.surname.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                m.mobile.includes(searchQuery) ||
-                m.aadhaar.includes(searchQuery);
-                
-            return matchOrg && matchVol && matchStart && matchEnd && matchSearch;
+                m.mobile.includes(searchQuery);
+            return matchOrg && matchVol && matchSearch;
         });
-    }, [members, selectedOrgId, selectedVolunteerId, startDate, endDate, searchQuery]);
-
-    const availableAgents = useMemo(() => {
-        let base = allProfiles.filter(p => p.role === Role.Volunteer || p.role === Role.Organisation);
-        if (selectedOrgId) {
-            base = base.filter(p => p.organisationId === selectedOrgId);
-        }
-        return base;
-    }, [selectedOrgId, allProfiles]);
+    }, [members, selectedOrgId, selectedVolunteerId, searchQuery]);
 
     const handleEditMember = (member: MemberWithAgent) => {
         setEditingMember({ ...member });
@@ -151,11 +128,11 @@ const AdminReports: React.FC = () => {
         try {
             const { error } = await supabase.from('members').delete().eq('id', memberToDelete);
             if (error) throw error;
-            addNotification("Record purged from master registry.", "success");
+            addNotification("Record purged.", "success");
             setMemberToDelete(null);
             fetchData();
         } catch (err: any) {
-            addNotification(`Purge failed: ${err.message}`, "error");
+            addNotification(`Action failed.`, "error");
         } finally {
             setIsDeleting(false);
         }
@@ -168,166 +145,82 @@ const AdminReports: React.FC = () => {
             const { error } = await supabase.from('members').update({
                 name: editingMember.name,
                 surname: editingMember.surname,
-                mobile: editingMember.mobile,
-                aadhaar: editingMember.aadhaar,
-                father_name: editingMember.father_name,
-                dob: editingMember.dob,
-                gender: editingMember.gender,
-                pincode: editingMember.pincode,
-                address: editingMember.address,
-                occupation: editingMember.occupation,
-                support_need: editingMember.support_need,
                 status: editingMember.status,
-                emergency_contact: editingMember.emergency_contact
             }).eq('id', editingMember.id);
-            
             if (error) throw error;
-            addNotification("Master record synchronized.", "success");
+            addNotification("Data synchronized.", "success");
             setIsEditModalOpen(false);
             fetchData();
         } catch (err: any) {
-            addNotification(`Update failed: ${err.message}`, "error");
+            addNotification(`Update failed.`, "error");
         } finally {
             setIsUpdating(false);
         }
-    };
-
-    const handleDownload = () => {
-        const headers = ['Aadhaar', 'Name', 'Surname', 'Mobile', 'Org', 'VOLUNTEER', 'VOL_MOBILE', 'Date', 'Status'];
-        const rows = filteredMembers.map(m => [
-            m.aadhaar, m.name, m.surname, m.mobile,
-            m.agent_profile?.organisations?.name || organisations.find(o => o.id === m.organisation_id)?.name || 'N/A',
-            m.agent_profile?.name || allProfiles.find(p => p.id === m.volunteer_id)?.name || 'N/A',
-            m.agent_profile?.mobile || 'N/A',
-            m.submission_date, m.status
-        ]);
-        const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = `Global_Registry_Export_${new Date().toISOString().split('T')[0]}.csv`;
-        link.click();
     };
 
     return (
         <DashboardLayout title="Master Registry Terminal">
             <div className="space-y-8">
                 <Card className="bg-gray-950 border-white/5 p-8 rounded-[2rem] shadow-2xl relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-8 opacity-[0.02] pointer-events-none">
-                        <Filter size={150} />
-                    </div>
-                    
                     <div className="flex items-center gap-2 mb-8 text-orange-500 relative z-10">
                         <Activity size={18} />
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.4em]">Multi-Vector Query Intelligence</h3>
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.4em]">Multi-Vector Registry Search</h3>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 relative z-10">
-                        <div>
-                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">1. Organization Sector</label>
-                            <Select 
-                                value={selectedOrgId} 
-                                onChange={(e) => { setSelectedOrgId(e.target.value); setSelectedVolunteerId(''); }}
-                                className="bg-black/40 border-gray-800"
-                            >
-                                <option value="">All Organizations</option>
-                                {organisations.map(org => <option key={org.id} value={org.id}>{org.name}</option>)}
-                            </Select>
-                        </div>
-                        <div>
-                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">2. VOLUNTEER</label>
-                            <Select 
-                                value={selectedVolunteerId} 
-                                onChange={(e) => setSelectedVolunteerId(e.target.value)}
-                                className="bg-black/40 border-gray-800"
-                            >
-                                <option value="">All Sector Volunteers</option>
-                                {availableAgents.map(a => <option key={a.id} value={a.id}>{a.name} ({a.role})</option>)}
-                            </Select>
-                        </div>
-                        <div>
-                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">3. Start Date</label>
-                            <Input 
-                                type="date" 
-                                value={startDate} 
-                                onChange={(e) => setStartDate(e.target.value)} 
-                                className="bg-black/40 border-gray-800"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">4. End Date</label>
-                            <Input 
-                                type="date" 
-                                value={endDate} 
-                                onChange={(e) => setEndDate(e.target.value)} 
-                                className="bg-black/40 border-gray-800"
-                            />
-                        </div>
-                    </div>
-                    
-                    <div className="mt-10 pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6 relative z-10">
-                        <div className="w-full md:w-1/2">
-                            <Input 
-                                placeholder="Global ID Search (Name, Phone, Aadhaar)..." 
-                                value={searchQuery} 
-                                onChange={(e) => setSearchQuery(e.target.value)} 
-                                icon={<Search size={16} />}
-                                className="bg-black/20 border-gray-900 focus:border-orange-500/50"
-                            />
-                        </div>
-                        <div className="flex gap-4 w-full md:w-auto">
-                            <Button onClick={fetchData} variant="secondary" className="flex-1 md:flex-none px-6 py-4 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10">
+                        <Select label="Filter by Sector" value={selectedOrgId} onChange={(e) => setSelectedOrgId(e.target.value)}>
+                            <option value="">All Organizations</option>
+                            {organisations.map(org => <option key={org.id} value={org.id}>{org.name}</option>)}
+                        </Select>
+                        <Input 
+                            placeholder="Search by Name/Mobile..." 
+                            value={searchQuery} 
+                            onChange={(e) => setSearchQuery(e.target.value)} 
+                            icon={<Search size={16} />}
+                        />
+                        <div className="flex gap-4 items-end">
+                            <Button onClick={fetchData} variant="secondary" className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest gap-2">
                                 <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Sync
-                            </Button>
-                            <Button onClick={handleDownload} className="flex-1 md:flex-none px-10 py-4 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-2xl bg-orange-600 hover:bg-orange-700">
-                                <FileSpreadsheet size={16} /> Export Dataset
                             </Button>
                         </div>
                     </div>
                 </Card>
 
-                <Card title="Global Identity Node Registry">
+                <Card title="Global Enrolled Members">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead className="border-b border-gray-800">
                                 <tr className="text-gray-500 uppercase tracking-widest text-[10px] font-black">
                                     <th className="p-6">Member Identity</th>
                                     <th className="p-6 text-blue-500">Personnel Attribution</th>
-                                    <th className="p-6 text-center">Status</th>
-                                    <th className="p-6 text-right"></th>
+                                    <th className="p-6 text-center">Verification</th>
+                                    <th className="p-6"></th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-900/50">
                                 {loading ? (
-                                    <tr><td colSpan={4} className="p-24 text-center text-[11px] animate-pulse font-black uppercase tracking-[0.4em] text-gray-600">Synchronizing Global Nodes...</td></tr>
+                                    <tr><td colSpan={4} className="p-24 text-center text-[11px] animate-pulse font-black uppercase tracking-[0.4em] text-gray-600">Loading Node Data...</td></tr>
                                 ) : filteredMembers.map(m => (
                                     <tr key={m.id} className="group hover:bg-white/[0.02] transition-all">
                                         <td className="p-6">
-                                            <div className="flex flex-col gap-1">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-bold text-white text-lg group-hover:text-orange-500 transition-colors">{m.name} {m.surname}</span>
-                                                    {m.member_image_url && <FileText size={14} className="text-blue-500/50" />}
-                                                </div>
-                                                <div className="flex items-center gap-3 text-[11px] text-gray-600 font-mono tracking-tighter">
-                                                    <span>{m.mobile}</span>
-                                                    <span className="h-1 w-1 rounded-full bg-gray-800"></span>
-                                                    <span>{m.aadhaar.slice(-4).padStart(12, '•')}</span>
-                                                </div>
+                                            <div className="flex flex-col">
+                                                <span className="font-bold text-white text-lg">{m.name} {m.surname}</span>
+                                                <span className="text-[11px] text-gray-600 font-mono">{m.mobile}</span>
                                             </div>
                                         </td>
                                         <td className="p-6">
                                             <div className="flex items-center gap-4">
-                                                <div className="h-10 w-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500 shrink-0">
+                                                <div className="h-10 w-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500">
                                                     <UserCircle size={20} />
                                                 </div>
                                                 <div className="flex flex-col">
                                                     <span className="text-[11px] font-black text-white uppercase tracking-widest">
-                                                        {m.agent_profile?.name || 'Agent '+m.volunteer_id.slice(0,5)}
+                                                        {m.agent_profile?.name || 'Unknown Agent'}
                                                     </span>
                                                     <div className="flex items-center gap-2 mt-0.5">
                                                         <Building2 size={10} className="text-orange-500/80" />
                                                         <span className="text-[9px] text-orange-500/80 font-black uppercase tracking-widest">
-                                                            {m.agent_profile?.organisations?.name || 'Master Entity'}
+                                                            {m.agent_profile?.organisations?.name || 'Independent'}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -340,154 +233,37 @@ const AdminReports: React.FC = () => {
                                         </td>
                                         <td className="p-6 text-right">
                                             <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                                                <button 
-                                                    onClick={() => handleEditMember(m)} 
-                                                    className="p-3 bg-white/5 rounded-xl border border-white/10 hover:border-orange-500/50 text-gray-400 hover:text-white transition-all"
-                                                    title="Edit Record"
-                                                >
+                                                <button onClick={() => handleEditMember(m)} className="p-3 text-gray-400 hover:text-white">
                                                     <Edit3 size={18} />
                                                 </button>
-                                                <button 
-                                                    onClick={() => setMemberToDelete(m.id)} 
-                                                    className="p-3 bg-red-500/5 rounded-xl border border-red-500/10 hover:border-red-500/50 text-red-500/60 hover:text-red-500 transition-all"
-                                                    title="Purge Record"
-                                                >
+                                                <button onClick={() => setMemberToDelete(m.id)} className="p-3 text-red-500/60 hover:text-red-500">
                                                     <Trash2 size={18} />
                                                 </button>
                                             </div>
                                         </td>
                                     </tr>
                                 ))}
-                                {filteredMembers.length === 0 && !loading && (
-                                    <tr><td colSpan={4} className="p-40 text-center text-[11px] text-gray-700 uppercase tracking-[0.5em] font-black">Null intersection in master dataset.</td></tr>
-                                )}
                             </tbody>
                         </table>
                     </div>
                 </Card>
             </div>
 
-            <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Registry Override Terminal">
+            <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Modify Member Identity">
                 {editingMember && (
-                    <div className="space-y-6 p-2 max-h-[85vh] overflow-y-auto custom-scrollbar">
-                        <div className="flex items-start gap-8 p-8 bg-orange-500/5 border border-orange-500/10 rounded-[2.5rem] relative overflow-hidden group/modal-head">
-                            {editingMember.member_image_url ? (
-                                <div className="relative h-40 w-40 rounded-[2rem] overflow-hidden border-2 border-white/10 shrink-0 shadow-2xl">
-                                    <img src={editingMember.member_image_url} alt="Aadhaar Scan" className="w-full h-full object-cover" />
-                                    <a href={editingMember.member_image_url} target="_blank" rel="noreferrer" className="absolute inset-0 bg-black/60 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity text-white">
-                                        <ExternalLink size={24} />
-                                    </a>
-                                </div>
-                            ) : (
-                                <div className="h-40 w-40 rounded-[2rem] bg-gray-900 border-2 border-white/5 flex items-center justify-center text-gray-700 shrink-0">
-                                    <FileText size={48} />
-                                </div>
-                            )}
-                            <div className="flex-1 space-y-4 pt-2">
-                                <div>
-                                    <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.4em] mb-1">Aadhaar Document Scan</p>
-                                    <h4 className="text-3xl font-cinzel text-white leading-none">{editingMember.name} {editingMember.surname}</h4>
-                                </div>
-                                <div className="flex flex-wrap gap-4">
-                                    <div className="px-5 py-2 bg-black/40 rounded-2xl border border-white/5 flex items-center gap-2">
-                                        <Fingerprint size={12} className="text-orange-500/50" />
-                                        <span className="text-[10px] font-mono text-gray-400 uppercase tracking-widest">{editingMember.aadhaar}</span>
-                                    </div>
-                                    <div className="px-5 py-2 bg-black/40 rounded-2xl border border-white/5 flex items-center gap-2">
-                                        <Calendar size={12} className="text-blue-500/50" />
-                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Enrolled: {editingMember.submission_date.split('T')[0]}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="p-6 bg-gradient-to-r from-orange-950/20 to-black border border-orange-500/20 rounded-[2rem] flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className="h-12 w-12 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500 border border-orange-500/10">
-                                    <UserCircle size={24} />
-                                </div>
-                                <div>
-                                    <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.3em] mb-0.5">Enrollment Personnel</p>
-                                    <p className="text-sm font-bold text-white uppercase tracking-widest">
-                                        {editingMember.agent_profile?.name || 'Unknown Operator'}
-                                    </p>
-                                    <p className="text-[9px] font-black text-orange-500/60 uppercase tracking-widest mt-1">
-                                        {editingMember.agent_profile?.organisations?.name || 'Unassigned Sector'}
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="text-right">
-                                <p className="text-[9px] font-black text-gray-600 uppercase tracking-[0.3em] mb-0.5">Contact Link</p>
-                                <p className="text-[10px] font-mono font-bold text-orange-400 tracking-widest flex items-center justify-end gap-1.5">
-                                    <Phone size={10} /> {editingMember.agent_profile?.mobile || 'PH: N/A'}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <Input label="FIRST NAME" value={editingMember.name} onChange={(e) => setEditingMember({...editingMember, name: e.target.value})} />
-                            <Input label="SURNAME" value={editingMember.surname} onChange={(e) => setEditingMember({...editingMember, surname: e.target.value})} />
-                            <Input label="FATHER / GUARDIAN NAME" value={editingMember.father_name} onChange={(e) => setEditingMember({...editingMember, father_name: e.target.value})} />
-                            <Input label="MOBILE IDENTITY" value={editingMember.mobile} onChange={(e) => setEditingMember({...editingMember, mobile: e.target.value})} />
-                            <Input label="EMERGENCY CONTACT" value={editingMember.emergency_contact} onChange={(e) => setEditingMember({...editingMember, emergency_contact: e.target.value})} />
-                            <Input label="DATE OF BIRTH" type="date" value={editingMember.dob} onChange={(e) => setEditingMember({...editingMember, dob: e.target.value})} />
-                            <Select label="GENDER" value={editingMember.gender} onChange={(e) => setEditingMember({...editingMember, gender: e.target.value as Gender})}>
-                                {Object.values(Gender).map(g => <option key={g} value={g}>{g}</option>)}
-                            </Select>
-                            <Input label="AADHAAR ID" value={editingMember.aadhaar} onChange={(e) => setEditingMember({...editingMember, aadhaar: e.target.value})} maxLength={12} />
-                            <Input label="PINCODE" value={editingMember.pincode} onChange={(e) => setEditingMember({...editingMember, pincode: e.target.value})} />
-                            <Select label="REGISTRY STATUS" value={editingMember.status} onChange={(e) => setEditingMember({...editingMember, status: e.target.value as MemberStatus})}>
-                                <option value={MemberStatus.Pending}>Pending Verification</option>
-                                <option value={MemberStatus.Accepted}>Accepted / Verified</option>
-                            </Select>
-                            <div className="md:col-span-2">
-                                <Input label="RESIDENTIAL ADDRESS" value={editingMember.address} onChange={(e) => setEditingMember({...editingMember, address: e.target.value})} />
-                            </div>
-                            <Select label="CURRENT OCCUPATION" value={editingMember.occupation} onChange={(e) => setEditingMember({...editingMember, occupation: e.target.value as Occupation})}>
-                                {Object.values(Occupation).map(o => <option key={o} value={o}>{o}</option>)}
-                            </Select>
-                            <Select label="SUPPORT NEED" value={editingMember.support_need} onChange={(e) => setEditingMember({...editingMember, support_need: e.target.value as SupportNeed})}>
-                                {Object.values(SupportNeed).map(s => <option key={s} value={s}>{s}</option>)}
-                            </Select>
-                        </div>
-
-                        <div className="flex justify-end gap-4 pt-10 border-t border-white/5 mt-8 sticky bottom-0 bg-gray-900 pb-2 z-10">
-                            <Button variant="secondary" onClick={() => setIsEditModalOpen(false)} className="px-8 border-white/10 py-4 text-[10px] font-black uppercase tracking-widest">Abort</Button>
-                            <Button 
-                                onClick={handleUpdateMember} 
-                                disabled={isUpdating}
-                                className="px-12 py-4 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-2xl"
-                            >
-                                {isUpdating ? <RefreshCw className="animate-spin" size={16} /> : <Save size={16} />}
-                                {isUpdating ? 'SYNCHRONIZING...' : 'Commit Master Override'}
-                            </Button>
+                    <div className="space-y-6">
+                        <Input label="Name" value={editingMember.name} onChange={(e) => setEditingMember({...editingMember, name: e.target.value})} />
+                        <Input label="Surname" value={editingMember.surname} onChange={(e) => setEditingMember({...editingMember, surname: e.target.value})} />
+                        <Select label="Status" value={editingMember.status} onChange={(e) => setEditingMember({...editingMember, status: e.target.value as MemberStatus})}>
+                            <option value={MemberStatus.Pending}>Pending</option>
+                            <option value={MemberStatus.Accepted}>Accepted</option>
+                        </Select>
+                        <div className="flex justify-end gap-4 pt-6">
+                            <Button variant="secondary" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
+                            <Button onClick={handleUpdateMember} disabled={isUpdating}>{isUpdating ? 'Saving...' : 'Save Changes'}</Button>
                         </div>
                     </div>
                 )}
-            </Modal>
-
-            <Modal isOpen={!!memberToDelete} onClose={() => setMemberToDelete(null)} title="Security Confirmation">
-                <div className="p-6 text-center space-y-8">
-                    <div className="p-6 bg-red-500/10 rounded-full w-24 h-24 mx-auto flex items-center justify-center text-red-500 border border-red-500/20 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
-                        <AlertTriangle size={48} />
-                    </div>
-                    <div>
-                        <h4 className="text-2xl font-cinzel text-white mb-3">Irreversible Purge</h4>
-                        <p className="text-sm text-gray-500 leading-relaxed uppercase tracking-widest font-bold">
-                            Are you certain you wish to purge this Aadhaar record? This action is absolute.
-                        </p>
-                    </div>
-                    <div className="flex gap-4">
-                        <Button variant="secondary" onClick={() => setMemberToDelete(null)} className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest">Cancel</Button>
-                        <Button 
-                            onClick={handleDeleteMember} 
-                            disabled={isDeleting}
-                            className="flex-1 bg-red-600 hover:bg-red-700 py-4 text-[10px] font-black uppercase tracking-widest"
-                        >
-                            {isDeleting ? 'PURGING...' : 'Confirm Purge'}
-                        </Button>
-                    </div>
-                </div>
             </Modal>
         </DashboardLayout>
     );

@@ -16,7 +16,8 @@ import {
   TrendingUp,
   Phone,
   Database,
-  Network
+  Network,
+  BadgeCheck
 } from 'lucide-react';
 import { Organisation, Volunteer, Member, Role } from '../../types';
 import { supabase } from '../../supabase/client';
@@ -26,11 +27,6 @@ interface OrgStats extends Organisation {
     volunteerCount: number;
     memberCount: number;
 }
-
-type MemberExtended = Member & {
-    agent_name?: string;
-    agent_mobile?: string;
-};
 
 type VolunteerWithOrg = Volunteer & {
     organisation_name?: string;
@@ -48,56 +44,56 @@ const AdminDashboard: React.FC = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            // 1. Fetch Organisations and Members first
+            // 1. Fetch Organisations and Members
             const [orgsRes, membersRes] = await Promise.all([
                 supabase.from('organisations').select('*').order('name'),
-                supabase.from('members').select('*').order('submission_date', { ascending: false })
+                supabase.from('members').select('*')
             ]);
 
-            // 2. Fetch Volunteers with explicit Organisational Join
-            // If the SQL script above was run, this Join will work perfectly
+            const fetchedOrgs = orgsRes.data || [];
+            const fetchedMembers = membersRes.data || [];
+            
+            setOrganisations(fetchedOrgs);
+            setMembers(fetchedMembers);
+
+            // 2. Fetch ALL Profiles and filter locally to avoid RLS/Case issues
             const { data: profilesData, error: profilesError } = await supabase
                 .from('profiles')
                 .select(`
-                    id, 
-                    name, 
-                    email, 
-                    mobile, 
-                    role, 
-                    status, 
-                    organisation_id,
-                    organisations (name)
-                `)
-                .eq('role', 'Volunteer');
+                    *,
+                    organisations!organisation_id(name)
+                `);
 
             if (profilesError) throw profilesError;
 
-            if (orgsRes.data) setOrganisations(orgsRes.data);
-            if (membersRes.data) setMembers(membersRes.data);
-            
             if (profilesData) {
-                const enrollmentMap = (membersRes.data || []).reduce((acc, m) => {
+                // Case-insensitive filtering for 'Volunteer'
+                const volunteerProfiles = profilesData.filter(p => 
+                    p.role && p.role.toLowerCase() === 'volunteer'
+                );
+
+                const enrollmentMap = fetchedMembers.reduce((acc, m) => {
                     if (m.volunteer_id) acc[m.volunteer_id] = (acc[m.volunteer_id] || 0) + 1;
                     return acc;
                 }, {} as Record<string, number>);
 
-                const mapped: VolunteerWithOrg[] = profilesData.map((p: any) => ({
+                const mapped: VolunteerWithOrg[] = volunteerProfiles.map((p: any) => ({
                     id: p.id,
-                    name: p.name || 'Unknown Agent',
+                    name: p.name || 'Agent ' + p.id.slice(0, 4),
                     email: p.email,
                     role: Role.Volunteer,
                     organisationId: p.organisation_id,
-                    organisation_name: p.organisations?.name || 'Independent Sector',
+                    organisation_name: p.organisations?.name || fetchedOrgs.find(o => o.id === p.organisation_id)?.name || 'Independent Sector',
                     mobile: p.mobile || 'N/A',
-                    status: p.status,
+                    status: p.status || 'Active',
                     enrollments: enrollmentMap[p.id] || 0
                 }));
                 
                 setVolunteersWithOrg(mapped.sort((a, b) => b.enrollments - a.enrollments));
             }
         } catch (err: any) {
-            console.error("Master Sync Fault:", err);
-            addNotification(`Sync Error: ${err.message}`, "error");
+            console.error("Master Sync Error:", err);
+            addNotification(`Database Sync failed. Check SQL fix.`, "error");
         } finally {
             setLoading(false);
         }
@@ -106,8 +102,6 @@ const AdminDashboard: React.FC = () => {
     useEffect(() => {
         fetchData();
     }, []);
-
-    const totalVolunteersCount = volunteersWithOrg.length;
 
     const filteredVolunteers = useMemo(() => {
         if (!searchTerm) return volunteersWithOrg;
@@ -131,28 +125,20 @@ const AdminDashboard: React.FC = () => {
         }).sort((a, b) => b.memberCount - a.memberCount);
     }, [organisations, volunteersWithOrg, members]);
 
-    const recentActivity = useMemo<MemberExtended[]>(() => {
-        return members.slice(0, 10).map(m => {
-            const agent = volunteersWithOrg.find(p => p.id === m.volunteer_id);
-            return {
-                ...m,
-                agent_name: agent?.name || 'System Operator',
-                agent_mobile: agent?.mobile || 'N/A'
-            };
-        });
-    }, [members, volunteersWithOrg]);
-
     return (
         <DashboardLayout title="Master Admin Dashboard">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                <Card className="p-8 border-l-4 border-orange-600 bg-[#080808] hover:bg-[#0a0a0a] transition-all group">
+                <Card className="p-8 border-l-4 border-orange-600 bg-[#080808] hover:bg-[#0a0a0a] transition-all group relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:rotate-12 transition-transform">
+                        <Building2 size={80} />
+                    </div>
                     <div className="flex justify-between items-center mb-4">
                       <Shield className="text-orange-600 group-hover:scale-110 transition-transform" size={32} strokeWidth={1.5} />
                       <span className="text-[9px] font-black text-orange-600/50 uppercase tracking-[0.2em]">Sectors</span>
                     </div>
                     <div>
-                        <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Total Organisations</p>
-                        <p className="text-4xl font-black text-white">{organisations.length}</p>
+                        <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Active Organisations</p>
+                        <p className="text-5xl font-black text-white">{loading ? '...' : organisations.length}</p>
                     </div>
                 </Card>
                 
@@ -160,9 +146,9 @@ const AdminDashboard: React.FC = () => {
                     onClick={() => setIsVolunteersModalOpen(true)}
                     className="text-left w-full block group relative overflow-hidden rounded-lg outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
                 >
-                    <Card className="p-8 border-l-4 border-blue-600 bg-[#080808] group-hover:bg-[#0a0a0a] transition-all h-full">
-                        <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-20 transition-opacity">
-                            <ExternalLink size={24} className="text-blue-500" />
+                    <Card className="p-8 border-l-4 border-blue-600 bg-[#080808] group-hover:bg-[#0a0a0a] transition-all h-full relative">
+                        <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:-rotate-12 transition-transform">
+                            <Users size={80} />
                         </div>
                         <div className="flex justify-between items-center mb-4">
                             <Users className="text-blue-600 group-hover:scale-110 transition-transform" size={32} strokeWidth={1.5} />
@@ -170,20 +156,23 @@ const AdminDashboard: React.FC = () => {
                         </div>
                         <div>
                             <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Global Volunteers</p>
-                            <p className="text-4xl font-black text-white">{loading ? '...' : totalVolunteersCount}</p>
-                            <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest mt-4 opacity-0 group-hover:opacity-100 transition-opacity">Open Registry Terminal →</p>
+                            <p className="text-5xl font-black text-white">{loading ? '...' : volunteersWithOrg.length}</p>
+                            <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest mt-4 opacity-60 group-hover:opacity-100 transition-opacity">Open Registry Terminal →</p>
                         </div>
                     </Card>
                 </button>
 
-                <Card className="p-8 border-l-4 border-green-600 bg-[#080808] hover:bg-[#0a0a0a] transition-all group">
+                <Card className="p-8 border-l-4 border-green-600 bg-[#080808] hover:bg-[#0a0a0a] transition-all group relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:scale-125 transition-transform">
+                        <Database size={80} />
+                    </div>
                     <div className="flex justify-between items-center mb-4">
                       <UserCheck className="text-green-600 group-hover:scale-110 transition-transform" size={32} strokeWidth={1.5} />
                       <span className="text-[9px] font-black text-green-600/50 uppercase tracking-[0.2em]">Database</span>
                     </div>
                     <div>
-                        <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Total Members</p>
-                        <p className="text-4xl font-black text-white">{members.length}</p>
+                        <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Total Enrolled Members</p>
+                        <p className="text-5xl font-black text-white">{loading ? '...' : members.length}</p>
                     </div>
                 </Card>
             </div>
@@ -194,29 +183,33 @@ const AdminDashboard: React.FC = () => {
                         <table className="w-full text-left text-sm">
                             <thead className="border-b border-gray-800">
                                 <tr className="text-gray-500 uppercase tracking-wider text-[10px] font-black">
-                                    <th className="p-4">Entity Node</th>
-                                    <th className="p-4 text-center">Volunteers</th>
-                                    <th className="p-4 text-center">Members</th>
-                                    <th className="p-4 text-right">Operational Status</th>
+                                    <th className="p-5">Entity Node</th>
+                                    <th className="p-5 text-center">Personnel (Volunteers)</th>
+                                    <th className="p-5 text-center">Enrollments (Members)</th>
+                                    <th className="p-5 text-right">Operational Status</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-900/50">
                                 {orgStats.map(org => (
-                                    <tr key={org.id} className="hover:bg-white/[0.02] transition-colors">
-                                        <td className="p-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2 bg-orange-500/10 rounded-lg text-orange-500">
-                                                    <Building2 size={16} />
+                                    <tr key={org.id} className="group hover:bg-white/[0.02] transition-colors">
+                                        <td className="p-5">
+                                            <div className="flex items-center gap-4">
+                                                <div className="p-3 bg-orange-500/10 rounded-xl text-orange-500 border border-orange-500/10">
+                                                    <Building2 size={20} />
                                                 </div>
-                                                <span className="font-bold text-white">{org.name}</span>
+                                                <span className="font-bold text-white text-base group-hover:text-orange-500 transition-colors">{org.name}</span>
                                             </div>
                                         </td>
-                                        <td className="p-4 text-center font-mono text-blue-400 font-bold">{org.volunteerCount}</td>
-                                        <td className="p-4 text-center font-mono text-green-400 font-bold">{org.memberCount}</td>
-                                        <td className="p-4 text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <span className={`h-1.5 w-1.5 rounded-full ${org.status === 'Active' ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></span>
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">{org.status}</span>
+                                        <td className="p-5 text-center">
+                                            <span className="font-mono text-xl text-blue-400 font-black">{org.volunteerCount}</span>
+                                        </td>
+                                        <td className="p-5 text-center">
+                                            <span className="font-mono text-xl text-green-400 font-black">{org.memberCount}</span>
+                                        </td>
+                                        <td className="p-5 text-right">
+                                            <div className="flex items-center justify-end gap-3">
+                                                <span className={`h-2 w-2 rounded-full ${org.status === 'Active' ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></span>
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{org.status}</span>
                                             </div>
                                         </td>
                                     </tr>
@@ -237,51 +230,48 @@ const AdminDashboard: React.FC = () => {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
                         <input 
                             type="text"
-                            placeholder="Filter by Agent or Organization Sector..."
+                            placeholder="Filter by Name, Mobile, or Sector..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 pl-10 pr-4 text-white text-xs font-mono focus:outline-none focus:border-orange-500 transition-all"
                         />
                     </div>
                     
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                         {filteredVolunteers.map(vol => (
                             <div key={vol.id} className="p-5 bg-gray-900/40 border border-gray-800/60 rounded-2xl flex items-center justify-between group hover:border-blue-500/40 transition-all">
                                 <div className="flex items-center gap-4">
-                                    <div className="h-12 w-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 border border-blue-500/20 shadow-inner">
+                                    <div className="h-12 w-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 border border-blue-500/20 shadow-inner group-hover:scale-105 transition-transform">
                                         <UserIcon size={24} />
                                     </div>
                                     <div>
-                                        <p className="text-sm font-bold text-white leading-none mb-2 group-hover:text-blue-400 transition-colors">{vol.name}</p>
+                                        <p className="text-base font-bold text-white leading-none mb-2 group-hover:text-blue-400 transition-colors">{vol.name}</p>
                                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                                             <div className="flex items-center gap-1.5">
                                                 <Building2 size={10} className="text-orange-500" />
-                                                <span className="text-[9px] font-black uppercase text-orange-500/80 tracking-widest">
+                                                <span className="text-[10px] font-black uppercase text-orange-500/80 tracking-widest">
                                                     {vol.organisation_name}
                                                 </span>
                                             </div>
-                                            <div className="h-1 w-1 rounded-full bg-gray-700"></div>
+                                            <div className="h-1 w-1 rounded-full bg-gray-800"></div>
                                             <div className="flex items-center gap-1.5">
                                                 <Phone size={10} className="text-gray-600" />
-                                                <span className="text-[9px] font-mono text-gray-600 tracking-tighter">{vol.mobile}</span>
+                                                <span className="text-[10px] font-mono text-gray-500">{vol.mobile}</span>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                                 <div className="text-right">
                                     <div className="flex items-center justify-end gap-2 mb-1">
-                                        <TrendingUp size={12} className="text-blue-400" />
-                                        <span className="text-sm font-black text-white">{vol.enrollments}</span>
+                                        <TrendingUp size={14} className="text-blue-400" />
+                                        <span className="text-xl font-black text-white font-mono">{vol.enrollments}</span>
                                     </div>
                                     <span className="text-[9px] font-black uppercase tracking-widest text-gray-600">Enrollments</span>
                                 </div>
                             </div>
                         ))}
                         {filteredVolunteers.length === 0 && (
-                            <div className="p-20 text-center flex flex-col items-center gap-4">
-                                <Network size={40} className="text-gray-800" strokeWidth={1} />
-                                <p className="text-gray-600 uppercase tracking-widest font-black text-[10px]">No personnel matches found in the master registry.</p>
-                            </div>
+                            <p className="text-center text-gray-600 text-[10px] uppercase font-black py-10">No volunteers found in registry.</p>
                         )}
                     </div>
                 </div>
