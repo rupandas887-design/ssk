@@ -1,57 +1,73 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
-import Input from '../../components/ui/Input';
-import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
-import { Shield, Users, UserCheck, Key, RefreshCw, AlertCircle, Activity, User as UserIcon, Building2, Clock, UserCircle, Phone, ExternalLink } from 'lucide-react';
+import { 
+  Shield, 
+  Users, 
+  UserCheck, 
+  RefreshCw, 
+  User as UserIcon, 
+  ExternalLink, 
+  Search, 
+  Building2, 
+  Activity, 
+  TrendingUp,
+  BarChart3
+} from 'lucide-react';
 import { Organisation, Volunteer, Member, Role, User as ProfileUser } from '../../types';
 import { supabase } from '../../supabase/client';
-import { useAuth } from '../../context/AuthContext';
+import { mapStringToRole } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 
-interface OrgPerformance extends Organisation {
-    enrollments: number;
+interface OrgStats extends Organisation {
+    volunteerCount: number;
+    memberCount: number;
 }
 
-type MemberWithAgent = Member & {
-    agent_profile?: { name: string, mobile: string }
+type MemberExtended = Member & {
+    agent_name?: string;
+    agent_mobile?: string;
 };
 
 const AdminDashboard: React.FC = () => {
-    const { updatePassword } = useAuth();
     const { addNotification } = useNotification();
     const [searchTerm, setSearchTerm] = useState('');
     const [organisations, setOrganisations] = useState<Organisation[]>([]);
-    const [members, setMembers] = useState<MemberWithAgent[]>([]);
+    const [members, setMembers] = useState<Member[]>([]);
     const [allProfiles, setAllProfiles] = useState<ProfileUser[]>([]);
     const [loading, setLoading] = useState(true);
-
     const [isVolunteersModalOpen, setIsVolunteersModalOpen] = useState(false);
-    const [newPassword, setNewPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+    const [totalVolunteersCount, setTotalVolunteersCount] = useState<number>(0);
 
     const fetchData = async () => {
         setLoading(true);
         try {
+            // Optimized count for total volunteers
+            const { count, error: countError } = await supabase
+              .from("profiles")
+              .select("*", { count: "exact", head: true })
+              .eq('role', 'Volunteer');
+
+            if (countError) console.error("Count Sync Error:", countError);
+            else setTotalVolunteersCount(count || 0);
+
             const [orgsRes, membersRes, profilesRes] = await Promise.all([
-                supabase.from('organisations').select('*'),
-                supabase
-                    .from('members')
-                    .select('*, agent_profile:profiles!volunteer_id(name, mobile)')
-                    .order('submission_date', { ascending: false }),
+                supabase.from('organisations').select('*').order('name'),
+                supabase.from('members').select('*').order('submission_date', { ascending: false }),
                 supabase.from('profiles').select('*')
             ]);
 
             if (orgsRes.data) setOrganisations(orgsRes.data);
             if (membersRes.data) setMembers(membersRes.data);
+            
             if (profilesRes.data) {
                 const mappedProfiles: ProfileUser[] = profilesRes.data.map(p => ({
                     id: p.id,
                     name: p.name,
                     email: p.email,
-                    role: p.role as Role,
+                    role: mapStringToRole(p.role),
                     organisationId: p.organisation_id,
                     mobile: p.mobile,
                     status: p.status
@@ -59,7 +75,8 @@ const AdminDashboard: React.FC = () => {
                 setAllProfiles(mappedProfiles);
             }
         } catch (err) {
-            addNotification("Sync fault in master dashboard.", "error");
+            console.error("Master Sync Fault:", err);
+            addNotification("Failed to synchronize master registry.", "error");
         } finally {
             setLoading(false);
         }
@@ -69,77 +86,62 @@ const AdminDashboard: React.FC = () => {
         fetchData();
     }, []);
 
-    // Performance Optimized Calculations
-    const enrollmentMap = useMemo(() => {
-        return members.reduce((acc, m) => {
-            acc.vol[m.volunteer_id] = (acc.vol[m.volunteer_id] || 0) + 1;
-            acc.org[m.organisation_id] = (acc.org[m.organisation_id] || 0) + 1;
+    // Aggregate statistics per organization
+    const orgStats = useMemo<OrgStats[]>(() => {
+        return organisations.map(org => {
+            const orgVolunteers = allProfiles.filter(p => p.organisationId === org.id && p.role === Role.Volunteer);
+            const orgMembers = members.filter(m => m.organisation_id === org.id);
+            return {
+                ...org,
+                volunteerCount: orgVolunteers.length,
+                memberCount: orgMembers.length
+            };
+        }).sort((a, b) => b.memberCount - a.memberCount);
+    }, [organisations, allProfiles, members]);
+
+    const volunteersList = useMemo<Volunteer[]>(() => {
+        const enrollmentMap = members.reduce((acc, m) => {
+            if (m.volunteer_id) acc[m.volunteer_id] = (acc[m.volunteer_id] || 0) + 1;
             return acc;
-        }, { vol: {} as Record<string, number>, org: {} as Record<string, number> });
-    }, [members]);
+        }, {} as Record<string, number>);
 
-    const orgPerformanceData = useMemo<OrgPerformance[]>(() => {
-        return organisations.map(org => ({
-            ...org,
-            enrollments: enrollmentMap.org[org.id] || 0,
-        })).sort((a, b) => b.enrollments - a.enrollments);
-    }, [organisations, enrollmentMap]);
-
-    const volunteers = useMemo<Volunteer[]>(() => {
         return allProfiles
             .filter(p => p.role === Role.Volunteer)
             .map(v => ({
                 ...v,
                 organisationId: v.organisationId || '',
-                enrollments: enrollmentMap.vol[v.id] || 0,
+                enrollments: enrollmentMap[v.id] || 0,
             })).sort((a, b) => b.enrollments - a.enrollments);
-    }, [allProfiles, enrollmentMap]);
-
-    const filteredOrgs = useMemo(() => {
-        if (!searchTerm) return orgPerformanceData;
-        const term = searchTerm.toLowerCase();
-        return orgPerformanceData.filter(org => org.mobile.includes(term) || org.name.toLowerCase().includes(term));
-    }, [searchTerm, orgPerformanceData]);
+    }, [allProfiles, members]);
 
     const filteredVolunteers = useMemo(() => {
-        if (!searchTerm) return volunteers;
+        if (!searchTerm) return volunteersList;
         const term = searchTerm.toLowerCase();
-        return volunteers.filter(vol => vol.name.toLowerCase().includes(term) || vol.mobile.includes(term));
-    }, [searchTerm, volunteers]);
+        return volunteersList.filter(vol => 
+            vol.name.toLowerCase().includes(term) || 
+            vol.mobile?.includes(term)
+        );
+    }, [searchTerm, volunteersList]);
 
-    const recentMembers = useMemo(() => members.slice(0, 10), [members]);
-
-    const handlePasswordUpdate = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (newPassword.length < 6) {
-            addNotification("Security key must be at least 6 characters.", "error");
-            return;
-        }
-        if (newPassword !== confirmPassword) {
-            addNotification("Security keys do not match.", "error");
-            return;
-        }
-
-        setIsUpdatingPassword(true);
-        const result = await updatePassword(newPassword);
-        
-        if (result.success) {
-            addNotification("Security key updated successfully.", "success");
-            setNewPassword('');
-            setConfirmPassword('');
-        } else {
-            addNotification(result.error || "Failed to update security key.", "error");
-        }
-        setIsUpdatingPassword(false);
-    };
+    const recentActivity = useMemo<MemberExtended[]>(() => {
+        return members.slice(0, 10).map(m => {
+            const agent = allProfiles.find(p => p.id === m.volunteer_id);
+            return {
+                ...m,
+                agent_name: agent?.name || 'Unknown Agent',
+                agent_mobile: agent?.mobile || 'N/A'
+            };
+        });
+    }, [members, allProfiles]);
 
     return (
         <DashboardLayout title="Master Admin Dashboard">
+            {/* Top Statistics Row */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 <Card className="p-8 border-l-4 border-orange-600 bg-[#080808] hover:bg-[#0a0a0a] transition-all group">
                     <div className="flex justify-between items-center mb-4">
                       <Shield className="text-orange-600 group-hover:scale-110 transition-transform" size={32} strokeWidth={1.5} />
-                      <span className="text-[9px] font-black text-orange-600/50 uppercase tracking-[0.2em]">Registered Sectors</span>
+                      <span className="text-[9px] font-black text-orange-600/50 uppercase tracking-[0.2em]">Sectors</span>
                     </div>
                     <div>
                         <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Total Organisations</p>
@@ -149,20 +151,20 @@ const AdminDashboard: React.FC = () => {
                 
                 <button 
                     onClick={() => setIsVolunteersModalOpen(true)}
-                    className="text-left w-full block group"
+                    className="text-left w-full block group relative overflow-hidden rounded-lg outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
                 >
-                    <Card className="p-8 border-l-4 border-blue-600 bg-[#080808] group-hover:bg-[#0a0a0a] transition-all relative overflow-hidden h-full">
+                    <Card className="p-8 border-l-4 border-blue-600 bg-[#080808] group-hover:bg-[#0a0a0a] transition-all h-full">
                         <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-20 transition-opacity">
                             <ExternalLink size={24} className="text-blue-500" />
                         </div>
                         <div className="flex justify-between items-center mb-4">
-                        <Users className="text-blue-600 group-hover:scale-110 transition-transform" size={32} strokeWidth={1.5} />
-                        <span className="text-[9px] font-black text-blue-600/50 uppercase tracking-[0.2em]">Field Personnel</span>
+                            <Users className="text-blue-600 group-hover:scale-110 transition-transform" size={32} strokeWidth={1.5} />
+                            <span className="text-[9px] font-black text-blue-600/50 uppercase tracking-[0.2em]">Personnel</span>
                         </div>
                         <div>
-                            <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Active Volunteers</p>
-                            <p className="text-4xl font-black text-white">{volunteers.length}</p>
-                            <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest mt-4 opacity-0 group-hover:opacity-100 transition-opacity">View Full List →</p>
+                            <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Global Volunteers</p>
+                            <p className="text-4xl font-black text-white">{totalVolunteersCount}</p>
+                            <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest mt-4 opacity-0 group-hover:opacity-100 transition-opacity">Open Registry Terminal →</p>
                         </div>
                     </Card>
                 </button>
@@ -170,279 +172,152 @@ const AdminDashboard: React.FC = () => {
                 <Card className="p-8 border-l-4 border-green-600 bg-[#080808] hover:bg-[#0a0a0a] transition-all group">
                     <div className="flex justify-between items-center mb-4">
                       <UserCheck className="text-green-600 group-hover:scale-110 transition-transform" size={32} strokeWidth={1.5} />
-                      <span className="text-[9px] font-black text-green-600/50 uppercase tracking-[0.2em]">Identity Database</span>
+                      <span className="text-[9px] font-black text-green-600/50 uppercase tracking-[0.2em]">Database</span>
                     </div>
                     <div>
-                        <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Total Enrollments</p>
+                        <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Total Members</p>
                         <p className="text-4xl font-black text-white">{members.length}</p>
                     </div>
                 </Card>
             </div>
 
-            <div className="mt-12 grid grid-cols-1 xl:grid-cols-3 gap-10">
-                <div className="xl:col-span-2 space-y-10">
-                    <Card className="border-white/5 bg-[#050505] p-10 overflow-hidden relative">
-                        <div className="absolute top-0 right-0 p-10 opacity-[0.03] pointer-events-none">
-                            <Activity size={200} />
-                        </div>
-                        <div className="flex items-center justify-between mb-10 relative z-10">
-                            <div className="flex items-center gap-4">
-                                <div className="p-3 bg-orange-600/10 rounded-2xl text-orange-600">
-                                    <Activity size={24} />
-                                </div>
-                                <div>
-                                  <h4 className="font-cinzel text-2xl text-white uppercase tracking-widest">Live Identity Stream</h4>
-                                  <p className="text-[9px] text-orange-600/60 font-black uppercase tracking-[0.3em] mt-1">Real-time Global Sync</p>
-                                </div>
-                            </div>
-                            <button onClick={fetchData} className="p-3 bg-white/5 rounded-xl border border-white/10 hover:border-orange-600/40 text-gray-500 hover:text-white transition-all">
-                                <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-                            </button>
-                        </div>
-                        
-                        <div className="overflow-x-auto relative z-10">
-                            <table className="w-full text-left">
-                                <thead className="border-b border-white/5">
-                                    <tr>
-                                        <th className="p-5 text-[10px] uppercase tracking-widest text-gray-500 font-black">Member Identity</th>
-                                        <th className="p-5 text-[10px] uppercase tracking-widest text-blue-500 font-black">Source Authentication</th>
-                                        <th className="p-5 text-[10px] uppercase tracking-widest text-gray-500 font-black text-right">Registry Time</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-white/[0.03]">
-                                    {loading ? (
-                                        <tr><td colSpan={3} className="p-24 text-center text-xs text-gray-600 animate-pulse tracking-[0.3em] font-black uppercase">Establishing Uplink...</td></tr>
-                                    ) : recentMembers.map(m => (
-                                        <tr key={m.id} className="hover:bg-white/[0.02] transition-colors group">
-                                            <td className="p-5">
-                                                <div className="flex flex-col">
-                                                    <span className="font-bold text-white text-lg group-hover:text-orange-500 transition-colors">{m.name} {m.surname}</span>
-                                                    <div className="flex items-center gap-2 text-[10px] text-gray-600 font-mono tracking-tighter">
-                                                        <span>{m.mobile}</span>
-                                                        <span className="h-0.5 w-0.5 rounded-full bg-gray-800"></span>
-                                                        <span>{organisations.find(o => o.id === m.organisation_id)?.name || 'N/A'}</span>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="p-5">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="h-10 w-10 rounded-xl bg-blue-600/10 border border-blue-600/20 flex items-center justify-center text-blue-600 shrink-0 shadow-lg group-hover:scale-105 transition-transform">
-                                                        <UserCircle size={22} />
-                                                    </div>
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[11px] font-black text-white uppercase tracking-widest">
-                                                            {m.agent_profile?.name || allProfiles.find(p => p.id === m.volunteer_id)?.name || 'System Operator'}
-                                                        </span>
-                                                        <span className="text-[9px] text-blue-500/60 font-mono font-bold tracking-widest flex items-center gap-1.5 mt-0.5">
-                                                            <Phone size={10} /> {m.agent_profile?.mobile || 'PH: N/A'}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="p-5 text-right">
-                                                <div className="flex items-center justify-end gap-2 text-[10px] text-gray-500 font-mono font-bold">
-                                                    <Clock size={12} className="text-gray-700" />
-                                                    {m.submission_date.split('T')[0]}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </Card>
-
-                    <Card title="Performance Intelligence" className="bg-[#050505] border-white/5">
-                        <div className="mb-10">
-                            <Input
-                                placeholder="Universal Search (Name, Sector, Mobile)..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="bg-black/50 border-white/5 focus:border-orange-500/50"
-                            />
-                        </div>
-                        {loading ? <div className="flex justify-center p-20"><RefreshCw className="animate-spin text-orange-500" size={32} /></div> : (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                            <div>
-                                <h4 className="font-cinzel text-xl text-orange-500 mb-6 flex items-center gap-3 border-b border-white/5 pb-4 uppercase tracking-widest">
-                                    <Shield size={20} /> Organisation Ranking
-                                </h4>
-                                <div className="overflow-x-auto max-h-96 custom-scrollbar pr-2">
-                                    <table className="w-full text-left">
-                                        <thead className="border-b border-white/5 sticky top-0 bg-[#050505] z-10">
-                                            <tr>
-                                                <th className="p-3 text-[9px] uppercase tracking-widest text-gray-600 font-black">Entity</th>
-                                                <th className="p-3 text-[9px] uppercase tracking-widest text-gray-600 font-black text-right">Enrollments</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-white/[0.02]">
-                                            {filteredOrgs.map(org => (
-                                                <tr key={org.id} className="hover:bg-white/[0.01] transition-colors">
-                                                    <td className="p-3 text-sm font-bold text-gray-200">{org.name}</td>
-                                                    <td className="p-3 font-black text-orange-500 text-right font-mono">{org.enrollments}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-
-                            <div>
-                                <h4 className="font-cinzel text-xl text-blue-500 mb-6 flex items-center gap-3 border-b border-white/5 pb-4 uppercase tracking-widest">
-                                    <Users size={20} /> Field Force Performance
-                                </h4>
-                                <div className="overflow-x-auto max-h-96 custom-scrollbar pr-2">
-                                    <table className="w-full text-left">
-                                        <thead className="border-b border-white/5 sticky top-0 bg-[#050505] z-10">
-                                            <tr>
-                                                <th className="p-3 text-[9px] uppercase tracking-widest text-gray-600 font-black">Agent Node</th>
-                                                <th className="p-3 text-[9px] uppercase tracking-widest text-gray-600 font-black text-right">Enrollments</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-white/[0.02]">
-                                            {filteredVolunteers.map(vol => (
-                                                <tr key={vol.id} className="hover:bg-white/[0.01] transition-colors">
-                                                    <td className="p-3 text-sm font-bold text-gray-200">{vol.name}</td>
-                                                    <td className="p-3 font-black text-blue-500 text-right font-mono">{vol.enrollments}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                        )}
-                    </Card>
-                </div>
-
-                <div className="xl:col-span-1 space-y-10">
-                    <Card title="Security Override Terminal" className="bg-[#050505] border-white/5">
-                        <div className="flex items-start gap-4 mb-8 p-6 bg-orange-600/5 rounded-2xl border border-orange-600/10">
-                            <AlertCircle className="text-orange-600 flex-shrink-0 mt-0.5" size={24} />
-                            <p className="text-[10px] text-orange-200/50 leading-relaxed uppercase tracking-widest font-black">
-                                Master security key rotation protocol. This affects your root administrative terminal access immediately.
-                            </p>
-                        </div>
-                        
-                        <form onSubmit={handlePasswordUpdate} className="space-y-6">
-                            <Input 
-                                label="NEW SECURITY KEY"
-                                type="password"
-                                value={newPassword}
-                                onChange={(e) => setNewPassword(e.target.value)}
-                                placeholder="••••••••"
-                                className="bg-black/40 border-white/5 text-sm font-mono tracking-widest"
-                                required
-                            />
-                            <Input 
-                                label="CONFIRM SECURITY KEY"
-                                type="password"
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                placeholder="••••••••"
-                                className="bg-black/40 border-white/5 text-sm font-mono tracking-widest"
-                                required
-                            />
-                            
-                            <Button 
-                                type="submit" 
-                                disabled={isUpdatingPassword || !newPassword}
-                                className="w-full py-5 text-[10px] tracking-[0.4em] font-black uppercase flex items-center justify-center gap-3 shadow-2xl bg-orange-600 hover:bg-orange-500"
-                            >
-                                {isUpdatingPassword ? (
-                                    <RefreshCw className="animate-spin" size={16} />
-                                ) : (
-                                    <Key size={16} />
-                                )}
-                                {isUpdatingPassword ? 'ROTATING...' : 'APPLY SECURITY OVERRIDE'}
-                            </Button>
-                        </form>
-                    </Card>
-
-                    <Card className="border-white/5 bg-black/40 p-8 rounded-[2rem]">
-                        <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-600 mb-8">System Handshake Identity</h4>
-                        <div className="space-y-6">
-                            <div className="flex justify-between items-center text-xs">
-                                <span className="text-gray-600 uppercase tracking-widest font-bold">Active Principal:</span>
-                                <span className="text-white font-black underline decoration-orange-600/40 underline-offset-8">MASTER ADMIN</span>
-                            </div>
-                            <div className="flex justify-between items-center text-xs">
-                                <span className="text-gray-600 uppercase tracking-widest font-bold">Access Node:</span>
-                                <span className="px-4 py-1.5 bg-orange-600/10 text-orange-500 rounded-full border border-orange-500/20 font-black uppercase tracking-widest">Global Root</span>
-                            </div>
-                            <div className="pt-6 border-t border-white/5">
-                                <p className="text-[9px] text-gray-700 font-bold uppercase tracking-widest leading-relaxed">
-                                  System Uptime: Verified<br/>
-                                  Last Sync: {new Date().toLocaleTimeString()}
-                                </p>
-                            </div>
-                        </div>
-                    </Card>
-                </div>
-            </div>
-
-            <Modal 
-                isOpen={isVolunteersModalOpen} 
-                onClose={() => setIsVolunteersModalOpen(false)} 
-                title="Field Personnel Registry"
-            >
-                <div className="max-h-[70vh] overflow-y-auto custom-scrollbar pr-2 space-y-6">
-                    <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-4">
-                        <div className="flex items-center gap-3">
-                            <Users className="text-blue-500" size={20} />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Active Operator Nodes</span>
-                        </div>
-                        <span className="text-xs font-bold text-white bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-full">{volunteers.length} Agents</span>
-                    </div>
-
+            {/* Organizations Distribution Breakdown */}
+            <div className="mt-12">
+                <Card title="Organization Statistics Breakdown" className="bg-[#050505] border-white/5">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left">
+                        <table className="w-full text-left text-sm">
                             <thead className="border-b border-gray-800">
-                                <tr>
-                                    <th className="p-4 text-[9px] uppercase tracking-widest text-gray-500 font-black">Identity</th>
-                                    <th className="p-4 text-[9px] uppercase tracking-widest text-gray-500 font-black">Sector / Org</th>
-                                    <th className="p-4 text-[9px] uppercase tracking-widest text-gray-500 font-black text-right">Metric</th>
+                                <tr className="text-gray-500 uppercase tracking-wider text-[10px] font-black">
+                                    <th className="p-4">Organization Name</th>
+                                    <th className="p-4 text-center">Volunteers</th>
+                                    <th className="p-4 text-center">Members</th>
+                                    <th className="p-4 text-right">Activity Level</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-white/[0.03]">
-                                {volunteers.map(vol => (
-                                    <tr key={vol.id} className="hover:bg-white/[0.02] transition-colors">
+                            <tbody className="divide-y divide-gray-900/50">
+                                {orgStats.map(org => (
+                                    <tr key={org.id} className="hover:bg-white/[0.02] transition-colors">
                                         <td className="p-4">
-                                            <div className="flex flex-col">
-                                                <span className="font-bold text-white text-sm">{vol.name}</span>
-                                                <span className="text-[10px] text-gray-600 font-mono">{vol.mobile}</span>
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 bg-orange-500/10 rounded-lg text-orange-500">
+                                                    <Building2 size={16} />
+                                                </div>
+                                                <span className="font-bold text-white">{org.name}</span>
                                             </div>
                                         </td>
-                                        <td className="p-4">
-                                            <div className="flex flex-col">
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-blue-500/70">
-                                                    {organisations.find(o => o.id === vol.organisationId)?.name || 'N/A'}
-                                                </span>
-                                                <span className={`text-[9px] font-bold uppercase tracking-widest mt-0.5 ${vol.status === 'Active' ? 'text-green-500' : 'text-red-500'}`}>
-                                                    {vol.status}
-                                                </span>
-                                            </div>
-                                        </td>
+                                        <td className="p-4 text-center font-mono text-blue-400 font-bold">{org.volunteerCount}</td>
+                                        <td className="p-4 text-center font-mono text-green-400 font-bold">{org.memberCount}</td>
                                         <td className="p-4 text-right">
-                                            <div className="flex flex-col items-end">
-                                                <span className="font-black text-white font-mono">{vol.enrollments}</span>
-                                                <span className="text-[8px] font-black text-gray-700 uppercase tracking-widest">Enrollments</span>
+                                            <div className="flex justify-end gap-1">
+                                                {[1, 2, 3, 4, 5].map((bar) => (
+                                                    <div 
+                                                        key={bar} 
+                                                        className={`w-1 h-3 rounded-full ${org.memberCount > (bar * 20) ? 'bg-orange-500' : 'bg-gray-800'}`}
+                                                    />
+                                                ))}
                                             </div>
                                         </td>
                                     </tr>
                                 ))}
+                                {orgStats.length === 0 && !loading && (
+                                    <tr><td colSpan={4} className="p-8 text-center text-gray-600 uppercase tracking-widest font-black text-[10px]">No sector data detected.</td></tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
-                    
-                    <div className="pt-6 border-t border-white/5">
-                        <Button 
-                            variant="secondary" 
-                            className="w-full py-4 text-[10px] font-black uppercase tracking-[0.2em]" 
-                            onClick={() => setIsVolunteersModalOpen(false)}
-                        >
-                            Close Terminal
-                        </Button>
+                </Card>
+            </div>
+
+            {/* Recent Global Activity Stream */}
+            <div className="mt-12">
+                <Card title="Recent Registry Activity" className="bg-[#050505] border-white/5">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm">
+                            <thead className="border-b border-gray-800">
+                                <tr className="text-gray-500 uppercase tracking-wider text-[10px] font-black">
+                                    <th className="p-4">Member</th>
+                                    <th className="p-4">Agent Source</th>
+                                    <th className="p-4 text-right">Sync Date</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-900/50">
+                                {recentActivity.map(m => (
+                                    <tr key={m.id} className="hover:bg-white/[0.02] transition-colors">
+                                        <td className="p-4">
+                                            <div className="flex flex-col">
+                                                <span className="font-bold text-white">{m.name} {m.surname}</span>
+                                                <span className="text-[10px] text-gray-500 font-mono">{m.mobile}</span>
+                                            </div>
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="flex flex-col">
+                                                <span className="text-white font-medium">{m.agent_name}</span>
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="text-[9px] text-orange-500/70 font-black uppercase">
+                                                        {organisations.find(o => o.id === m.organisation_id)?.name || 'Standalone'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="p-4 text-gray-400 font-mono text-[10px] text-right">
+                                            {m.submission_date?.split('T')[0] || 'N/A'}
+                                        </td>
+                                    </tr>
+                                ))}
+                                {recentActivity.length === 0 && !loading && (
+                                    <tr><td colSpan={3} className="p-12 text-center text-gray-600 uppercase tracking-widest font-black text-[10px]">No recent node updates detected.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </Card>
+            </div>
+
+            {/* Personnel Registry Terminal Modal */}
+            <Modal 
+                isOpen={isVolunteersModalOpen} 
+                onClose={() => setIsVolunteersModalOpen(false)} 
+                title="Global Personnel Terminal"
+            >
+                <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+                        <input 
+                            type="text"
+                            placeholder="Search Agents by Name or ID..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 pl-10 pr-4 text-white text-xs font-mono focus:outline-none focus:border-orange-500 transition-all"
+                        />
+                    </div>
+                    <div className="space-y-3">
+                        {filteredVolunteers.map(vol => {
+                            const org = organisations.find(o => o.id === vol.organisationId);
+                            return (
+                                <div key={vol.id} className="p-4 bg-gray-900/50 border border-gray-800 rounded-xl flex items-center justify-between group hover:border-blue-500/30 transition-all">
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 border border-blue-500/20">
+                                            <UserIcon size={20} />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-white leading-none mb-1">{vol.name}</p>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-mono text-gray-500">{vol.mobile}</span>
+                                                <span className="h-1 w-1 rounded-full bg-gray-700"></span>
+                                                <span className="text-[9px] font-black uppercase text-orange-500/60 tracking-widest">{org?.name || 'Unknown'}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="flex items-center justify-end gap-2 mb-1">
+                                            <TrendingUp size={12} className="text-blue-500" />
+                                            <span className="text-xs font-black text-white">{vol.enrollments}</span>
+                                        </div>
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-gray-600">Enrollments</span>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             </Modal>
