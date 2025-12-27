@@ -9,12 +9,22 @@ import { Member, MemberStatus } from '../../types';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabase/client';
 import { useNotification } from '../../context/NotificationContext';
-import { User, RefreshCw, Clock, Filter, Search, MapPin, Phone } from 'lucide-react';
+import { User, RefreshCw, Clock, Filter, Search, MapPin, Phone, Building2, UserCircle } from 'lucide-react';
+
+// Extended type for joined data
+type MemberWithAttribution = Member & {
+    agent?: {
+        name: string;
+        organisations?: {
+            name: string;
+        }
+    }
+};
 
 const VolunteerDashboard: React.FC = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const [mySubmissions, setMySubmissions] = useState<Member[]>([]);
+    const [mySubmissions, setMySubmissions] = useState<MemberWithAttribution[]>([]);
     const [loading, setLoading] = useState(true);
     const { addNotification } = useNotification();
 
@@ -22,13 +32,21 @@ const VolunteerDashboard: React.FC = () => {
         if (!user?.id) return;
         setLoading(true);
         try {
+            // Optimized Join: Member -> Volunteer Profile -> Organisation
             const { data, error } = await supabase
                 .from('members')
-                .select('*')
+                .select(`
+                    *,
+                    agent:profiles!volunteer_id (
+                        name,
+                        organisations (name)
+                    )
+                `)
                 .eq('volunteer_id', user.id)
                 .order('submission_date', { ascending: false });
+                
             if (error) throw error;
-            if (data) setMySubmissions(data);
+            if (data) setMySubmissions(data as MemberWithAttribution[]);
         } catch (err: any) {
             addNotification(`Sync Fault: ${err.message}`, 'error');
         } finally {
@@ -112,7 +130,7 @@ const VolunteerDashboard: React.FC = () => {
                         <thead className="border-b border-white/5">
                           <tr>
                             <th className="p-6 text-[10px] uppercase tracking-widest text-gray-600 font-black">Member Identity</th>
-                            <th className="p-6 text-[10px] uppercase tracking-widest text-gray-600 font-black text-center">Date</th>
+                            <th className="p-6 text-[10px] uppercase tracking-widest text-blue-500 font-black">Enrolled By (Personnel)</th>
                             <th className="p-6 text-[10px] uppercase tracking-widest text-gray-600 font-black text-center">Status</th>
                           </tr>
                         </thead>
@@ -134,20 +152,33 @@ const VolunteerDashboard: React.FC = () => {
                                         </div>
                                     </div>
                                 </td>
-                                <td className="p-6 text-center">
-                                    <div className="flex flex-col items-center gap-1">
-                                        <span className="text-[11px] font-bold text-gray-500 font-mono">{member.submission_date.split('T')[0]}</span>
-                                        <div className="flex items-center gap-1 text-[9px] text-gray-700 font-black uppercase tracking-widest">
-                                          <Clock size={10} /> Handshake Verified
+                                <td className="p-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-10 w-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-500 shadow-inner">
+                                            <UserCircle size={20} />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-[11px] font-black text-white uppercase tracking-widest">
+                                                {member.agent?.name || user?.name}
+                                            </span>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <Building2 size={10} className="text-orange-500" />
+                                                <span className="text-[9px] font-black text-orange-500/80 uppercase tracking-widest">
+                                                    {member.agent?.organisations?.name || user?.organisationName || 'Independent'}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                 </td>
                                 <td className="p-6 text-center">
-                                  <span className={`px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest border shadow-sm ${
-                                      member.status === MemberStatus.Accepted ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
-                                  }`}>
-                                    {member.status}
-                                  </span>
+                                  <div className="flex flex-col items-center gap-2">
+                                    <span className={`px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest border shadow-sm ${
+                                        member.status === MemberStatus.Accepted ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                                    }`}>
+                                      {member.status}
+                                    </span>
+                                    <span className="text-[9px] font-mono text-gray-600 uppercase tracking-tighter">{member.submission_date.split('T')[0]}</span>
+                                  </div>
                                 </td>
                               </tr>
                             ))}

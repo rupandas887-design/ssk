@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
@@ -34,7 +35,11 @@ import {
 
 // Extended member type for join data
 type MemberWithAgent = Member & {
-    agent_profile?: { name: string, mobile: string }
+    agent_profile?: { 
+        name: string, 
+        mobile: string,
+        organisations?: { name: string }
+    }
 };
 
 const AdminReports: React.FC = () => {
@@ -64,13 +69,20 @@ const AdminReports: React.FC = () => {
             const [membersRes, orgsRes, profilesRes] = await Promise.all([
                 supabase
                     .from('members')
-                    .select('*, agent_profile:profiles!volunteer_id(name, mobile)')
+                    .select(`
+                        *,
+                        agent_profile:profiles!volunteer_id(
+                            name, 
+                            mobile,
+                            organisations (name)
+                        )
+                    `)
                     .order('submission_date', { ascending: false }),
                 supabase.from('organisations').select('*').order('name'),
                 supabase.from('profiles').select('*')
             ]);
             
-            if (membersRes.data) setMembers(membersRes.data);
+            if (membersRes.data) setMembers(membersRes.data as MemberWithAgent[]);
             if (orgsRes.data) setOrganisations(orgsRes.data);
             
             if (profilesRes.data) {
@@ -184,7 +196,7 @@ const AdminReports: React.FC = () => {
         const headers = ['Aadhaar', 'Name', 'Surname', 'Mobile', 'Org', 'VOLUNTEER', 'VOL_MOBILE', 'Date', 'Status'];
         const rows = filteredMembers.map(m => [
             m.aadhaar, m.name, m.surname, m.mobile,
-            organisations.find(o => o.id === m.organisation_id)?.name || 'N/A',
+            m.agent_profile?.organisations?.name || organisations.find(o => o.id === m.organisation_id)?.name || 'N/A',
             m.agent_profile?.name || allProfiles.find(p => p.id === m.volunteer_id)?.name || 'N/A',
             m.agent_profile?.mobile || 'N/A',
             m.submission_date, m.status
@@ -278,10 +290,10 @@ const AdminReports: React.FC = () => {
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead className="border-b border-gray-800">
-                                <tr>
-                                    <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black">Member Identity</th>
-                                    <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black">ENROLLMENT SOURCE (VOLUNTEER)</th>
-                                    <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black text-center">Status</th>
+                                <tr className="text-gray-500 uppercase tracking-widest text-[10px] font-black">
+                                    <th className="p-6">Member Identity</th>
+                                    <th className="p-6 text-blue-500">Personnel Attribution</th>
+                                    <th className="p-6 text-center">Status</th>
                                     <th className="p-6 text-right"></th>
                                 </tr>
                             </thead>
@@ -310,15 +322,12 @@ const AdminReports: React.FC = () => {
                                                 </div>
                                                 <div className="flex flex-col">
                                                     <span className="text-[11px] font-black text-white uppercase tracking-widest">
-                                                        {m.agent_profile?.name || allProfiles.find(p => p.id === m.volunteer_id)?.name || 'Agent '+m.volunteer_id.slice(0,5)}
+                                                        {m.agent_profile?.name || 'Agent '+m.volunteer_id.slice(0,5)}
                                                     </span>
                                                     <div className="flex items-center gap-2 mt-0.5">
-                                                        <span className="text-[9px] text-gray-700 font-black uppercase tracking-widest flex items-center gap-1">
-                                                            <Building2 size={8} /> {organisations.find(o => o.id === m.organisation_id)?.name || 'Master Entity'}
-                                                        </span>
-                                                        <span className="h-0.5 w-0.5 rounded-full bg-gray-800"></span>
-                                                        <span className="text-[9px] text-orange-500/60 font-mono font-bold tracking-widest">
-                                                            {m.agent_profile?.mobile || 'PH: N/A'}
+                                                        <Building2 size={10} className="text-orange-500/80" />
+                                                        <span className="text-[9px] text-orange-500/80 font-black uppercase tracking-widest">
+                                                            {m.agent_profile?.organisations?.name || 'Master Entity'}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -398,9 +407,12 @@ const AdminReports: React.FC = () => {
                                     <UserCircle size={24} />
                                 </div>
                                 <div>
-                                    <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.3em] mb-0.5">Enrollment VOLUNTEER</p>
+                                    <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.3em] mb-0.5">Enrollment Personnel</p>
                                     <p className="text-sm font-bold text-white uppercase tracking-widest">
                                         {editingMember.agent_profile?.name || 'Unknown Operator'}
+                                    </p>
+                                    <p className="text-[9px] font-black text-orange-500/60 uppercase tracking-widest mt-1">
+                                        {editingMember.agent_profile?.organisations?.name || 'Unassigned Sector'}
                                     </p>
                                 </div>
                             </div>
@@ -440,7 +452,7 @@ const AdminReports: React.FC = () => {
                         </div>
 
                         <div className="flex justify-end gap-4 pt-10 border-t border-white/5 mt-8 sticky bottom-0 bg-gray-900 pb-2 z-10">
-                            <Button variant="secondary" onClick={() => setIsEditModalOpen(false)} className="px-8 py-4 text-[10px] font-black uppercase tracking-widest">Abort</Button>
+                            <Button variant="secondary" onClick={() => setIsEditModalOpen(false)} className="px-8 border-white/10 py-4 text-[10px] font-black uppercase tracking-widest">Abort</Button>
                             <Button 
                                 onClick={handleUpdateMember} 
                                 disabled={isUpdating}
