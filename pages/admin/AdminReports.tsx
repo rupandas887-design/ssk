@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
@@ -202,7 +203,7 @@ const AdminReports: React.FC = () => {
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 relative z-10">
-                        <Select label="Filter by Sector" value={selectedOrgId} onChange={(e) => setSelectedOrgId(e.target.value)} className="bg-black/40 border-gray-800">
+                        <Select label="Filter by Sector" value={selectedOrgId} onChange={(e) => setSelectedOrgId(e.target.value)} className="bg-black/60 border-gray-700">
                             <option value="">All Organisations</option>
                             {organisations.map(org => <option key={org.id} value={org.id}>{org.name}</option>)}
                         </Select>
@@ -212,7 +213,7 @@ const AdminReports: React.FC = () => {
                             value={searchQuery} 
                             onChange={(e) => setSearchQuery(e.target.value)} 
                             icon={<Search size={16} />}
-                            className="bg-black/40 border-gray-800"
+                            className="bg-black/60 border-gray-700"
                         />
                         <div className="md:col-span-2 flex gap-4 items-end">
                             <Button onClick={fetchData} variant="secondary" className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest gap-2">
@@ -229,7 +230,7 @@ const AdminReports: React.FC = () => {
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead className="border-b border-gray-800">
-                                <tr className="text-gray-500 uppercase tracking-widest text-[10px] font-black">
+                                <tr className="text-gray-400 uppercase tracking-widest text-[10px] font-black">
                                     <th className="p-6">Member Identity</th>
                                     <th className="p-6 text-blue-500">Personnel Attribution</th>
                                     <th className="p-6 text-center">Verification</th>
@@ -238,15 +239,15 @@ const AdminReports: React.FC = () => {
                             </thead>
                             <tbody className="divide-y divide-gray-900/50">
                                 {loading ? (
-                                    <tr><td colSpan={4} className="p-24 text-center text-[11px] animate-pulse font-black uppercase tracking-[0.4em] text-gray-600">Loading Node Data...</td></tr>
+                                    <tr><td colSpan={4} className="p-24 text-center text-[11px] animate-pulse font-black uppercase tracking-[0.4em] text-gray-500">Loading Node Data...</td></tr>
                                 ) : filteredMembers.map(m => (
                                     <tr key={m.id} className="group hover:bg-white/[0.02] transition-all">
                                         <td className="p-6">
                                             <div className="flex flex-col overflow-hidden">
                                                 <span className="font-bold text-white text-lg group-hover:text-orange-500 transition-colors break-words line-clamp-1">{m.name} {m.surname}</span>
-                                                <div className="flex items-center gap-3 mt-1 text-[11px] text-gray-600 font-mono tracking-tighter">
+                                                <div className="flex items-center gap-3 mt-1 text-[11px] text-gray-400 font-mono tracking-tighter">
                                                     <span>{m.mobile}</span>
-                                                    <span className="h-1 w-1 rounded-full bg-gray-800"></span>
+                                                    <span className="h-1 w-1 rounded-full bg-gray-700"></span>
                                                     <span>{m.aadhaar.slice(-4).padStart(12, '•')}</span>
                                                 </div>
                                             </div>
@@ -287,7 +288,7 @@ const AdminReports: React.FC = () => {
                                     </tr>
                                 ))}
                                 {filteredMembers.length === 0 && !loading && (
-                                    <tr><td colSpan={4} className="p-40 text-center text-[11px] text-gray-700 uppercase tracking-[0.5em] font-black">No records found.</td></tr>
+                                    <tr><td colSpan={4} className="p-40 text-center text-[11px] text-gray-600 uppercase tracking-[0.5em] font-black">No records found.</td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -312,7 +313,7 @@ const AdminReports: React.FC = () => {
                                     </a>
                                 </div>
                             ) : (
-                                <div className="h-40 w-full md:w-56 rounded-[2rem] bg-gray-950 border-2 border-white/5 flex flex-col items-center justify-center text-gray-800 shrink-0 gap-3">
+                                <div className="h-40 w-full md:w-56 rounded-[2rem] bg-gray-950 border-2 border-white/5 flex flex-col items-center justify-center text-gray-700 shrink-0 gap-3">
                                     <FileText size={32} strokeWidth={1} />
                                     <span className="text-[9px] font-black uppercase tracking-widest">No Doc Scan</span>
                                 </div>
@@ -326,7 +327,7 @@ const AdminReports: React.FC = () => {
                                 <div className="flex flex-wrap gap-3">
                                     <div className="px-4 py-2 bg-black/60 rounded-xl border border-white/5 flex items-center gap-2">
                                         <Fingerprint size={12} className="text-orange-500/50" />
-                                        <span className="text-[10px] font-mono text-gray-400 uppercase tracking-[0.2em]">{editingMember.aadhaar}</span>
+                                        <span className="text-[10px] font-mono text-gray-300 uppercase tracking-[0.2em]">{editingMember.aadhaar}</span>
                                     </div>
                                     <div className={`px-4 py-2 rounded-xl border flex items-center gap-2 ${editingMember.status === MemberStatus.Accepted ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-orange-500/10 border-orange-500/20 text-orange-400'}`}>
                                         <BadgeCheck size={12} />
@@ -382,7 +383,7 @@ const AdminReports: React.FC = () => {
                     </div>
                     <div>
                         <h4 className="text-2xl font-cinzel text-white mb-3">Irreversible Purge</h4>
-                        <p className="text-sm text-gray-500 leading-relaxed uppercase tracking-widest font-black">
+                        <p className="text-sm text-gray-300 leading-relaxed uppercase tracking-widest font-black">
                             Confirm total node deletion. This action cannot be undone.
                         </p>
                     </div>
