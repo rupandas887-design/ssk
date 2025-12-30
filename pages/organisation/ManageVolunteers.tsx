@@ -8,7 +8,20 @@ import { Volunteer, Role } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../supabase/client';
 import { useNotification } from '../../context/NotificationContext';
-import { Power, Download, UserPlus, UserCheck, Copy, ShieldCheck, Loader2, UserCircle, Zap, ShieldAlert, RefreshCw, ExternalLink, Activity, Database } from 'lucide-react';
+import { 
+  Power, 
+  Download, 
+  UserPlus, 
+  UserCheck, 
+  Copy, 
+  ShieldCheck, 
+  Loader2, 
+  UserCircle, 
+  Zap, 
+  RefreshCw, 
+  Activity,
+  FileSpreadsheet
+} from 'lucide-react';
 
 type VolunteerWithEnrollments = Volunteer & { enrollments: number };
 
@@ -26,8 +39,6 @@ const ManageVolunteers: React.FC = () => {
     setLoading(true);
 
     try {
-        // Fetch all volunteers for this organization
-        // We fetch members to count enrollments
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*, members(id)')
@@ -64,6 +75,23 @@ const ManageVolunteers: React.FC = () => {
     setNewVol(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleExport = () => {
+    const headers = ['Name', 'Email', 'Mobile', 'Enrollments', 'Status'];
+    const rows = volunteers.map(v => [
+        v.name,
+        v.email,
+        v.mobile,
+        v.enrollments,
+        v.status
+    ]);
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `Volunteers_List_${user?.organisationName || 'Sector'}_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+  };
+
   const handleAddVolunteer = async () => {
     const email = newVol.email.trim().toLowerCase();
     const password = newVol.password;
@@ -81,7 +109,6 @@ const ManageVolunteers: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-        // 1. Create Auth Entry
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email,
           password,
@@ -98,12 +125,11 @@ const ManageVolunteers: React.FC = () => {
         if (authError) throw authError;
         
         if (authData?.user?.id) {
-            // 2. Explicitly create the profile record to ensure visibility in reports
             const { error: profileError } = await supabase.from('profiles').upsert({
                 id: authData.user.id,
                 name,
                 email,
-                role: 'Volunteer', // Strict string for matching
+                role: 'Volunteer',
                 organisation_id: user.organisationId,
                 mobile,
                 status: 'Active'
@@ -194,12 +220,22 @@ const ManageVolunteers: React.FC = () => {
                       </div>
                     </div>
                 </div>
-                <button 
-                  onClick={fetchVolunteers} 
-                  className="p-4 bg-white/5 rounded-2xl border border-white/5 hover:border-orange-500/40 text-gray-500 hover:text-white transition-all shadow-xl"
-                >
-                    <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
-                </button>
+                <div className="flex gap-4">
+                    <button 
+                      onClick={handleExport}
+                      className="p-4 bg-blue-600 hover:bg-blue-700 rounded-2xl text-white transition-all shadow-xl flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
+                      title="Download Volunteers CSV"
+                    >
+                        <FileSpreadsheet size={20} />
+                        <span className="hidden sm:inline">Export CSV</span>
+                    </button>
+                    <button 
+                      onClick={fetchVolunteers} 
+                      className="p-4 bg-white/5 rounded-2xl border border-white/5 hover:border-orange-500/40 text-gray-500 hover:text-white transition-all shadow-xl"
+                    >
+                        <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+                    </button>
+                </div>
             </div>
 
             <div className="overflow-x-auto">
