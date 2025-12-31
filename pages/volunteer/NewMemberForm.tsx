@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
@@ -10,7 +10,7 @@ import { Gender, Occupation, SupportNeed } from '../../types';
 import { supabase } from '../../supabase/client';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
-import { Camera, ShieldAlert, RefreshCw, User as UserIcon, CheckCircle2, FileText, Fingerprint, UploadCloud, ShieldCheck, Search, Info } from 'lucide-react';
+import { ShieldAlert, RefreshCw, User as UserIcon, CheckCircle2, FileText, Fingerprint, UploadCloud, ShieldCheck, Search, Info } from 'lucide-react';
 
 const initialFormData = {
   aadhaar: '',
@@ -38,11 +38,7 @@ const NewMemberForm: React.FC = () => {
   const [isValidating, setIsValidating] = useState(false);
   
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
 
   const getErrorMessage = (err: any): string => {
       if (!err) return "Unknown System Error";
@@ -53,14 +49,6 @@ const NewMemberForm: React.FC = () => {
       }
       return "Database security policy failure";
   };
-
-  useEffect(() => {
-    return () => {
-        if (streamRef.current) {
-            streamRef.current.getTracks().forEach(track => track.stop());
-        }
-    };
-  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -82,43 +70,6 @@ const NewMemberForm: React.FC = () => {
     setFormData(prev => ({ ...prev, memberImage: null }));
     setImagePreview(null);
     if(fileInputRef.current) fileInputRef.current.value = '';
-  };
-  
-  const openCamera = async () => {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        streamRef.current = stream;
-        if (videoRef.current) videoRef.current.srcObject = stream;
-        setIsCameraOpen(true);
-    } catch (err) {
-        addNotification("Camera access denied.", 'error');
-    }
-  };
-
-  const closeCamera = () => {
-    if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
-    setIsCameraOpen(false);
-  };
-
-  const handleCapture = () => {
-    const canvas = document.createElement('canvas');
-    if (videoRef.current) {
-        canvas.width = videoRef.current.videoWidth;
-        canvas.height = videoRef.current.videoHeight;
-        const context = canvas.getContext('2d');
-        if (context) {
-            context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-            canvas.toBlob((blob) => {
-                if (blob) {
-                    const file = new File([blob], "aadhaar_capture.jpg", { type: "image/jpeg" });
-                    setFormData(prev => ({ ...prev, memberImage: file }));
-                    if(imagePreview) URL.revokeObjectURL(imagePreview);
-                    setImagePreview(URL.createObjectURL(file));
-                    closeCamera();
-                }
-            }, 'image/jpeg');
-        }
-    }
   };
 
   const handleStep1Next = async () => {
@@ -376,15 +327,12 @@ const NewMemberForm: React.FC = () => {
                                             <FileText size={40} />
                                         </div>
                                         <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-                                            <Button variant="secondary" onClick={() => fileInputRef.current?.click()} className="flex items-center justify-center gap-2 text-[10px] py-3 px-6">
-                                                <UploadCloud size={14} /> Upload
-                                            </Button>
-                                            <span className="text-gray-800 self-center font-black hidden sm:block">OR</span>
-                                            <Button onClick={openCamera} className="flex items-center justify-center gap-2 text-[10px] py-3 px-6">
-                                                <Camera size={14} /> Camera
+                                            <Button variant="secondary" onClick={() => fileInputRef.current?.click()} className="flex items-center justify-center gap-2 text-[10px] py-3 px-6 w-full sm:w-auto">
+                                                <UploadCloud size={14} /> Upload Aadhaar Scan
                                             </Button>
                                             <input ref={fileInputRef} type="file" className="sr-only" onChange={handleFileChange} accept="image/*" />
                                         </div>
+                                        <p className="text-[9px] text-gray-500 uppercase tracking-widest text-center">Supported formats: JPG, PNG, WEBP</p>
                                     </div>
                                 )}
                             </div>
@@ -440,30 +388,6 @@ const NewMemberForm: React.FC = () => {
             )}
           </div>
       </div>
-      
-      {isCameraOpen && (
-          <div className="fixed inset-0 bg-black/98 flex items-center justify-center z-[100] p-4 md:p-8 backdrop-blur-3xl animate-in zoom-in duration-300">
-              <div className="w-full max-w-2xl relative">
-                  <div className="flex justify-between items-center mb-8">
-                      <div>
-                        <h4 className="text-xl font-cinzel text-white leading-none">Document Acquisition</h4>
-                        <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.4em] mt-2">Active Scanner Node</p>
-                      </div>
-                      <button onClick={closeCamera} className="p-3 bg-white/5 text-gray-500 hover:text-white rounded-full">&times;</button>
-                  </div>
-                  
-                  <div className="relative rounded-2xl overflow-hidden border border-orange-500/20 bg-black aspect-video flex items-center justify-center shadow-2xl">
-                    <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover"></video>
-                    <div className="absolute inset-0 pointer-events-none border-[1px] border-orange-500/10"></div>
-                  </div>
-
-                  <div className="mt-10 flex flex-col sm:flex-row justify-center gap-4">
-                      <Button onClick={handleCapture} className="w-full sm:w-auto px-12 py-4 text-[10px] font-black uppercase tracking-[0.4em] bg-orange-600">Capture</Button>
-                      <Button variant="secondary" onClick={closeCamera} className="w-full sm:w-auto px-8 py-4 text-[10px] font-black uppercase tracking-[0.4em]">Cancel</Button>
-                  </div>
-              </div>
-          </div>
-      )}
     </DashboardLayout>
   );
 };
