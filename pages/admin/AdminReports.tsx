@@ -32,7 +32,9 @@ import {
   Briefcase,
   Zap,
   Loader2,
-  ImageIcon
+  ImageIcon,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 
 type MemberWithAgent = Member & {
@@ -117,6 +119,18 @@ const AdminReports: React.FC = () => {
             return matchOrg && matchVol && matchSearch;
         });
     }, [members, selectedOrgId, selectedVolunteerId, searchQuery]);
+
+    const handleVerifyStatus = async (member: MemberWithAgent) => {
+        const newStatus = member.status === MemberStatus.Accepted ? MemberStatus.Pending : MemberStatus.Accepted;
+        try {
+            const { error } = await supabase.from('members').update({ status: newStatus }).eq('id', member.id);
+            if (error) throw error;
+            addNotification(`Identity verification status updated to ${newStatus}.`, "success");
+            fetchData();
+        } catch (err) {
+            addNotification("Verification update failed.", "error");
+        }
+    };
 
     const handleEditMember = (member: MemberWithAgent) => {
         setEditingMember({ ...member });
@@ -277,7 +291,14 @@ const AdminReports: React.FC = () => {
                                             </span>
                                         </td>
                                         <td className="p-6 text-right">
-                                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
+                                            <div className="flex justify-end items-center gap-3 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
+                                                <button 
+                                                  onClick={() => handleVerifyStatus(m)} 
+                                                  className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${m.status === MemberStatus.Accepted ? 'bg-red-500/5 text-red-500 border-red-500/10 hover:bg-red-500/10' : 'bg-green-500/5 text-green-500 border-green-500/10 hover:bg-green-500/10'}`}
+                                                  title={m.status === MemberStatus.Accepted ? "Reset Verification" : "Verify Identity"}
+                                                >
+                                                    {m.status === MemberStatus.Accepted ? 'Unverify' : 'Verify'}
+                                                </button>
                                                 <button onClick={() => handleEditMember(m)} className="p-3 bg-white/5 rounded-xl border border-white/10 hover:border-orange-500/50 text-gray-400 hover:text-white transition-all" title="Modify Master File">
                                                     <Edit3 size={18} />
                                                 </button>
