@@ -32,7 +32,7 @@ import {
   Map
 } from 'lucide-react';
 
-const supabaseUrl = "https://baetdjjzfqupdzsoecph.supabaseco";
+const supabaseUrl = "https://baetdjjzfqupdzsoecph.supabase.co";
 const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJhZXRkamp6ZnF1cGR6c29lY3BoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0NzEwMTYsImV4cCI6MjA4MjA0NzAxNn0.MYrwQ7E4HVq7TwXpxum9ZukIz4ZAwyunlhpkwkpZ-bo";
 
 const ManageOrganisations: React.FC = () => {
@@ -88,7 +88,7 @@ const ManageOrganisations: React.FC = () => {
 
         if (orgError) throw orgError;
 
-        // Prevent session override
+        // Prevent session override by using a separate client instance
         const authClient = createClient(supabaseUrl, supabaseAnonKey, {
           auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
         });

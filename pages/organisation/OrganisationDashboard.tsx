@@ -61,138 +61,145 @@ const OrganisationDashboard: React.FC = () => {
     }, [user]);
 
     return (
-        <DashboardLayout title="Organization Command Center">
+        <DashboardLayout title="Command Center">
              {loading ? (
-                <div className="flex flex-col items-center justify-center p-32 gap-6">
-                    <div className="w-16 h-16 border-4 border-orange-500/20 border-t-orange-500 rounded-full animate-spin"></div>
-                    <p className="text-gray-500 font-black uppercase tracking-[0.4em] text-[11px] animate-pulse">Syncing Organization Node...</p>
+                <div className="flex flex-col items-center justify-center p-20 gap-4">
+                    <div className="w-10 h-10 border-4 border-orange-500/20 border-t-orange-500 rounded-full animate-spin"></div>
+                    <p className="text-gray-500 font-black uppercase tracking-[0.4em] text-[10px] animate-pulse">Syncing Node...</p>
                 </div>
              ) : (
-            <div className="space-y-12">
-                <div className="relative overflow-hidden p-10 lg:p-14 rounded-[3.5rem] border border-white/10 bg-[#050505] shadow-2xl group">
-                    <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-orange-500/[0.04] blur-[120px] rounded-full -mr-40 -mt-40 pointer-events-none transition-all duration-1000 group-hover:bg-orange-500/[0.08]"></div>
+            <div className="space-y-4 md:space-y-6 pb-6">
+                {/* Organization Header Section - More Compact */}
+                <div className="relative overflow-hidden p-5 sm:p-8 rounded-2xl md:rounded-[2.5rem] border border-white/5 bg-[#050505] shadow-2xl group">
+                    <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-orange-500/[0.03] blur-[100px] rounded-full -mr-20 -mt-20 pointer-events-none transition-all duration-1000 group-hover:bg-orange-500/[0.06]"></div>
                     
-                    <div className="relative z-10 flex flex-col xl:flex-row gap-16 items-start xl:items-center">
-                        <div className="flex-1 flex gap-10 items-start">
-                            <div className="p-10 bg-gradient-to-br from-orange-600/20 to-orange-950/40 rounded-[2.8rem] border border-orange-500/20 text-orange-500 shadow-xl group/icon overflow-hidden">
-                                <Building2 size={80} strokeWidth={1} className="relative z-10 group-hover/icon:scale-110 transition-transform duration-500" />
+                    <div className="relative z-10 flex flex-col xl:flex-row gap-6 lg:gap-10 items-start xl:items-center">
+                        <div className="flex-1 flex flex-col sm:flex-row gap-5 sm:gap-8 items-start">
+                            <div className="p-4 sm:p-6 bg-gradient-to-br from-orange-600/10 to-orange-950/30 rounded-2xl sm:rounded-[2rem] border border-orange-500/10 text-orange-500 shadow-xl overflow-hidden flex-shrink-0">
+                                <Building2 className="w-8 h-8 sm:w-14 sm:h-14" strokeWidth={1.5} />
                             </div>
-                            <div className="space-y-6">
+                            <div className="space-y-3 sm:space-y-4 overflow-hidden w-full">
                                 <div>
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <div className="h-2 w-2 rounded-full bg-orange-500 animate-pulse"></div>
-                                        <p className="text-[11px] font-black uppercase tracking-[0.5em] text-orange-500/80">Authorized Organization</p>
+                                    <div className="flex items-center gap-2 mb-1 sm:mb-2">
+                                        <div className="h-1.5 w-1.5 rounded-full bg-orange-500 animate-pulse"></div>
+                                        <p className="text-[8px] sm:text-[10px] font-black uppercase tracking-[0.3em] text-orange-500/70">Authorized Organization</p>
                                     </div>
-                                    <h2 className="font-cinzel text-5xl lg:text-7xl text-white tracking-tighter leading-none mb-4">
+                                    <h2 className="font-cinzel text-xl sm:text-3xl md:text-4xl lg:text-5xl text-white tracking-tight leading-tight truncate">
                                         {orgDetails?.name || user?.organisationName}
                                     </h2>
                                 </div>
-                                <div className="flex flex-wrap gap-4">
-                                    <div className="flex items-center gap-4 px-6 py-3 bg-white/[0.03] rounded-2xl border border-white/5">
-                                        <Phone size={18} className="text-orange-500/60" />
-                                        <span className="text-base font-mono text-gray-300">{orgDetails?.mobile || 'N/A'}</span>
+                                <div className="flex flex-wrap gap-2 sm:gap-3">
+                                    <div className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-white/[0.02] rounded-lg sm:rounded-xl border border-white/5">
+                                        <Phone size={12} className="text-orange-500/60 sm:size-[14px]" />
+                                        <span className="text-xs sm:text-sm font-mono text-gray-400">{orgDetails?.mobile || 'N/A'}</span>
                                     </div>
-                                    <div className="flex items-center gap-4 px-6 py-3 bg-white/[0.03] rounded-2xl border border-white/5">
-                                        <ShieldCheck size={18} className="text-green-500/60" />
-                                        <span className="text-[10px] font-black uppercase text-green-400 tracking-widest">{orgDetails?.status || 'Active'}</span>
+                                    <div className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-white/[0.02] rounded-lg sm:rounded-xl border border-white/5">
+                                        <ShieldCheck size={12} className="text-green-500/60 sm:size-[14px]" />
+                                        <span className="text-[8px] sm:text-[9px] font-black uppercase text-green-400 tracking-widest">{orgDetails?.status || 'Active'}</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="xl:w-96 p-8 bg-white/[0.02] rounded-[3rem] border border-white/10 backdrop-blur-3xl group/admin hover:border-orange-500/20 transition-all">
-                             <div className="flex items-center gap-6">
-                                <div className="h-16 w-16 rounded-2xl bg-gray-900 border border-white/10 flex items-center justify-center text-gray-500 group-hover/admin:text-orange-500 transition-colors">
-                                    <UserIcon size={32} strokeWidth={1} />
+                        <div className="w-full xl:w-72 p-4 sm:p-5 bg-white/[0.01] rounded-xl sm:rounded-[2rem] border border-white/5 backdrop-blur-2xl hover:border-orange-500/20 transition-all">
+                             <div className="flex items-center gap-3 sm:gap-4">
+                                <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg sm:rounded-xl bg-gray-900 border border-white/5 flex items-center justify-center text-gray-600">
+                                    <UserIcon size={20} strokeWidth={1} />
                                 </div>
                                 <div className="overflow-hidden">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-600 mb-1">Lead Admin</p>
-                                    <h2 className="font-cinzel text-xl text-white truncate">{orgDetails?.secretary_name || user?.name}</h2>
+                                    <p className="text-[8px] sm:text-[9px] font-black uppercase tracking-[0.2em] text-gray-600 mb-0.5">Lead Admin</p>
+                                    <h2 className="font-cinzel text-sm sm:text-base text-white truncate">{orgDetails?.secretary_name || user?.name}</h2>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                    <Card className="p-12 relative overflow-hidden group border-white/5 bg-gradient-to-br from-gray-900/40 to-black hover:border-blue-500/30 transition-all duration-700">
-                        <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                            <Users size={180} />
+                {/* Compact Stats Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
+                    <Card className="p-5 lg:p-7 relative overflow-hidden group border-white/5 bg-[#080808] hover:border-blue-500/20 transition-all duration-500">
+                        <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 transition-opacity">
+                            <Users size={80} className="sm:size-[100px]" />
                         </div>
-                        <div className="relative z-10 flex items-center gap-10">
-                            <div className="p-8 bg-blue-500/10 rounded-3xl text-blue-400 border border-blue-500/10 group-hover:scale-105 transition-transform">
-                                <Users size={56} />
+                        <div className="relative z-10 flex flex-row items-center gap-4 lg:gap-6">
+                            <div className="p-4 bg-blue-500/10 rounded-xl text-blue-400 border border-blue-500/5">
+                                <Users size={24} className="sm:size-8" />
                             </div>
                             <div>
-                                <p className="text-gray-500 text-[11px] font-black uppercase tracking-[0.5em] mb-4">Authorized Agents</p>
-                                <div className="flex items-baseline gap-4">
-                                    <p className="text-7xl font-black text-white leading-none tracking-tighter">{myVolunteers.length}</p>
-                                    <span className="text-[11px] font-black text-blue-400 uppercase tracking-widest">Field Personnel</span>
+                                <p className="text-gray-600 text-[8px] lg:text-[10px] font-black uppercase tracking-[0.3em] mb-1">Personnel</p>
+                                <div className="flex items-baseline gap-2">
+                                    <p className="text-3xl lg:text-4xl font-black text-white leading-none tracking-tighter">{myVolunteers.length}</p>
+                                    <span className="text-[8px] font-black text-blue-500/50 uppercase tracking-widest">Active</span>
                                 </div>
                             </div>
                         </div>
                     </Card>
 
-                    <Card className="p-12 relative overflow-hidden group border-white/5 bg-gradient-to-br from-gray-900/40 to-black hover:border-orange-500/30 transition-all duration-700">
-                        <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                            <TrendingUp size={180} />
+                    <Card className="p-5 lg:p-7 relative overflow-hidden group border-white/5 bg-[#080808] hover:border-orange-500/20 transition-all duration-500">
+                        <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 transition-opacity">
+                            <TrendingUp size={80} className="sm:size-[100px]" />
                         </div>
-                        <div className="relative z-10 flex items-center gap-10">
-                            <div className="p-8 bg-orange-500/10 rounded-3xl text-orange-400 border border-orange-500/10 group-hover:scale-105 transition-transform">
-                                <Activity size={56} />
+                        <div className="relative z-10 flex flex-row items-center gap-4 lg:gap-6">
+                            <div className="p-4 bg-orange-500/10 rounded-xl text-orange-400 border border-orange-500/5">
+                                <Activity size={24} className="sm:size-8" />
                             </div>
                             <div>
-                                <p className="text-gray-500 text-[11px] font-black uppercase tracking-[0.5em] mb-4">Organization Growth</p>
-                                <div className="flex items-baseline gap-4">
-                                    <p className="text-7xl font-black text-white leading-none tracking-tighter">{myMembers.length}</p>
-                                    <span className="text-[11px] font-black text-orange-400 uppercase tracking-widest">Enrolled Identity</span>
+                                <p className="text-gray-600 text-[8px] lg:text-[10px] font-black uppercase tracking-[0.3em] mb-1">Total Identity</p>
+                                <div className="flex items-baseline gap-2">
+                                    <p className="text-3xl lg:text-4xl font-black text-white leading-none tracking-tighter">{myMembers.length}</p>
+                                    <span className="text-[8px] font-black text-orange-500/50 uppercase tracking-widest">Enrolled</span>
                                 </div>
                             </div>
                         </div>
                     </Card>
                 </div>
                 
-                <Card className="border-white/5 bg-[#080808] p-8 rounded-[2.5rem]">
-                    <div className="flex justify-between items-center mb-10">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-blue-500/10 rounded-xl text-blue-500">
-                                <Activity size={24} />
+                {/* Activity Feed - Tighter Table */}
+                <Card className="border-white/5 bg-[#080808] p-4 sm:p-6 rounded-xl md:rounded-3xl">
+                    <div className="flex flex-row justify-between items-center mb-6">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-blue-500/10 rounded-lg text-blue-500">
+                                <Activity size={16} />
                             </div>
-                            <h3 className="font-cinzel text-2xl text-white uppercase tracking-widest">Live Enrollment Stream</h3>
+                            <h3 className="font-cinzel text-base sm:text-lg text-white uppercase tracking-widest">Activity Stream</h3>
                         </div>
-                        <button onClick={fetchData} className="p-4 bg-white/5 rounded-2xl border border-white/5 hover:border-blue-500/40 text-gray-500 hover:text-white transition-all">
-                            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+                        <button onClick={fetchData} className="p-2 bg-white/5 rounded-lg border border-white/5 hover:border-blue-500/40 text-gray-500 hover:text-white transition-all">
+                            <RefreshCw size={14} className={`${loading ? 'animate-spin' : ''}`} />
                         </button>
                     </div>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
+                    <div className="overflow-x-auto custom-scrollbar">
+                        <table className="w-full text-left min-w-[450px]">
                             <thead className="border-b border-gray-800">
-                                <tr className="text-gray-500 text-[10px] uppercase tracking-widest font-black">
-                                    <th className="p-5">Enrolled Member</th>
-                                    <th className="p-5">Field Agent</th>
-                                    <th className="p-5 text-right">Timestamp</th>
+                                <tr className="text-gray-600 text-[8px] sm:text-[9px] uppercase tracking-widest font-black">
+                                    <th className="pb-4 pl-2">Enrolled Member</th>
+                                    <th className="pb-4">Field Agent</th>
+                                    <th className="pb-4 text-right pr-2">Date</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-900/50">
-                                {myMembers.slice(0, 10).map(m => (
-                                    <tr key={m.id} className="group hover:bg-white/[0.015] transition-colors">
-                                        <td className="p-5">
+                                {myMembers.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={3} className="p-10 text-center text-gray-700 text-[9px] font-black uppercase tracking-widest">No activity detected.</td>
+                                    </tr>
+                                ) : myMembers.slice(0, 10).map(m => (
+                                    <tr key={m.id} className="group hover:bg-white/[0.01] transition-colors">
+                                        <td className="py-3 pl-2">
                                             <div className="flex flex-col">
-                                                <span className="font-bold text-white text-lg group-hover:text-blue-400 transition-colors">{m.name} {m.surname}</span>
-                                                <span className="text-[11px] text-gray-600 font-mono">{m.mobile}</span>
+                                                <span className="font-bold text-white text-sm sm:text-base group-hover:text-blue-400 transition-colors truncate max-w-[140px] sm:max-w-none">{m.name} {m.surname}</span>
+                                                <span className="text-[9px] text-gray-600 font-mono">{m.mobile}</span>
                                             </div>
                                         </td>
-                                        <td className="p-5">
-                                            <div className="flex items-center gap-3">
-                                                <div className="h-8 w-8 rounded-lg bg-gray-900 flex items-center justify-center text-gray-600 group-hover:text-orange-500 transition-colors">
-                                                    <UserCircle size={18} />
+                                        <td className="py-3">
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-6 w-6 rounded-lg bg-gray-950 flex items-center justify-center text-gray-600">
+                                                    <UserCircle size={14} />
                                                 </div>
-                                                <span className="text-sm font-bold text-gray-300 uppercase tracking-widest">{m.agent_profile?.name || 'Authorized Agent'}</span>
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest truncate max-w-[100px] sm:max-w-none">{m.agent_profile?.name || 'Agent'}</span>
                                             </div>
                                         </td>
-                                        <td className="p-5 text-right">
-                                            <span className="text-[11px] font-bold text-gray-600 uppercase font-mono">{m.submission_date.split('T')[0]}</span>
+                                        <td className="py-3 text-right pr-2">
+                                            <span className="text-[10px] font-bold text-gray-700 uppercase font-mono">{m.submission_date.split('T')[0]}</span>
                                         </td>
                                     </tr>
                                 ))}
