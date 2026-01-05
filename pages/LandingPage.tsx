@@ -191,7 +191,7 @@ const LandingPage: React.FC = () => {
                       
                       <div className="mt-6 md:mt-8 pt-6 md:pt-8 border-t border-white/5 w-full">
                           <p className="text-3xl md:text-4xl font-black text-white mb-1 md:mb-2">{organisations.length}</p>
-                          <p className="text-[9px] md:text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">ORGANISATIONS</p>
+                          <p className="text-[9px] md:text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">ORGANIZATIONS</p>
                       </div>
                   </Card>
               </div>

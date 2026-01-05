@@ -61,11 +61,11 @@ const Rewards: React.FC<RewardsProps> = ({ members, volunteers, organisations })
         label: 'Individual Merit'
       },
       {
-        title: 'Organisation of the Week',
+        title: 'Organization of the Week',
         winner: topOrg ? topOrg.name : 'Awaiting Data',
         achievement: topOrgCount > 0 ? `${topOrgCount} New Enrollments` : 'N/A',
         icon: <Shield className="text-orange-500" size={40} />,
-        label: 'Sector Excellence'
+        label: 'Institutional Excellence'
       }
     ];
   }, [members, volunteers, organisations]);

@@ -61,11 +61,11 @@ const OrganisationDashboard: React.FC = () => {
     }, [user]);
 
     return (
-        <DashboardLayout title="Sector Command Center">
+        <DashboardLayout title="Organization Command Center">
              {loading ? (
                 <div className="flex flex-col items-center justify-center p-32 gap-6">
                     <div className="w-16 h-16 border-4 border-orange-500/20 border-t-orange-500 rounded-full animate-spin"></div>
-                    <p className="text-gray-500 font-black uppercase tracking-[0.4em] text-[11px] animate-pulse">Syncing Sector Node...</p>
+                    <p className="text-gray-500 font-black uppercase tracking-[0.4em] text-[11px] animate-pulse">Syncing Organization Node...</p>
                 </div>
              ) : (
             <div className="space-y-12">
@@ -81,7 +81,7 @@ const OrganisationDashboard: React.FC = () => {
                                 <div>
                                     <div className="flex items-center gap-3 mb-4">
                                         <div className="h-2 w-2 rounded-full bg-orange-500 animate-pulse"></div>
-                                        <p className="text-[11px] font-black uppercase tracking-[0.5em] text-orange-500/80">Authorized Sector Unit</p>
+                                        <p className="text-[11px] font-black uppercase tracking-[0.5em] text-orange-500/80">Authorized Organization</p>
                                     </div>
                                     <h2 className="font-cinzel text-5xl lg:text-7xl text-white tracking-tighter leading-none mb-4">
                                         {orgDetails?.name || user?.organisationName}
@@ -106,7 +106,7 @@ const OrganisationDashboard: React.FC = () => {
                                     <UserIcon size={32} strokeWidth={1} />
                                 </div>
                                 <div className="overflow-hidden">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-600 mb-1">Sector Lead</p>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-600 mb-1">Lead Admin</p>
                                     <h2 className="font-cinzel text-xl text-white truncate">{orgDetails?.secretary_name || user?.name}</h2>
                                 </div>
                             </div>
@@ -142,7 +142,7 @@ const OrganisationDashboard: React.FC = () => {
                                 <Activity size={56} />
                             </div>
                             <div>
-                                <p className="text-gray-500 text-[11px] font-black uppercase tracking-[0.5em] mb-4">Sector Growth</p>
+                                <p className="text-gray-500 text-[11px] font-black uppercase tracking-[0.5em] mb-4">Organization Growth</p>
                                 <div className="flex items-baseline gap-4">
                                     <p className="text-7xl font-black text-white leading-none tracking-tighter">{myMembers.length}</p>
                                     <span className="text-[11px] font-black text-orange-400 uppercase tracking-widest">Enrolled Identity</span>

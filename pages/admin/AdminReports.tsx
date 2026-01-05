@@ -170,7 +170,7 @@ const AdminReports: React.FC = () => {
     };
 
     const handleExport = () => {
-        const headers = ['Aadhaar', 'Full Name', 'Father Name', 'Mobile', 'DOB', 'Gender', 'Address', 'Pincode', 'Occupation', 'Support Need', 'Volunteer', 'Sector', 'Status'];
+        const headers = ['Aadhaar', 'Full Name', 'Father Name', 'Mobile', 'DOB', 'Gender', 'Address', 'Pincode', 'Occupation', 'Support Need', 'Volunteer', 'Organization', 'Status'];
         const rows = filteredMembers.map(m => [
             m.aadhaar, 
             `${m.name} ${m.surname}`, 
@@ -204,8 +204,8 @@ const AdminReports: React.FC = () => {
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 relative z-10">
-                        <Select label="Filter by Sector" value={selectedOrgId} onChange={(e) => setSelectedOrgId(e.target.value)} className="bg-black/60 border-gray-700">
-                            <option value="">All Organisations</option>
+                        <Select label="Filter by Organization" value={selectedOrgId} onChange={(e) => setSelectedOrgId(e.target.value)} className="bg-black/60 border-gray-700">
+                            <option value="">All Organizations</option>
                             {organisations.map(org => <option key={org.id} value={org.id}>{org.name}</option>)}
                         </Select>
                         <Input 

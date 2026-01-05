@@ -80,7 +80,7 @@ const AdminDashboard: React.FC = () => {
                     email: p.email,
                     role: Role.Volunteer,
                     organisationId: p.organisation_id,
-                    organisation_name: p.organisations?.name || fetchedOrgs.find(o => o.id === p.organisation_id)?.name || 'Independent Sector',
+                    organisation_name: p.organisations?.name || fetchedOrgs.find(o => o.id === p.organisation_id)?.name || 'Independent Organization',
                     mobile: p.mobile || 'N/A',
                     status: p.status || 'Active',
                     enrollments: enrollmentMap[p.id] || 0
@@ -111,7 +111,7 @@ const AdminDashboard: React.FC = () => {
     }, [searchTerm, volunteersWithOrg]);
 
     const handleExportVolunteers = () => {
-        const headers = ['Name', 'Email', 'Mobile', 'Sector Unit', 'Enrollments', 'Status'];
+        const headers = ['Name', 'Email', 'Mobile', 'Organization', 'Enrollments', 'Status'];
         const rows = filteredVolunteers.map(v => [
             v.name,
             v.email,
@@ -152,7 +152,7 @@ const AdminDashboard: React.FC = () => {
                       <span className="text-[9px] font-black text-orange-600/50 uppercase tracking-[0.2em]">Deployments</span>
                     </div>
                     <div>
-                        <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Active Sector Units</p>
+                        <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Active Organizations</p>
                         <p className="text-5xl font-black text-white">{loading ? '...' : organisations.length}</p>
                     </div>
                 </Card>
@@ -193,12 +193,12 @@ const AdminDashboard: React.FC = () => {
             </div>
 
             <div className="mt-12">
-                <Card title="Sector Operational Matrix" className="bg-[#050505] border-white/5">
+                <Card title="Organization Operational Matrix" className="bg-[#050505] border-white/5">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm">
                             <thead className="border-b border-gray-800">
                                 <tr className="text-gray-500 uppercase tracking-wider text-[10px] font-black">
-                                    <th className="p-5">Sector Node</th>
+                                    <th className="p-5">Organization Node</th>
                                     <th className="p-5 text-center">Active Agents</th>
                                     <th className="p-5 text-center">Verified Enrollments</th>
                                     <th className="p-5 text-right">Status</th>
@@ -246,7 +246,7 @@ const AdminDashboard: React.FC = () => {
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
                             <input 
                                 type="text"
-                                placeholder="Filter Agents or Sectors..."
+                                placeholder="Filter Agents or Organizations..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 pl-10 pr-4 text-white text-xs font-mono focus:outline-none focus:border-orange-500 transition-all"

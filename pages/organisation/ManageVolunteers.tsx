@@ -86,7 +86,7 @@ const ManageVolunteers: React.FC = () => {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `Agent_Registry_${user?.organisationName || 'Sector'}.csv`;
+    link.download = `Agent_Registry_${user?.organisationName || 'Organization'}.csv`;
     link.click();
   };
 
@@ -202,7 +202,7 @@ const ManageVolunteers: React.FC = () => {
               
               <Input label="FULL NAME" name="name" value={newVol.name} onChange={handleInputChange} placeholder="Ex: Rahul S" />
               <Input label="MOBILE IDENTITY" name="mobile" type="tel" value={newVol.mobile} onChange={handleInputChange} placeholder="91XXXXXXXX" />
-              <Input label="ACCESS EMAIL" name="email" type="email" value={newVol.email} onChange={handleInputChange} placeholder="agent@ssk.com" />
+              <Input label="ACCESS EMAIL" name="email" type="email" value={newVol.email} onChange={handleInputChange} placeholder="agent@org.com" />
               <Input label="SECURITY KEY" name="password" type="password" value={newVol.password} onChange={handleInputChange} placeholder="Min 6 characters" />
               
               <Button 

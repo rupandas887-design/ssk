@@ -28,10 +28,11 @@ import {
   Phone,
   User,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Map
 } from 'lucide-react';
 
-const supabaseUrl = "https://baetdjjzfqupdzsoecph.supabase.co";
+const supabaseUrl = "https://baetdjjzfqupdzsoecph.supabaseco";
 const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJhZXRkamp6ZnF1cGR6c29lY3BoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0NzEwMTYsImV4cCI6MjA4MjA0NzAxNn0.MYrwQ7E4HVq7TwXpxum9ZukIz4ZAwyunlhpkwkpZ-bo";
 
 const ManageOrganisations: React.FC = () => {
@@ -74,7 +75,7 @@ const ManageOrganisations: React.FC = () => {
     const secName = newOrg.secretaryName.trim();
 
     if (!email || !password || !name || !mobile || !secName) {
-        addNotification("Incomplete credentials.", 'error');
+        addNotification("Incomplete credentials provided.", 'error');
         return;
     }
     
@@ -87,7 +88,7 @@ const ManageOrganisations: React.FC = () => {
 
         if (orgError) throw orgError;
 
-        // CRITICAL: Prevent session override
+        // Prevent session override
         const authClient = createClient(supabaseUrl, supabaseAnonKey, {
           auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
         });
@@ -120,7 +121,7 @@ const ManageOrganisations: React.FC = () => {
 
         setNewOrg({ name: '', mobile: '', secretaryName: '', email: '', password: '' });
         fetchOrganisations();
-        addNotification('Sector authorised successfully.', 'success');
+        addNotification('Organization authorized successfully.', 'success');
     } catch (err: any) {
         addNotification(err?.message || 'Handshake failed.', 'error');
     } finally {
@@ -154,7 +155,7 @@ const ManageOrganisations: React.FC = () => {
           name: editingOrg.secretary_name, mobile: editingOrg.mobile, email: editingOrg.email, status: editingOrg.status
       }).eq('organisation_id', editingOrg.id).eq('role', 'Organisation');
 
-      addNotification(`Sector parameters updated.`, 'success');
+      addNotification(`Organization parameters updated.`, 'success');
       fetchOrganisations();
       setIsModalOpen(false);
     } catch (err: any) {
@@ -169,7 +170,7 @@ const ManageOrganisations: React.FC = () => {
     setIsDeleting(true);
     try {
       await supabase.from('organisations').delete().eq('id', orgToDelete.id);
-      addNotification(`${orgToDelete.name} node purged.`, 'success');
+      addNotification(`${orgToDelete.name} purged from registry.`, 'success');
       setOrgToDelete(null);
       fetchOrganisations();
     } catch (err: any) {
@@ -180,42 +181,42 @@ const ManageOrganisations: React.FC = () => {
   };
 
   return (
-    <DashboardLayout title="Sector Management">
+    <DashboardLayout title="Organization Management">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
         <div className="lg:col-span-1 space-y-8">
-          <Card title="Authorise New Sector" className="border-orange-500/10 relative overflow-hidden">
+          <Card title="Authorize New Organization" className="border-orange-500/10 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                <ShieldCheck size={100} />
+                <Map size={100} />
             </div>
             <div className="space-y-6 relative z-10">
-              <Input label="Organisation Name" name="name" value={newOrg.name} onChange={handleInputChange} placeholder="Ex: SSK Bangalore" icon={<Building2 size={16} />} />
+              <Input label="Organization Name" name="name" value={newOrg.name} onChange={handleInputChange} placeholder="Ex: SSK Bangalore North" icon={<Building2 size={16} />} />
               <Input label="Primary Mobile" name="mobile" value={newOrg.mobile} onChange={handleInputChange} placeholder="91XXXXXXXX" icon={<Phone size={16} />} />
-              <Input label="Secretary Name" name="secretaryName" value={newOrg.secretaryName} onChange={handleInputChange} icon={<User size={16} />} />
-              <Input label="Access Email" name="email" type="email" value={newOrg.email} onChange={handleInputChange} placeholder="admin@node.com" icon={<Mail size={16} />} />
+              <Input label="Administrative Lead" name="secretaryName" value={newOrg.secretaryName} onChange={handleInputChange} placeholder="Lead Name" icon={<User size={16} />} />
+              <Input label="Lead Access Email" name="email" type="email" value={newOrg.email} onChange={handleInputChange} placeholder="lead@org.com" icon={<Mail size={16} />} />
               <div className="relative">
-                <Input label="Access Key" name="password" type={showPassword ? "text" : "password"} value={newOrg.password} onChange={handleInputChange} placeholder="Min 6 characters" icon={<Lock size={16} />} />
+                <Input label="Predefined Access Key" name="password" type={showPassword ? "text" : "password"} value={newOrg.password} onChange={handleInputChange} placeholder="Min 6 characters" icon={<Lock size={16} />} />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-[34px] text-gray-500 hover:text-white transition-colors">
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-              <Button type="button" onClick={handleAddOrganisation} disabled={isSubmitting} className="w-full py-5 flex items-center justify-center gap-3 text-[11px] font-black uppercase tracking-widest shadow-xl">
+              <Button type="button" onClick={handleAddOrganisation} disabled={isSubmitting} className="w-full py-5 flex items-center justify-center gap-3 text-[11px] font-black uppercase tracking-[0.3em] shadow-xl">
                 {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <UserPlus size={18} />}
-                {isSubmitting ? 'ESTABLISHING...' : 'Deploy Sector'}
+                {isSubmitting ? 'Establishing Node...' : 'Deploy Organization'}
               </Button>
             </div>
           </Card>
         </div>
 
         <div className="lg:col-span-2 space-y-6">
-          <Card title="Operational Sector Registry">
+          <Card title="Operational Registry">
             <div className="flex justify-between items-center mb-10">
                 <div className="flex items-center gap-4 text-gray-500">
                     <div className="p-2 bg-orange-500/10 rounded-lg text-orange-500">
                         <Activity size={16} />
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest">Master Node Synchronisation</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em]">Master Node Sync</span>
                 </div>
-                <button onClick={fetchOrganisations} className="p-3 bg-white/5 rounded-xl border border-white/5 hover:border-orange-500/40 text-gray-500 hover:text-white transition-all">
+                <button onClick={fetchOrganisations} className="p-3 bg-white/5 rounded-xl border border-white/5 hover:border-orange-500/40 text-gray-500 hover:text-white transition-all shadow-lg">
                     <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                 </button>
             </div>
@@ -223,14 +224,14 @@ const ManageOrganisations: React.FC = () => {
                 <table className="w-full text-left">
                     <thead className="border-b border-gray-800">
                         <tr>
-                            <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black">Organisation Identity</th>
-                            <th className="p-6 text-[10px] uppercase tracking-widest text-gray-500 font-black text-right">Verification</th>
+                            <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-gray-500 font-black">Organization Identity</th>
+                            <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-gray-500 font-black text-right">Verification</th>
                             <th className="p-6"></th>
                         </tr>
                     </thead>
                     <tbody>
                         {loading ? (
-                             <tr><td colSpan={3} className="p-20 text-center animate-pulse uppercase tracking-[0.5em] text-[10px] text-gray-600 font-black">Syncing Network...</td></tr>
+                             <tr><td colSpan={3} className="p-20 text-center animate-pulse uppercase tracking-[0.5em] text-[10px] text-gray-600 font-black">Syncing Network Ledger...</td></tr>
                         ) : organisations.map(org => (
                         <tr key={org.id} className="group border-b border-gray-900/50 hover:bg-white/[0.02] transition-all">
                             <td className="p-6">
@@ -243,14 +244,14 @@ const ManageOrganisations: React.FC = () => {
                                 </div>
                             </td>
                             <td className="p-6 text-right">
-                                <span className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-full border ${ org.status === 'Active' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20' }`}>
+                                <span className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] rounded-full border ${ org.status === 'Active' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20' }`}>
                                     {org.status}
                                 </span>
                             </td>
                             <td className="p-6 text-right">
                                 <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all">
-                                    <Button size="sm" variant="secondary" onClick={() => handleEditClick(org)}>Modify</Button>
-                                    <button onClick={() => setOrgToDelete(org)} className="p-2 text-red-500/40 hover:text-red-500 rounded-lg transition-all"><Trash2 size={18} /></button>
+                                    <Button size="sm" variant="secondary" onClick={() => handleEditClick(org)} className="text-[10px] font-black tracking-widest px-4">Modify</Button>
+                                    <button onClick={() => setOrgToDelete(org)} className="p-2.5 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"><Trash2 size={18} /></button>
                                 </div>
                             </td>
                         </tr>
@@ -262,19 +263,19 @@ const ManageOrganisations: React.FC = () => {
         </div>
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Modify Sector">
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Modify Organization Parameters">
           {editingOrg && (
             <div className="space-y-6">
-                <Input label="ORGANISATION NAME" name="name" value={editingOrg.name} onChange={(e) => setEditingOrg({...editingOrg, name: e.target.value})} icon={<Building2 size={16} />} />
-                <Input label="SECRETARY NAME" name="secretary_name" value={editingOrg.secretary_name} onChange={(e) => setEditingOrg({...editingOrg, secretary_name: e.target.value})} icon={<User size={16} />} />
-                <Input label="CONTACT MOBILE" name="mobile" value={editingOrg.mobile} onChange={(e) => setEditingOrg({...editingOrg, mobile: e.target.value})} icon={<Phone size={16} />} />
-                <Select label="OPERATIONAL STATUS" name="status" value={editingOrg.status} onChange={(e) => setEditingOrg({...editingOrg, status: e.target.value as any})}>
+                <Input label="Organization Name" name="name" value={editingOrg.name} onChange={(e) => setEditingOrg({...editingOrg, name: e.target.value})} icon={<Building2 size={16} />} />
+                <Input label="Administrative Lead" name="secretary_name" value={editingOrg.secretary_name} onChange={(e) => setEditingOrg({...editingOrg, secretary_name: e.target.value})} icon={<User size={16} />} />
+                <Input label="Primary Mobile" name="mobile" value={editingOrg.mobile} onChange={(e) => setEditingOrg({...editingOrg, mobile: e.target.value})} icon={<Phone size={16} />} />
+                <Select label="Operational Status" name="status" value={editingOrg.status} onChange={(e) => setEditingOrg({...editingOrg, status: e.target.value as any})}>
                     <option value="Active">Active</option>
                     <option value="Deactivated">Deactivated</option>
                 </Select>
-                <div className="flex justify-end gap-4 pt-4 border-t border-white/5">
-                    <Button variant="secondary" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-                    <Button onClick={handleUpdateOrganisation} disabled={isSubmitting}>{isSubmitting ? "Syncing..." : "Apply Changes"}</Button>
+                <div className="flex justify-end gap-4 pt-6 border-t border-white/5">
+                    <Button variant="secondary" onClick={() => setIsModalOpen(false)} className="text-[10px] font-black tracking-widest">Abort</Button>
+                    <Button onClick={handleUpdateOrganisation} disabled={isSubmitting} className="text-[10px] font-black tracking-widest">{isSubmitting ? "Syncing..." : "Apply Changes"}</Button>
                 </div>
             </div>
           )}
@@ -286,14 +287,15 @@ const ManageOrganisations: React.FC = () => {
                 <AlertTriangle size={48} />
             </div>
             <div>
-                <h4 className="text-2xl font-cinzel text-white mb-3">Irreversible Purge</h4>
-                <p className="text-sm text-gray-500 leading-relaxed uppercase tracking-widest font-black">
+                <h4 className="text-2xl font-cinzel text-white mb-3 tracking-wide">Confirm Purge</h4>
+                <p className="text-sm text-gray-500 leading-relaxed uppercase tracking-[0.2em] font-black">
                     Purge <span className="text-red-500">"{orgToDelete?.name}"</span>? 
+                    This action is irreversible.
                 </p>
             </div>
             <div className="flex gap-4">
-                <Button variant="secondary" onClick={() => setOrgToDelete(null)} className="flex-1">Abort</Button>
-                <Button onClick={handleDeleteOrganisation} disabled={isDeleting} className="flex-1 bg-red-600 hover:bg-red-700">
+                <Button variant="secondary" onClick={() => setOrgToDelete(null)} className="flex-1 text-[11px] font-black tracking-widest uppercase py-4">Abort</Button>
+                <Button onClick={handleDeleteOrganisation} disabled={isDeleting} className="flex-1 bg-red-600 hover:bg-red-700 text-[11px] font-black tracking-widest uppercase py-4">
                     {isDeleting ? 'PURGING...' : 'Confirm Purge'}
                 </Button>
             </div>

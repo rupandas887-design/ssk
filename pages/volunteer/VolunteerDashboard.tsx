@@ -118,7 +118,7 @@ const VolunteerDashboard: React.FC = () => {
                         <Input label="ENROLLMENT START" type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} />
                         <Input label="ENROLLMENT END" type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} />
                         <Input label="MEMBER CONTACT" name="phone" placeholder="91XXXXXXXX" value={filters.phone} onChange={handleFilterChange} icon={<Phone size={14} />} />
-                        <Input label="SECTOR PINCODE" name="area" placeholder="560XXX" value={filters.area} onChange={handleFilterChange} icon={<MapPin size={14} />} />
+                        <Input label="ORG PINCODE" name="area" placeholder="560XXX" value={filters.area} onChange={handleFilterChange} icon={<MapPin size={14} />} />
                     </div>
                 </Card>
 
