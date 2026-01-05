@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
 import { useAuth } from '../../context/AuthContext';
-import { Users, UserCheck, Building2, User as UserIcon, Phone, ShieldCheck, Mail, Info, Activity, Globe, Zap, Clock, RefreshCw, UserCircle, TrendingUp, MapPin } from 'lucide-react';
+import { Building2, User as UserIcon, Phone, ShieldCheck, Activity, RefreshCw, UserCircle, TrendingUp } from 'lucide-react';
 import { supabase } from '../../supabase/client';
 import { Member, Role, User as VolunteerUser, Organisation } from '../../types';
 
@@ -18,10 +18,15 @@ const OrganisationDashboard: React.FC = () => {
     const [orgDetails, setOrgDetails] = useState<Organisation | null>(null);
     const [loading, setLoading] = useState(true);
 
+    const formatDisplayName = (first: string, last: string) => {
+        const f = (first || '').trim().toLowerCase();
+        const l = (last || '').trim().toLowerCase();
+        return `${f} ${l}`.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    };
+
     const fetchData = async () => {
         if (!user?.organisationId) return;
         setLoading(true);
-        
         try {
             const [orgRes, profilesRes, membersRes] = await Promise.all([
                 supabase.from('organisations').select('*').eq('id', user.organisationId).single(),
@@ -34,7 +39,6 @@ const OrganisationDashboard: React.FC = () => {
             ]);
             
             if (orgRes.data) setOrgDetails(orgRes.data);
-            
             if (profilesRes.data) {
                 const mapped: VolunteerUser[] = profilesRes.data.map(p => ({
                     id: p.id,
@@ -47,7 +51,6 @@ const OrganisationDashboard: React.FC = () => {
                 }));
                 setMyVolunteers(mapped);
             }
-            
             if (membersRes.data) setMyMembers(membersRes.data as MemberWithAgent[]);
         } catch (error) {
             console.error("Sync Error:", error);
@@ -69,7 +72,6 @@ const OrganisationDashboard: React.FC = () => {
                 </div>
              ) : (
             <div className="space-y-4 md:space-y-6 pb-6">
-                {/* Organization Header Section - More Compact */}
                 <div className="relative overflow-hidden p-5 sm:p-8 rounded-2xl md:rounded-[2.5rem] border border-white/5 bg-[#050505] shadow-2xl group">
                     <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-orange-500/[0.03] blur-[100px] rounded-full -mr-20 -mt-20 pointer-events-none transition-all duration-1000 group-hover:bg-orange-500/[0.06]"></div>
                     
@@ -115,15 +117,14 @@ const OrganisationDashboard: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Compact Stats Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
-                    <Card className="p-5 lg:p-7 relative overflow-hidden group border-white/5 bg-[#080808] hover:border-blue-500/20 transition-all duration-500">
-                        <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 transition-opacity">
-                            <Users size={80} className="sm:size-[100px]" />
+                    <Card className="p-5 lg:p-7 relative overflow-hidden group border-white/5 bg-[#080808]">
+                        <div className="absolute top-0 right-0 p-4 opacity-[0.03] pointer-events-none">
+                            <UserCircle size={80} className="sm:size-[100px]" />
                         </div>
                         <div className="relative z-10 flex flex-row items-center gap-4 lg:gap-6">
                             <div className="p-4 bg-blue-500/10 rounded-xl text-blue-400 border border-blue-500/5">
-                                <Users size={24} className="sm:size-8" />
+                                <Activity size={24} className="sm:size-8" />
                             </div>
                             <div>
                                 <p className="text-gray-600 text-[8px] lg:text-[10px] font-black uppercase tracking-[0.3em] mb-1">Personnel</p>
@@ -135,13 +136,13 @@ const OrganisationDashboard: React.FC = () => {
                         </div>
                     </Card>
 
-                    <Card className="p-5 lg:p-7 relative overflow-hidden group border-white/5 bg-[#080808] hover:border-orange-500/20 transition-all duration-500">
-                        <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 transition-opacity">
+                    <Card className="p-5 lg:p-7 relative overflow-hidden group border-white/5 bg-[#080808]">
+                        <div className="absolute top-0 right-0 p-4 opacity-[0.03] pointer-events-none">
                             <TrendingUp size={80} className="sm:size-[100px]" />
                         </div>
                         <div className="relative z-10 flex flex-row items-center gap-4 lg:gap-6">
                             <div className="p-4 bg-orange-500/10 rounded-xl text-orange-400 border border-orange-500/5">
-                                <Activity size={24} className="sm:size-8" />
+                                <TrendingUp size={24} className="sm:size-8" />
                             </div>
                             <div>
                                 <p className="text-gray-600 text-[8px] lg:text-[10px] font-black uppercase tracking-[0.3em] mb-1">Total Identity</p>
@@ -154,7 +155,6 @@ const OrganisationDashboard: React.FC = () => {
                     </Card>
                 </div>
                 
-                {/* Activity Feed - Tighter Table */}
                 <Card className="border-white/5 bg-[#080808] p-4 sm:p-6 rounded-xl md:rounded-3xl">
                     <div className="flex flex-row justify-between items-center mb-6">
                         <div className="flex items-center gap-3">
@@ -186,7 +186,9 @@ const OrganisationDashboard: React.FC = () => {
                                     <tr key={m.id} className="group hover:bg-white/[0.01] transition-colors">
                                         <td className="py-3 pl-2">
                                             <div className="flex flex-col">
-                                                <span className="font-bold text-white text-sm sm:text-base group-hover:text-blue-400 transition-colors truncate max-w-[140px] sm:max-w-none">{m.name} {m.surname}</span>
+                                                <span className="font-bold text-white text-sm sm:text-base group-hover:text-blue-400 transition-colors truncate">
+                                                    {formatDisplayName(m.name, m.surname)}
+                                                </span>
                                                 <span className="text-[9px] text-gray-600 font-mono">{m.mobile}</span>
                                             </div>
                                         </td>
@@ -195,7 +197,7 @@ const OrganisationDashboard: React.FC = () => {
                                                 <div className="h-6 w-6 rounded-lg bg-gray-950 flex items-center justify-center text-gray-600">
                                                     <UserCircle size={14} />
                                                 </div>
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest truncate max-w-[100px] sm:max-w-none">{m.agent_profile?.name || 'Agent'}</span>
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest truncate">{m.agent_profile?.name || 'Agent'}</span>
                                             </div>
                                         </td>
                                         <td className="py-3 text-right pr-2">

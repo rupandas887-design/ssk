@@ -18,23 +18,15 @@ import {
   User as UserIcon,
   ExternalLink,
   Trash2,
-  AlertTriangle,
   Calendar,
   Building2,
   Fingerprint,
-  FileText,
   Activity,
   UserCircle,
-  ShieldCheck,
   Phone,
   BadgeCheck,
   MapPin,
-  Briefcase,
-  Zap,
-  Loader2,
-  ImageIcon,
-  CheckCircle2,
-  XCircle
+  Loader2
 } from 'lucide-react';
 
 type MemberWithAgent = Member & {
@@ -48,7 +40,6 @@ type MemberWithAgent = Member & {
 const AdminReports: React.FC = () => {
     const [members, setMembers] = useState<MemberWithAgent[]>([]);
     const [organisations, setOrganisations] = useState<Organisation[]>([]);
-    const [allProfiles, setAllProfiles] = useState<VolunteerUser[]>([]);
     const [loading, setLoading] = useState(true);
     const { addNotification } = useNotification();
     
@@ -58,14 +49,19 @@ const AdminReports: React.FC = () => {
 
     const [editingMember, setEditingMember] = useState<MemberWithAgent | null>(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [isDeleting, setIsDeleting] = useState(false);
     const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
     const [isUpdating, setIsUpdating] = useState(false);
+
+    const formatDisplayName = (first: string, last: string) => {
+        const f = (first || '').trim().toLowerCase();
+        const l = (last || '').trim().toLowerCase();
+        return `${f} ${l}`.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    };
 
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [membersRes, orgsRes, profilesRes] = await Promise.all([
+            const [membersRes, orgsRes] = await Promise.all([
                 supabase
                     .from('members')
                     .select(`
@@ -77,25 +73,11 @@ const AdminReports: React.FC = () => {
                         )
                     `)
                     .order('submission_date', { ascending: false }),
-                supabase.from('organisations').select('*').order('name'),
-                supabase.from('profiles').select('*')
+                supabase.from('organisations').select('*').order('name')
             ]);
             
             if (membersRes.data) setMembers(membersRes.data as MemberWithAgent[]);
             if (orgsRes.data) setOrganisations(orgsRes.data);
-            
-            if (profilesRes.data) {
-                const mappedProfiles: VolunteerUser[] = profilesRes.data.map(p => ({
-                    id: p.id,
-                    name: p.name,
-                    email: p.email,
-                    role: p.role as Role,
-                    organisationId: p.organisation_id,
-                    mobile: p.mobile,
-                    status: p.status
-                }));
-                setAllProfiles(mappedProfiles);
-            }
         } catch (err) {
             addNotification("Master registry uplink failed.", "error");
         } finally {
@@ -125,7 +107,7 @@ const AdminReports: React.FC = () => {
         try {
             const { error } = await supabase.from('members').update({ status: newStatus }).eq('id', member.id);
             if (error) throw error;
-            addNotification(`Identity verification status updated to ${newStatus}.`, "success");
+            addNotification(`Verification status updated.`, "success");
             fetchData();
         } catch (err) {
             addNotification("Verification update failed.", "error");
@@ -139,7 +121,6 @@ const AdminReports: React.FC = () => {
 
     const handleDeleteMember = async () => {
         if (!memberToDelete) return;
-        setIsDeleting(true);
         try {
             const { error } = await supabase.from('members').delete().eq('id', memberToDelete);
             if (error) throw error;
@@ -148,8 +129,6 @@ const AdminReports: React.FC = () => {
             fetchData();
         } catch (err: any) {
             addNotification(`Purge failed.`, "error");
-        } finally {
-            setIsDeleting(false);
         }
     };
 
@@ -158,11 +137,11 @@ const AdminReports: React.FC = () => {
         setIsUpdating(true);
         try {
             const { error } = await supabase.from('members').update({
-                name: editingMember.name,
-                surname: editingMember.surname,
-                father_name: editingMember.father_name,
-                mobile: editingMember.mobile,
-                emergency_contact: editingMember.emergency_contact,
+                name: editingMember.name.trim(),
+                surname: editingMember.surname.trim(),
+                father_name: editingMember.father_name.trim(),
+                mobile: editingMember.mobile.trim(),
+                emergency_contact: editingMember.emergency_contact.trim(),
                 dob: editingMember.dob,
                 gender: editingMember.gender,
                 pincode: editingMember.pincode,
@@ -173,7 +152,7 @@ const AdminReports: React.FC = () => {
             }).eq('id', editingMember.id);
             
             if (error) throw error;
-            addNotification("Member identity synchronized.", "success");
+            addNotification("Identity synchronized.", "success");
             setIsEditModalOpen(false);
             fetchData();
         } catch (err: any) {
@@ -184,10 +163,10 @@ const AdminReports: React.FC = () => {
     };
 
     const handleExport = () => {
-        const headers = ['Aadhaar', 'Full Name', 'Father Name', 'Mobile', 'DOB', 'Gender', 'Address', 'Pincode', 'Occupation', 'Support Need', 'Volunteer', 'Organization', 'Status'];
+        const headers = ['Aadhaar', 'Display Name', 'Father Name', 'Mobile', 'DOB', 'Gender', 'Address', 'Pincode', 'Occupation', 'Support Need', 'Volunteer', 'Organization', 'Status'];
         const rows = filteredMembers.map(m => [
             m.aadhaar, 
-            `${m.name} ${m.surname}`, 
+            formatDisplayName(m.name, m.surname), 
             m.father_name, 
             m.mobile, 
             m.dob, 
@@ -214,7 +193,7 @@ const AdminReports: React.FC = () => {
                 <Card className="bg-gray-950 border-white/5 p-8 rounded-[2rem] shadow-2xl relative overflow-hidden">
                     <div className="flex items-center gap-2 mb-8 text-orange-500 relative z-10">
                         <Activity size={18} />
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.4em]">Multi-Vector Registry Intelligence</h3>
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.4em]">Multi-Vector Intelligence</h3>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 relative z-10">
@@ -254,12 +233,14 @@ const AdminReports: React.FC = () => {
                             </thead>
                             <tbody className="divide-y divide-gray-900/50">
                                 {loading ? (
-                                    <tr><td colSpan={4} className="p-24 text-center text-[11px] animate-pulse font-black uppercase tracking-[0.4em] text-gray-500">Loading Node Data...</td></tr>
+                                    <tr><td colSpan={4} className="p-24 text-center text-[11px] animate-pulse font-black uppercase tracking-[0.4em] text-gray-500">Syncing...</td></tr>
                                 ) : filteredMembers.map(m => (
                                     <tr key={m.id} className="group hover:bg-white/[0.02] transition-all">
                                         <td className="p-6">
                                             <div className="flex flex-col overflow-hidden">
-                                                <span className="font-bold text-white text-lg group-hover:text-orange-500 transition-colors break-words line-clamp-1">{m.name} {m.surname}</span>
+                                                <span className="font-bold text-white text-lg group-hover:text-orange-500 transition-colors truncate">
+                                                    {formatDisplayName(m.name, m.surname)}
+                                                </span>
                                                 <div className="flex items-center gap-3 mt-1 text-[11px] text-gray-400 font-mono tracking-tighter">
                                                     <span>{m.mobile}</span>
                                                     <span className="h-1 w-1 rounded-full bg-gray-700"></span>
@@ -273,12 +254,12 @@ const AdminReports: React.FC = () => {
                                                     <UserCircle size={20} />
                                                 </div>
                                                 <div className="flex flex-col overflow-hidden">
-                                                    <span className="text-[11px] font-black text-white uppercase tracking-widest break-words line-clamp-1">
-                                                        {m.agent_profile?.name || 'Unknown Agent'}
+                                                    <span className="text-[11px] font-black text-white uppercase tracking-widest truncate">
+                                                        {m.agent_profile?.name || 'Unknown'}
                                                     </span>
                                                     <div className="flex items-center gap-2 mt-0.5">
                                                         <Building2 size={10} className="text-orange-500/80" />
-                                                        <span className="text-[9px] text-orange-500/80 font-black uppercase tracking-widest break-words line-clamp-1">
+                                                        <span className="text-[9px] text-orange-500/80 font-black uppercase tracking-widest truncate">
                                                             {m.agent_profile?.organisations?.name || 'Independent'}
                                                         </span>
                                                     </div>
@@ -295,14 +276,13 @@ const AdminReports: React.FC = () => {
                                                 <button 
                                                   onClick={() => handleVerifyStatus(m)} 
                                                   className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${m.status === MemberStatus.Accepted ? 'bg-red-500/5 text-red-500 border-red-500/10 hover:bg-red-500/10' : 'bg-green-500/5 text-green-500 border-green-500/10 hover:bg-green-500/10'}`}
-                                                  title={m.status === MemberStatus.Accepted ? "Reset Verification" : "Verify Identity"}
                                                 >
                                                     {m.status === MemberStatus.Accepted ? 'Unverify' : 'Verify'}
                                                 </button>
-                                                <button onClick={() => handleEditMember(m)} className="p-3 bg-white/5 rounded-xl border border-white/10 hover:border-orange-500/50 text-gray-400 hover:text-white transition-all" title="Modify Master File">
+                                                <button onClick={() => handleEditMember(m)} className="p-3 bg-white/5 rounded-xl border border-white/10 hover:border-orange-500/50 text-gray-400 hover:text-white transition-all">
                                                     <Edit3 size={18} />
                                                 </button>
-                                                <button onClick={() => setMemberToDelete(m.id)} className="p-3 bg-red-500/5 rounded-xl border border-red-500/10 text-red-500/60 hover:text-red-500 transition-all" title="Purge Identity">
+                                                <button onClick={() => setMemberToDelete(m.id)} className="p-3 bg-red-500/5 rounded-xl border border-red-500/10 text-red-500/60 hover:text-red-500 transition-all">
                                                     <Trash2 size={18} />
                                                 </button>
                                             </div>
@@ -325,7 +305,7 @@ const AdminReports: React.FC = () => {
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
                                 <div className="space-y-3">
-                                    <p className="text-[9px] font-black text-orange-500/60 uppercase tracking-widest">Aadhaar Front Side</p>
+                                    <p className="text-[9px] font-black text-orange-500/60 uppercase tracking-widest">Aadhaar Front</p>
                                     <div className="aspect-video rounded-[2rem] overflow-hidden border border-white/10 bg-black/40 shadow-2xl relative group/img">
                                         <img src={editingMember.aadhaar_front_url} className="w-full h-full object-cover" />
                                         <a href={editingMember.aadhaar_front_url} target="_blank" className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity">
@@ -334,7 +314,7 @@ const AdminReports: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="space-y-3">
-                                    <p className="text-[9px] font-black text-orange-500/60 uppercase tracking-widest">Aadhaar Back Side</p>
+                                    <p className="text-[9px] font-black text-orange-500/60 uppercase tracking-widest">Aadhaar Back</p>
                                     <div className="aspect-video rounded-[2rem] overflow-hidden border border-white/10 bg-black/40 shadow-2xl relative group/img">
                                         <img src={editingMember.aadhaar_back_url} className="w-full h-full object-cover" />
                                         <a href={editingMember.aadhaar_back_url} target="_blank" className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity">
@@ -346,8 +326,10 @@ const AdminReports: React.FC = () => {
 
                             <div className="mt-8 space-y-4 pt-2 border-t border-white/5 relative z-10">
                                 <div>
-                                    <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.4em] mb-1">Target Identity Node</p>
-                                    <h4 className="text-2xl font-cinzel text-white leading-tight break-words overflow-hidden line-clamp-2">{editingMember.name} {editingMember.surname}</h4>
+                                    <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.4em] mb-1">Target Identity</p>
+                                    <h4 className="text-2xl font-cinzel text-white leading-tight truncate">
+                                        {formatDisplayName(editingMember.name, editingMember.surname)}
+                                    </h4>
                                 </div>
                                 <div className="flex flex-wrap gap-3">
                                     <div className="px-4 py-2 bg-black/60 rounded-xl border border-white/5 flex items-center gap-2">
@@ -365,9 +347,8 @@ const AdminReports: React.FC = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <Input label="Given Name" value={editingMember.name} onChange={(e) => setEditingMember({...editingMember, name: e.target.value})} icon={<UserIcon size={14} />} />
                             <Input label="Surname" value={editingMember.surname} onChange={(e) => setEditingMember({...editingMember, surname: e.target.value})} icon={<UserIcon size={14} />} />
-                            <Input label="Father / Guardian" value={editingMember.father_name} onChange={(e) => setEditingMember({...editingMember, father_name: e.target.value})} icon={<UserCircle size={14} />} />
+                            <Input label="Father / Guardian" value={editingMember.father_name} onChange={(e) => setEditingMember({...editingMember, father_name: e.target.value})} icon={<UserCircle size={14} />} description="This is maintained in its designated separate field." />
                             <Input label="Mobile" value={editingMember.mobile} onChange={(e) => setEditingMember({...editingMember, mobile: e.target.value})} icon={<Phone size={14} />} />
-                            <Input label="Emergency Contact" value={editingMember.emergency_contact} onChange={(e) => setEditingMember({...editingMember, emergency_contact: e.target.value})} icon={<ShieldCheck size={14} />} />
                             <Input label="DOB" type="date" value={editingMember.dob} onChange={(e) => setEditingMember({...editingMember, dob: e.target.value})} icon={<Calendar size={14} />} />
                             <Select label="Gender" value={editingMember.gender} onChange={(e) => setEditingMember({...editingMember, gender: e.target.value as Gender})}>
                                 {Object.values(Gender).map(g => <option key={g} value={g}>{g}</option>)}
@@ -382,12 +363,6 @@ const AdminReports: React.FC = () => {
                             <Select label="Support Need" value={editingMember.support_need} onChange={(e) => setEditingMember({...editingMember, support_need: e.target.value as SupportNeed})}>
                                 {Object.values(SupportNeed).map(s => <option key={s} value={s}>{s}</option>)}
                             </Select>
-                            <div className="md:col-span-2">
-                                <Select label="Verification Override" value={editingMember.status} onChange={(e) => setEditingMember({...editingMember, status: e.target.value as MemberStatus})}>
-                                    <option value={MemberStatus.Pending}>Pending Verification</option>
-                                    <option value={MemberStatus.Accepted}>Accepted / Verified</option>
-                                </Select>
-                            </div>
                         </div>
 
                         <div className="flex justify-end gap-4 pt-10 border-t border-white/5 mt-8 sticky bottom-0 bg-gray-900 pb-4 z-10">
