@@ -16,7 +16,8 @@ import {
   Phone,
   Database,
   TrendingUp,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Map
 } from 'lucide-react';
 import { Organisation, Volunteer, Member, Role } from '../../types';
 import { supabase } from '../../supabase/client';
@@ -89,7 +90,7 @@ const AdminDashboard: React.FC = () => {
             }
         } catch (err: any) {
             console.error("Master Sync Error:", err);
-            addNotification(`Database Sync failed. Check SQL fix.`, "error");
+            addNotification(`Database Sync failed.`, "error");
         } finally {
             setLoading(false);
         }
@@ -110,7 +111,7 @@ const AdminDashboard: React.FC = () => {
     }, [searchTerm, volunteersWithOrg]);
 
     const handleExportVolunteers = () => {
-        const headers = ['Name', 'Email', 'Mobile', 'Organisation', 'Enrollments', 'Status'];
+        const headers = ['Name', 'Email', 'Mobile', 'Sector Unit', 'Enrollments', 'Status'];
         const rows = filteredVolunteers.map(v => [
             v.name,
             v.email,
@@ -123,7 +124,7 @@ const AdminDashboard: React.FC = () => {
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = `Global_Volunteers_Report_${new Date().toISOString().split('T')[0]}.csv`;
+        link.download = `Global_Agents_Report_${new Date().toISOString().split('T')[0]}.csv`;
         link.click();
     };
 
@@ -140,18 +141,18 @@ const AdminDashboard: React.FC = () => {
     }, [organisations, volunteersWithOrg, members]);
 
     return (
-        <DashboardLayout title="Master Admin Dashboard">
+        <DashboardLayout title="Network Intelligence Dashboard">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 <Card className="p-8 border-l-4 border-orange-600 bg-[#080808] hover:bg-[#0a0a0a] transition-all group relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:rotate-12 transition-transform">
-                        <Building2 size={80} />
+                        <Map size={80} />
                     </div>
                     <div className="flex justify-between items-center mb-4">
                       <Shield className="text-orange-600 group-hover:scale-110 transition-transform" size={32} strokeWidth={1.5} />
-                      <span className="text-[9px] font-black text-orange-600/50 uppercase tracking-[0.2em]">Sectors</span>
+                      <span className="text-[9px] font-black text-orange-600/50 uppercase tracking-[0.2em]">Deployments</span>
                     </div>
                     <div>
-                        <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Active Organisations</p>
+                        <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Active Sector Units</p>
                         <p className="text-5xl font-black text-white">{loading ? '...' : organisations.length}</p>
                     </div>
                 </Card>
@@ -169,9 +170,9 @@ const AdminDashboard: React.FC = () => {
                             <span className="text-[9px] font-black text-blue-600/50 uppercase tracking-[0.2em]">Personnel</span>
                         </div>
                         <div>
-                            <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Global Volunteers</p>
+                            <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Field Agents</p>
                             <p className="text-5xl font-black text-white">{loading ? '...' : volunteersWithOrg.length}</p>
-                            <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest mt-4 opacity-60 group-hover:opacity-100 transition-opacity">Open Registry Terminal →</p>
+                            <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest mt-4 opacity-60 group-hover:opacity-100 transition-opacity">Access Personnel File →</p>
                         </div>
                     </Card>
                 </button>
@@ -182,7 +183,7 @@ const AdminDashboard: React.FC = () => {
                     </div>
                     <div className="flex justify-between items-center mb-4">
                       <UserCheck className="text-green-600 group-hover:scale-110 transition-transform" size={32} strokeWidth={1.5} />
-                      <span className="text-[9px] font-black text-green-600/50 uppercase tracking-[0.2em]">Database</span>
+                      <span className="text-[9px] font-black text-green-600/50 uppercase tracking-[0.2em]">Global Base</span>
                     </div>
                     <div>
                         <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Total Enrolled Members</p>
@@ -192,15 +193,15 @@ const AdminDashboard: React.FC = () => {
             </div>
 
             <div className="mt-12">
-                <Card title="Sector Performance Matrix" className="bg-[#050505] border-white/5">
+                <Card title="Sector Operational Matrix" className="bg-[#050505] border-white/5">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm">
                             <thead className="border-b border-gray-800">
                                 <tr className="text-gray-500 uppercase tracking-wider text-[10px] font-black">
-                                    <th className="p-5">Entity Node</th>
-                                    <th className="p-5 text-center">Personnel (Volunteers)</th>
-                                    <th className="p-5 text-center">Enrollments (Members)</th>
-                                    <th className="p-5 text-right">Operational Status</th>
+                                    <th className="p-5">Sector Node</th>
+                                    <th className="p-5 text-center">Active Agents</th>
+                                    <th className="p-5 text-center">Verified Enrollments</th>
+                                    <th className="p-5 text-right">Status</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-900/50">
@@ -237,7 +238,7 @@ const AdminDashboard: React.FC = () => {
             <Modal 
                 isOpen={isVolunteersModalOpen} 
                 onClose={() => setIsVolunteersModalOpen(false)} 
-                title="Global Personnel Registry"
+                title="Field Agent Personnel File"
             >
                 <div className="space-y-6 max-h-[75vh] overflow-y-auto pr-2 custom-scrollbar">
                     <div className="flex flex-col sm:flex-row gap-4">
@@ -245,7 +246,7 @@ const AdminDashboard: React.FC = () => {
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
                             <input 
                                 type="text"
-                                placeholder="Filter by Name, Mobile, or Sector..."
+                                placeholder="Filter Agents or Sectors..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 pl-10 pr-4 text-white text-xs font-mono focus:outline-none focus:border-orange-500 transition-all"
@@ -293,9 +294,6 @@ const AdminDashboard: React.FC = () => {
                                 </div>
                             </div>
                         ))}
-                        {filteredVolunteers.length === 0 && (
-                            <p className="text-center text-gray-600 text-[10px] uppercase font-black py-10">No volunteers found in registry.</p>
-                        )}
                     </div>
                 </div>
             </Modal>

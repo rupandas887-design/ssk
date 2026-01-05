@@ -9,9 +9,8 @@ import { Member, MemberStatus } from '../../types';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabase/client';
 import { useNotification } from '../../context/NotificationContext';
-import { User, RefreshCw, Clock, Filter, Search, MapPin, Phone, Building2, UserCircle } from 'lucide-react';
+import { User, RefreshCw, Clock, Filter, Search, MapPin, Phone, Building2, UserCircle, Activity } from 'lucide-react';
 
-// Extended type for joined data
 type MemberWithAttribution = Member & {
     agent?: {
         name: string;
@@ -32,7 +31,6 @@ const VolunteerDashboard: React.FC = () => {
         if (!user?.id) return;
         setLoading(true);
         try {
-            // Optimized Join: Member -> Volunteer Profile -> Organisation
             const { data, error } = await supabase
                 .from('members')
                 .select(`
@@ -86,7 +84,7 @@ const VolunteerDashboard: React.FC = () => {
     }, [mySubmissions, filters]);
 
     return (
-        <DashboardLayout title="Field Operations Hub">
+        <DashboardLayout title="Agent Command Hub">
             <div className="space-y-10">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-10 p-10 bg-blue-900/10 border border-blue-900/20 rounded-[3rem] shadow-2xl relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-10 opacity-[0.03] group-hover:rotate-12 transition-transform duration-700 pointer-events-none">
@@ -97,7 +95,7 @@ const VolunteerDashboard: React.FC = () => {
                             <User size={40} strokeWidth={1.5} />
                         </div>
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.5em] text-blue-400/60 mb-2">Authenticated Operator</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.5em] text-blue-400/60 mb-2">Authenticated Field Agent</p>
                             <h2 className="font-cinzel text-4xl text-white tracking-tighter leading-none">{user?.name}</h2>
                         </div>
                     </div>
@@ -114,29 +112,29 @@ const VolunteerDashboard: React.FC = () => {
                 <Card className="border-white/5 bg-gray-900/20 backdrop-blur-md p-8 rounded-[2rem]">
                     <div className="flex items-center gap-2 mb-6 text-gray-500">
                         <Filter size={14} />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Query Parameters</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest">Registry Query</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                        <Input label="ENROLLMENT FROM" type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} />
-                        <Input label="ENROLLMENT TO" type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} />
-                        <Input label="MEMBER MOBILE" name="phone" placeholder="91XXXXXXXX" value={filters.phone} onChange={handleFilterChange} icon={<Phone size={14} />} />
+                        <Input label="ENROLLMENT START" type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} />
+                        <Input label="ENROLLMENT END" type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} />
+                        <Input label="MEMBER CONTACT" name="phone" placeholder="91XXXXXXXX" value={filters.phone} onChange={handleFilterChange} icon={<Phone size={14} />} />
                         <Input label="SECTOR PINCODE" name="area" placeholder="560XXX" value={filters.area} onChange={handleFilterChange} icon={<MapPin size={14} />} />
                     </div>
                 </Card>
 
-                <Card title="My Field Enrollments" className="bg-[#050505] border-white/5 rounded-[2.5rem]">
+                <Card title="Agent Field Activity Registry" className="bg-[#050505] border-white/5 rounded-[2.5rem]">
                     <div className="overflow-x-auto">
                       <table className="w-full text-left">
                         <thead className="border-b border-white/5">
                           <tr>
-                            <th className="p-6 text-[10px] uppercase tracking-widest text-gray-600 font-black">Member Identity</th>
-                            <th className="p-6 text-[10px] uppercase tracking-widest text-blue-500 font-black">Enrolled By (Personnel)</th>
+                            <th className="p-6 text-[10px] uppercase tracking-widest text-gray-600 font-black">Member Node</th>
+                            <th className="p-6 text-[10px] uppercase tracking-widest text-blue-500 font-black">Agent Attribution</th>
                             <th className="p-6 text-[10px] uppercase tracking-widest text-gray-600 font-black text-center">Status</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/[0.02]">
                           {loading ? (
-                              <tr><td colSpan={3} className="text-center p-32 animate-pulse text-[10px] uppercase tracking-[0.4em] text-gray-700 font-black">Synchronizing Nodes...</td></tr>
+                              <tr><td colSpan={3} className="text-center p-32 animate-pulse text-[10px] uppercase tracking-[0.4em] text-gray-700 font-black">Syncing Network...</td></tr>
                           ) : (
                             <>
                             {filteredSubmissions.map(member => (
@@ -145,7 +143,6 @@ const VolunteerDashboard: React.FC = () => {
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center gap-3">
                                             <span className="font-bold text-white text-lg group-hover:text-blue-400 transition-colors">{member.name} {member.surname}</span>
-                                            <Search size={12} className="text-gray-800 opacity-0 group-hover:opacity-100 transition-opacity" />
                                         </div>
                                         <div className="flex items-center gap-2 text-[10px] text-gray-600 font-mono tracking-tighter">
                                           <Phone size={10} /> {member.mobile}
@@ -182,9 +179,6 @@ const VolunteerDashboard: React.FC = () => {
                                 </td>
                               </tr>
                             ))}
-                            {filteredSubmissions.length === 0 && (
-                                <tr><td colSpan={3} className="text-center p-40 text-[11px] text-gray-800 font-black uppercase tracking-[0.5em]">No activity logs in this quadrant.</td></tr>
-                            )}
                             </>
                           )}
                         </tbody>

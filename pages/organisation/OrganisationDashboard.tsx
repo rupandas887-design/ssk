@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
 import { useAuth } from '../../context/AuthContext';
-import { Users, UserCheck, Building2, User as UserIcon, Phone, ShieldCheck, Mail, Info, Activity, Globe, Zap, Clock, RefreshCw, UserCircle, TrendingUp } from 'lucide-react';
+import { Users, UserCheck, Building2, User as UserIcon, Phone, ShieldCheck, Mail, Info, Activity, Globe, Zap, Clock, RefreshCw, UserCircle, TrendingUp, MapPin } from 'lucide-react';
 import { supabase } from '../../supabase/client';
 import { Member, Role, User as VolunteerUser, Organisation } from '../../types';
 
@@ -23,7 +23,6 @@ const OrganisationDashboard: React.FC = () => {
         setLoading(true);
         
         try {
-            // 1. Fetch Parallel Data
             const [orgRes, profilesRes, membersRes] = await Promise.all([
                 supabase.from('organisations').select('*').eq('id', user.organisationId).single(),
                 supabase.from('profiles').select('*').eq('organisation_id', user.organisationId).eq('role', 'Volunteer'),
@@ -51,7 +50,7 @@ const OrganisationDashboard: React.FC = () => {
             
             if (membersRes.data) setMyMembers(membersRes.data as MemberWithAgent[]);
         } catch (error) {
-            console.error("Organisation Dashboard Sync Error:", error);
+            console.error("Sync Error:", error);
         } finally {
             setLoading(false);
         }
@@ -62,15 +61,14 @@ const OrganisationDashboard: React.FC = () => {
     }, [user]);
 
     return (
-        <DashboardLayout title="Entity Command Center">
+        <DashboardLayout title="Sector Command Center">
              {loading ? (
                 <div className="flex flex-col items-center justify-center p-32 gap-6">
                     <div className="w-16 h-16 border-4 border-orange-500/20 border-t-orange-500 rounded-full animate-spin"></div>
-                    <p className="text-gray-500 font-black uppercase tracking-[0.4em] text-[11px] animate-pulse">Syncing Sector Data...</p>
+                    <p className="text-gray-500 font-black uppercase tracking-[0.4em] text-[11px] animate-pulse">Syncing Sector Node...</p>
                 </div>
              ) : (
             <div className="space-y-12">
-                {/* Identity Banner */}
                 <div className="relative overflow-hidden p-10 lg:p-14 rounded-[3.5rem] border border-white/10 bg-[#050505] shadow-2xl group">
                     <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-orange-500/[0.04] blur-[120px] rounded-full -mr-40 -mt-40 pointer-events-none transition-all duration-1000 group-hover:bg-orange-500/[0.08]"></div>
                     
@@ -83,7 +81,7 @@ const OrganisationDashboard: React.FC = () => {
                                 <div>
                                     <div className="flex items-center gap-3 mb-4">
                                         <div className="h-2 w-2 rounded-full bg-orange-500 animate-pulse"></div>
-                                        <p className="text-[11px] font-black uppercase tracking-[0.5em] text-orange-500/80">Authorized Entity Node</p>
+                                        <p className="text-[11px] font-black uppercase tracking-[0.5em] text-orange-500/80">Authorized Sector Unit</p>
                                     </div>
                                     <h2 className="font-cinzel text-5xl lg:text-7xl text-white tracking-tighter leading-none mb-4">
                                         {orgDetails?.name || user?.organisationName}
@@ -108,7 +106,7 @@ const OrganisationDashboard: React.FC = () => {
                                     <UserIcon size={32} strokeWidth={1} />
                                 </div>
                                 <div className="overflow-hidden">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-600 mb-1">Lead Admin</p>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-600 mb-1">Sector Lead</p>
                                     <h2 className="font-cinzel text-xl text-white truncate">{orgDetails?.secretary_name || user?.name}</h2>
                                 </div>
                             </div>
@@ -116,7 +114,6 @@ const OrganisationDashboard: React.FC = () => {
                     </div>
                 </div>
 
-                {/* KPI Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                     <Card className="p-12 relative overflow-hidden group border-white/5 bg-gradient-to-br from-gray-900/40 to-black hover:border-blue-500/30 transition-all duration-700">
                         <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
@@ -127,10 +124,10 @@ const OrganisationDashboard: React.FC = () => {
                                 <Users size={56} />
                             </div>
                             <div>
-                                <p className="text-gray-500 text-[11px] font-black uppercase tracking-[0.5em] mb-4">Authorized Volunteers</p>
+                                <p className="text-gray-500 text-[11px] font-black uppercase tracking-[0.5em] mb-4">Authorized Agents</p>
                                 <div className="flex items-baseline gap-4">
                                     <p className="text-7xl font-black text-white leading-none tracking-tighter">{myVolunteers.length}</p>
-                                    <span className="text-[11px] font-black text-blue-400 uppercase tracking-widest">Active Agents</span>
+                                    <span className="text-[11px] font-black text-blue-400 uppercase tracking-widest">Field Personnel</span>
                                 </div>
                             </div>
                         </div>
@@ -145,24 +142,23 @@ const OrganisationDashboard: React.FC = () => {
                                 <Activity size={56} />
                             </div>
                             <div>
-                                <p className="text-gray-500 text-[11px] font-black uppercase tracking-[0.5em] mb-4">Total Enrollment</p>
+                                <p className="text-gray-500 text-[11px] font-black uppercase tracking-[0.5em] mb-4">Sector Growth</p>
                                 <div className="flex items-baseline gap-4">
                                     <p className="text-7xl font-black text-white leading-none tracking-tighter">{myMembers.length}</p>
-                                    <span className="text-[11px] font-black text-orange-400 uppercase tracking-widest">Sector Members</span>
+                                    <span className="text-[11px] font-black text-orange-400 uppercase tracking-widest">Enrolled Identity</span>
                                 </div>
                             </div>
                         </div>
                     </Card>
                 </div>
                 
-                {/* Member Stream */}
                 <Card className="border-white/5 bg-[#080808] p-8 rounded-[2.5rem]">
                     <div className="flex justify-between items-center mb-10">
                         <div className="flex items-center gap-4">
                             <div className="p-3 bg-blue-500/10 rounded-xl text-blue-500">
                                 <Activity size={24} />
                             </div>
-                            <h3 className="font-cinzel text-2xl text-white uppercase tracking-widest">Recent Activity Stream</h3>
+                            <h3 className="font-cinzel text-2xl text-white uppercase tracking-widest">Live Enrollment Stream</h3>
                         </div>
                         <button onClick={fetchData} className="p-4 bg-white/5 rounded-2xl border border-white/5 hover:border-blue-500/40 text-gray-500 hover:text-white transition-all">
                             <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
@@ -173,9 +169,9 @@ const OrganisationDashboard: React.FC = () => {
                         <table className="w-full text-left">
                             <thead className="border-b border-gray-800">
                                 <tr className="text-gray-500 text-[10px] uppercase tracking-widest font-black">
-                                    <th className="p-5">Enrolled Identity</th>
+                                    <th className="p-5">Enrolled Member</th>
                                     <th className="p-5">Field Agent</th>
-                                    <th className="p-5 text-right">Registry Date</th>
+                                    <th className="p-5 text-right">Timestamp</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-900/50">
@@ -200,9 +196,6 @@ const OrganisationDashboard: React.FC = () => {
                                         </td>
                                     </tr>
                                 ))}
-                                {myMembers.length === 0 && (
-                                    <tr><td colSpan={3} className="p-40 text-center text-gray-800 uppercase tracking-widest font-black text-[11px]">No active enrollment detected in this sector.</td></tr>
-                                )}
                             </tbody>
                         </table>
                     </div>

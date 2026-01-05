@@ -14,7 +14,9 @@ import {
   Building2, 
   UserPlus,
   Menu,
-  X
+  X,
+  Map,
+  ShieldAlert
 } from 'lucide-react';
 
 interface NavItem {
@@ -24,20 +26,20 @@ interface NavItem {
 }
 
 const adminNavItems: NavItem[] = [
-  { path: '/admin', label: 'Overview', icon: <LayoutDashboard size={20} /> },
-  { path: '/admin/organisations', label: 'Organisations', icon: <Shield size={20} /> },
-  { path: '/admin/reports', label: 'Reports', icon: <FileDown size={20} /> },
+  { path: '/admin', label: 'Network Overview', icon: <LayoutDashboard size={20} /> },
+  { path: '/admin/organisations', label: 'Sector Units', icon: <Map size={20} /> },
+  { path: '/admin/reports', label: 'Master Registry', icon: <FileDown size={20} /> },
 ];
 
 const organisationNavItems: NavItem[] = [
-  { path: '/organisation', label: 'Overview', icon: <LayoutDashboard size={20} /> },
-  { path: '/organisation/volunteers', label: 'Volunteers', icon: <Users size={20} /> },
-  { path: '/organisation/reports', label: 'Reports', icon: <FileDown size={20} /> },
+  { path: '/organisation', label: 'Sector Hub', icon: <LayoutDashboard size={20} /> },
+  { path: '/organisation/volunteers', label: 'Field Agents', icon: <Users size={20} /> },
+  { path: '/organisation/reports', label: 'Sector Reports', icon: <FileDown size={20} /> },
 ];
 
 const volunteerNavItems: NavItem[] = [
-  { path: '/volunteer', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
-  { path: '/volunteer/new-member', label: 'New Member', icon: <UserPlus size={20} /> },
+  { path: '/volunteer', label: 'Agent Terminal', icon: <LayoutDashboard size={20} /> },
+  { path: '/volunteer/new-member', label: 'Enroll Member', icon: <UserPlus size={20} /> },
 ];
 
 const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> = ({ children, title }) => {
@@ -62,9 +64,9 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
             case Role.MasterAdmin:
                 return { label: 'MASTER ADMIN', color: 'text-orange-500', bg: 'bg-orange-500/10', border: 'border-orange-500/20' };
             case Role.Organisation:
-                return { label: 'ORGANISATION', color: 'text-blue-500', bg: 'bg-blue-500/10', border: 'border-blue-500/20' };
+                return { label: 'SECTOR UNIT', color: 'text-blue-500', bg: 'bg-blue-500/10', border: 'border-blue-500/20' };
             case Role.Volunteer:
-                return { label: 'VOLUNTEER', color: 'text-green-500', bg: 'bg-green-500/10', border: 'border-green-500/20' };
+                return { label: 'FIELD AGENT', color: 'text-green-500', bg: 'bg-green-500/10', border: 'border-green-500/20' };
             default:
                 return { label: 'GUEST', color: 'text-gray-500', bg: 'bg-gray-500/10', border: 'border-gray-500/20' };
         }
@@ -77,7 +79,6 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
         <div className="min-h-screen bg-black flex flex-col">
             <Header />
             
-            {/* Mobile Header Toggle */}
             <div className="md:hidden flex items-center justify-between p-4 bg-gray-950 border-b border-white/5">
                 <button 
                   onClick={() => setIsMobileMenuOpen(true)}
@@ -91,14 +92,13 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
             </div>
 
             <div className="flex flex-1 overflow-hidden relative">
-                {/* Desktop Sidebar */}
                 <aside className="w-64 bg-gray-900 border-r border-gray-800 hidden md:flex flex-col">
                     <div className="p-4 flex-1">
                         <div className="mb-8 px-2">
                             <div className={`inline-block px-3 py-1 rounded-full border ${roleBg} ${roleColor} ${roleBorder} text-[10px] font-black tracking-[0.25em] mb-6`}>
                                 {roleLabel}
                             </div>
-                            <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 font-bold mb-4">Dashboard Menu</p>
+                            <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 font-bold mb-4">Network Navigation</p>
                             <nav className="space-y-1">
                                 {navItems.map(item => (
                                     <NavLink
@@ -138,12 +138,11 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
                             className="w-full flex items-center justify-center gap-2 p-3 rounded-md bg-red-900/10 hover:bg-red-900/20 text-red-400 transition-all text-xs font-bold border border-red-900/20 hover:border-red-900/40"
                         >
                             <LogOut size={14} />
-                            <span>SIGN OUT</span>
+                            <span>TERMINATE SESSION</span>
                         </button>
                     </div>
                 </aside>
 
-                {/* Mobile Slide-over Sidebar */}
                 {isMobileMenuOpen && (
                     <>
                         <div 
@@ -182,15 +181,6 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
                                 </nav>
                             </div>
                             <div className="p-6 border-t border-white/5 bg-black/40">
-                                <div className="flex items-center gap-4 mb-6">
-                                    <div className="h-12 w-12 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500">
-                                        <UserIcon size={24} />
-                                    </div>
-                                    <div className="overflow-hidden">
-                                        <p className="text-sm font-bold text-white truncate">{user?.name}</p>
-                                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Active Session</p>
-                                    </div>
-                                </div>
                                 <button 
                                     onClick={handleLogout}
                                     className="w-full flex items-center justify-center gap-3 p-4 rounded-xl bg-red-600 hover:bg-red-700 text-white transition-all text-xs font-black tracking-widest"
@@ -203,13 +193,12 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
                     </>
                 )}
 
-                {/* Main Content */}
                 <main className="flex-1 p-4 md:p-10 overflow-y-auto bg-black custom-scrollbar">
                     <div className="mb-8 flex flex-col lg:flex-row lg:items-end justify-between gap-4">
                         <div>
                             <div className="flex items-center gap-2 text-orange-500 mb-1">
                                 <div className="h-1 w-6 bg-orange-600 rounded-full"></div>
-                                <span className="text-[9px] md:text-[10px] uppercase tracking-[0.3em] font-black">{roleLabel} ACCESS LEVEL</span>
+                                <span className="text-[9px] md:text-[10px] uppercase tracking-[0.3em] font-black">{roleLabel} TERMINAL</span>
                             </div>
                             <h1 className="font-cinzel text-2xl md:text-4xl text-white tracking-tight leading-tight">{title}</h1>
                         </div>

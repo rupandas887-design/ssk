@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
@@ -8,9 +9,9 @@ import { Volunteer, Role } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../supabase/client';
 import { useNotification } from '../../context/NotificationContext';
+import { syncToSheets, SheetType } from '../../services/googleSheets';
 import { 
   Power, 
-  Download, 
   UserPlus, 
   UserCheck, 
   Copy, 
@@ -24,6 +25,10 @@ import {
 } from 'lucide-react';
 
 type VolunteerWithEnrollments = Volunteer & { enrollments: number };
+
+// Credentials from supabase/client.ts
+const supabaseUrl = "https://baetdjjzfqupdzsoecph.supabase.co";
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJhZXRkamp6ZnF1cGR6c29lY3BoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0NzEwMTYsImV4cCI6MjA4MjA0NzAxNn0.MYrwQ7E4HVq7TwXpxum9ZukIz4ZAwyunlhpkwkpZ-bo";
 
 const ManageVolunteers: React.FC = () => {
   const { user } = useAuth();
@@ -59,8 +64,7 @@ const ManageVolunteers: React.FC = () => {
             enrollments: v.members?.length || 0
         })) || []);
     } catch (e: any) {
-        console.error("Volunteer Fetch Error:", e);
-        addNotification(`Registry error: ${e.message}`, 'error');
+        addNotification(`Uplink Error: ${e.message}`, 'error');
     } finally {
         setLoading(false);
     }
@@ -76,20 +80,37 @@ const ManageVolunteers: React.FC = () => {
   };
 
   const handleExport = () => {
-    const headers = ['Name', 'Email', 'Mobile', 'Enrollments', 'Status'];
-    const rows = volunteers.map(v => [
-        v.name,
-        v.email,
-        v.mobile,
-        v.enrollments,
-        v.status
-    ]);
+    const headers = ['Agent Name', 'Email', 'Mobile', 'Enrollments', 'Status'];
+    const rows = volunteers.map(v => [v.name, v.email, v.mobile, v.enrollments, v.status]);
     const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `Volunteers_List_${user?.organisationName || 'Sector'}_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `Agent_Registry_${user?.organisationName || 'Sector'}.csv`;
     link.click();
+  };
+
+  const copyVolunteerCreds = (vol: VolunteerWithEnrollments) => {
+    const creds = `Login Email: ${vol.email}\nStatus: ${vol.status}`;
+    navigator.clipboard.writeText(creds).then(() => {
+      addNotification('Agent details copied.', 'info');
+    });
+  };
+
+  const handleToggleStatus = async (vol: VolunteerWithEnrollments) => {
+    const newStatus = vol.status === 'Active' ? 'Deactivated' : 'Active';
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ status: newStatus })
+        .eq('id', vol.id);
+
+      if (error) throw error;
+      addNotification(`Agent status updated to ${newStatus}.`, 'success');
+      fetchVolunteers();
+    } catch (e: any) {
+      addNotification(`Status update failed: ${e.message}`, 'error');
+    }
   };
 
   const handleAddVolunteer = async () => {
@@ -98,10 +119,7 @@ const ManageVolunteers: React.FC = () => {
     const name = newVol.name.trim();
     const mobile = newVol.mobile.trim();
     
-    if (!user?.organisationId) {
-        addNotification("Session context lost.", 'error');
-        return;
-    }
+    if (!user?.organisationId) return;
     if (!email || !password || !name || !mobile) {
         addNotification("Incomplete identity data.", 'error');
         return;
@@ -109,7 +127,17 @@ const ManageVolunteers: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-        const { data: authData, error: authError } = await supabase.auth.signUp({
+        // CRITICAL: We create a temporary client with NO session persistence.
+        // This prevents the new user's session from overwriting the current lead's session.
+        const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+          auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+            detectSessionInUrl: false
+          }
+        });
+
+        const { data: authData, error: authError } = await authClient.auth.signUp({
           email,
           password,
           options: {
@@ -137,41 +165,26 @@ const ManageVolunteers: React.FC = () => {
             
             if (profileError) throw profileError;
 
-            addNotification('Agent authorized and added to registry.', 'success');
+            await syncToSheets(SheetType.VOLUNTEERS, {
+              name, email, mobile,
+              organisation_name: user.organisationName,
+              status: 'Active',
+              authorized_date: new Date().toLocaleDateString()
+            });
+
+            addNotification('Agent authorized successfully.', 'success');
             setNewVol({ name: '', mobile: '', email: '', password: '' });
             fetchVolunteers(); 
         }
     } catch (err: any) {
-        console.error("Agent Authorization Error:", err);
         addNotification(err.message, 'error');
     } finally {
         setIsSubmitting(false);
     }
   };
 
-  const copyVolunteerCreds = (v: VolunteerWithEnrollments) => {
-      const text = `Agent Identity: ${v.name} | ${v.email}`;
-      navigator.clipboard.writeText(text);
-      addNotification("Identity copied.", "success");
-  };
-
-  const handleToggleStatus = async (vol: VolunteerWithEnrollments) => {
-    const newStatus = vol.status === 'Active' ? 'Deactivated' : 'Active';
-    const { error } = await supabase
-        .from('profiles')
-        .update({ status: newStatus })
-        .eq('id', vol.id);
-
-    if (error) {
-        addNotification(`Status update failed.`, 'error');
-    } else {
-        addNotification(`Operator status set to ${newStatus}.`, 'success');
-        fetchVolunteers();
-    }
-  };
-
   return (
-    <DashboardLayout title="Field Force Command">
+    <DashboardLayout title="Agent Authorization Hub">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
         <div className="lg:col-span-1 space-y-8">
           <Card title="Authorize New Agent" className="relative overflow-hidden border-blue-900/30 bg-[#020202]/80">
@@ -199,7 +212,7 @@ const ManageVolunteers: React.FC = () => {
                 className="w-full py-5 flex items-center justify-center gap-3 text-[11px] font-black uppercase tracking-[0.4em]"
               >
                 {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <UserPlus size={20} />}
-                {isSubmitting ? 'AUTHORIZING...' : 'Authorize Operator'}
+                {isSubmitting ? 'AUTHORIZING...' : 'Authorize Agent'}
               </Button>
             </div>
           </Card>
@@ -213,26 +226,19 @@ const ManageVolunteers: React.FC = () => {
                         <UserCircle size={28} />
                     </div>
                     <div>
-                      <h3 className="font-cinzel text-3xl text-white tracking-tight">Active Force Registry</h3>
+                      <h3 className="font-cinzel text-3xl text-white tracking-tight">Active Agent Registry</h3>
                       <div className="flex items-center gap-2 mt-1">
                           <Activity size={12} className="text-green-500 animate-pulse" />
-                          <span className="text-[9px] text-gray-600 font-black uppercase tracking-widest">Live Node Sync Active</span>
+                          <span className="text-[9px] text-gray-600 font-black uppercase tracking-widest">Network Node Active</span>
                       </div>
                     </div>
                 </div>
                 <div className="flex gap-4">
-                    <button 
-                      onClick={handleExport}
-                      className="p-4 bg-blue-600 hover:bg-blue-700 rounded-2xl text-white transition-all shadow-xl flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
-                      title="Download Volunteers CSV"
-                    >
+                    <button onClick={handleExport} className="p-4 bg-blue-600 hover:bg-blue-700 rounded-2xl text-white transition-all shadow-xl flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
                         <FileSpreadsheet size={20} />
                         <span className="hidden sm:inline">Export CSV</span>
                     </button>
-                    <button 
-                      onClick={fetchVolunteers} 
-                      className="p-4 bg-white/5 rounded-2xl border border-white/5 hover:border-orange-500/40 text-gray-500 hover:text-white transition-all shadow-xl"
-                    >
+                    <button onClick={fetchVolunteers} className="p-4 bg-white/5 rounded-2xl border border-white/5 hover:border-orange-500/40 text-gray-500 hover:text-white transition-all shadow-xl">
                         <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
                     </button>
                 </div>
@@ -242,16 +248,12 @@ const ManageVolunteers: React.FC = () => {
               <table className="w-full text-left">
                 <thead className="border-b border-gray-800">
                   <tr>
-                    <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-gray-500 font-black">Operator Node</th>
+                    <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-gray-500 font-black">Personnel Node</th>
                     <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-gray-500 font-black text-center">Enrollments</th>
-                    <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-gray-500 font-black text-right">Terminal Action</th>
+                    <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-gray-500 font-black text-right">Node Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {loading ? (
-                    <tr><td colSpan={3} className="p-20 text-center animate-pulse uppercase tracking-[0.5em] text-[10px] text-gray-700 font-black">Syncing Node Data...</td></tr>
-                  ) : (
-                  <>
                   {volunteers.map(vol => (
                     <tr key={vol.id} className="group border-b border-gray-900/50 hover:bg-white/[0.015] transition-all">
                       <td className="p-6">
@@ -285,15 +287,6 @@ const ManageVolunteers: React.FC = () => {
                       </td>
                     </tr>
                   ))}
-                  {volunteers.length === 0 && (
-                      <tr>
-                        <td colSpan={3} className="p-32 text-center text-gray-800 uppercase tracking-widest font-black text-[11px]">
-                            No authorized field agents detected in this sector.
-                        </td>
-                      </tr>
-                  )}
-                  </>
-                  )}
                 </tbody>
               </table>
             </div>

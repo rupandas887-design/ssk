@@ -54,17 +54,20 @@ const LandingPage: React.FC = () => {
       .channel('public-registry-monitor')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'members' },
+        'public',
+        'members',
         () => fetchData()
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'profiles' },
+        'public',
+        'profiles',
         () => fetchData()
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'organisations' },
+        'public',
+        'organisations',
         () => fetchData()
       )
       .subscribe();
@@ -160,7 +163,7 @@ const LandingPage: React.FC = () => {
                   <div className="absolute top-0 right-0 p-4 opacity-[0.02] pointer-events-none">
                       <Globe size={120} />
                   </div>
-                  <Users className="text-orange-500/20 group-hover:text-orange-500 transition-colors mb-4 md:mb-6" size={48} md:size={64} strokeWidth={1} />
+                  <Users className="text-orange-500/20 group-hover:text-orange-500 transition-colors mb-4 md:mb-6" size={48} strokeWidth={1} />
                   <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.5em] text-gray-500 mb-2 text-center">Total Verified Members</p>
                   <p className="text-6xl md:text-8xl font-black text-white tracking-tighter leading-none font-cinzel">{totalMembers}</p>
                 </Card>
@@ -181,21 +184,21 @@ const LandingPage: React.FC = () => {
                   
                   <Card title="Network Activity" className="bg-[#050505] border-white/5 flex flex-col justify-center items-center text-center p-8 md:p-10">
                       <div className="p-4 md:p-6 bg-orange-500/10 rounded-full text-orange-500 mb-4 md:mb-6">
-                          <Activity size={32} md:size={48} />
+                          <Activity size={32} />
                       </div>
                       <p className="text-3xl md:text-4xl font-black text-white mb-1 md:mb-2">{volunteers.length}</p>
-                      <p className="text-[9px] md:text-[10px] font-black text-gray-500 uppercase tracking-widest">Active Field Nodes</p>
+                      <p className="text-[9px] md:text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">FIELD AGENTS</p>
                       
                       <div className="mt-6 md:mt-8 pt-6 md:pt-8 border-t border-white/5 w-full">
                           <p className="text-3xl md:text-4xl font-black text-white mb-1 md:mb-2">{organisations.length}</p>
-                          <p className="text-[9px] md:text-[10px] font-black text-gray-500 uppercase tracking-widest">Sector Units</p>
+                          <p className="text-[9px] md:text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">ORGANISATIONS</p>
                       </div>
                   </Card>
               </div>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center p-20 md:p-32 gap-6">
-              <RefreshCw className="animate-spin text-orange-500" size={40} md:size={48} />
+              <RefreshCw className="animate-spin text-orange-500" size={40} />
               <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.5em] text-gray-600">Syncing Master Node...</p>
             </div>
           )}

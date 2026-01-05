@@ -1,22 +1,21 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import Select from '../../components/ui/Select';
 import Modal from '../../components/ui/Modal';
-import { Organisation, Role } from '../../types';
+import { Organisation } from '../../types';
 import { supabase } from '../../supabase/client';
 import { useNotification } from '../../context/NotificationContext';
+import { syncToSheets, SheetType } from '../../services/googleSheets';
 import { 
   ShieldCheck, 
   UserPlus, 
   Building2, 
   Loader2, 
-  ShieldAlert, 
-  Copy, 
-  ExternalLink, 
   RefreshCw,
   CheckCircle2,
   Settings,
@@ -32,6 +31,9 @@ import {
   AlertTriangle
 } from 'lucide-react';
 
+const supabaseUrl = "https://baetdjjzfqupdzsoecph.supabase.co";
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJhZXRkamp6ZnF1cGR6c29lY3BoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0NzEwMTYsImV4cCI6MjA4MjA0NzAxNn0.MYrwQ7E4HVq7TwXpxum9ZukIz4ZAwyunlhpkwkpZ-bo";
+
 const ManageOrganisations: React.FC = () => {
   const [organisations, setOrganisations] = useState<Organisation[]>([]);
   const [newOrg, setNewOrg] = useState({ name: '', mobile: '', secretaryName: '', email: '', password: '' });
@@ -39,28 +41,18 @@ const ManageOrganisations: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [orgToDelete, setOrgToDelete] = useState<Organisation | null>(null);
-  
-  // UI States
   const [showPassword, setShowPassword] = useState(false);
-  const [showEditPassword, setShowEditPassword] = useState(false);
-  const [showEditPasswordReveal, setShowEditPasswordReveal] = useState(false);
-  
-  const { addNotification } = useNotification();
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOrg, setEditingOrg] = useState<(Organisation & { email?: string, newPassword?: string }) | null>(null);
+  const { addNotification } = useNotification();
 
   const fetchOrganisations = useCallback(async () => {
     setLoading(true);
-    try {
-      const { data, error } = await supabase.from('organisations').select('*').order('name');
-      if (error) {
-        addNotification(`Registry error: ${error.message}`, 'error');
-      } else {
-        setOrganisations(data || []);
-      }
-    } catch (err: any) {
-      addNotification(`Sync failed: ${err?.message || 'Unknown network error'}`, 'error');
+    const { data, error } = await supabase.from('organisations').select('*').order('name');
+    if (error) {
+      addNotification(`Registry error: ${error.message}`, 'error');
+    } else {
+      setOrganisations(data || []);
     }
     setLoading(false);
   }, [addNotification]);
@@ -79,54 +71,52 @@ const ManageOrganisations: React.FC = () => {
     const password = newOrg.password;
     const name = newOrg.name.trim();
     const mobile = newOrg.mobile.trim();
-    const secretaryName = newOrg.secretaryName.trim();
+    const secName = newOrg.secretaryName.trim();
 
-    if (!email || !password || !name || !mobile || !secretaryName) {
-        addNotification("Incomplete credentials provided.", 'error');
+    if (!email || !password || !name || !mobile || !secName) {
+        addNotification("Incomplete credentials.", 'error');
         return;
     }
     
     setIsSubmitting(true);
-    let createdOrgId: string | null = null;
-    
     try {
         const { data: orgData, error: orgError } = await supabase
           .from('organisations')
-          .insert({ name, mobile, secretary_name: secretaryName, status: 'Active' })
+          .insert({ name, mobile, secretary_name: secName, status: 'Active' })
           .select().single();
 
         if (orgError) throw orgError;
-        createdOrgId = orgData.id;
 
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email,
-          password,
+        // CRITICAL: Prevent session override
+        const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+          auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+        });
+
+        const { data: authData, error: authError } = await authClient.auth.signUp({
+          email, password,
           options: {
-            data: {
-              name: secretaryName,
-              role: 'Organisation',
-              organisation_id: createdOrgId,
-              mobile
-            }
+            data: { name: secName, role: 'Organisation', organisation_id: orgData.id, mobile }
           }
         });
 
-        if (authError) {
-          if (createdOrgId) await supabase.from('organisations').delete().eq('id', createdOrgId);
-          throw authError;
-        }
+        if (authError) throw authError;
 
         if (authData?.user?.id) {
             await supabase.from('profiles').upsert({
                 id: authData.user.id,
-                name: secretaryName,
+                name: secName,
                 email,
                 role: 'Organisation',
-                organisation_id: createdOrgId,
+                organisation_id: orgData.id,
                 mobile,
                 status: 'Active'
             });
         }
+
+        await syncToSheets(SheetType.ORGANISATIONS, {
+          name, secretary_name: secName, mobile, email, status: 'Active',
+          registration_date: new Date().toLocaleDateString()
+        });
 
         setNewOrg({ name: '', mobile: '', secretaryName: '', email: '', password: '' });
         fetchOrganisations();
@@ -141,26 +131,36 @@ const ManageOrganisations: React.FC = () => {
   const handleEditClick = async (org: Organisation) => {
     setLoading(true);
     try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('organisation_id', org.id)
-        .eq('role', 'Organisation')
-        .maybeSingle();
-
-      setEditingOrg({ 
-        ...org, 
-        email: profile?.email || '',
-        newPassword: ''
-      });
-      setShowEditPassword(false);
-      setShowEditPasswordReveal(false);
+      const { data: profile } = await supabase.from('profiles').select('email').eq('organisation_id', org.id).eq('role', 'Organisation').maybeSingle();
+      setEditingOrg({ ...org, email: profile?.email || '' });
       setIsModalOpen(true);
     } catch (err) {
-      setEditingOrg({ ...org, email: '', newPassword: '' });
+      setEditingOrg({ ...org, email: '' });
       setIsModalOpen(true);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateOrganisation = async () => {
+    if (!editingOrg) return;
+    setIsSubmitting(true);
+    try {
+      await supabase.from('organisations').update({
+          name: editingOrg.name, mobile: editingOrg.mobile, secretary_name: editingOrg.secretary_name, status: editingOrg.status
+      }).eq('id', editingOrg.id);
+
+      await supabase.from('profiles').update({
+          name: editingOrg.secretary_name, mobile: editingOrg.mobile, email: editingOrg.email, status: editingOrg.status
+      }).eq('organisation_id', editingOrg.id).eq('role', 'Organisation');
+
+      addNotification(`Sector parameters updated.`, 'success');
+      fetchOrganisations();
+      setIsModalOpen(false);
+    } catch (err: any) {
+        addNotification(`Update failed: ${err.message}`, 'error');
+    } finally {
+        setIsSubmitting(false);
     }
   };
 
@@ -168,62 +168,14 @@ const ManageOrganisations: React.FC = () => {
     if (!orgToDelete) return;
     setIsDeleting(true);
     try {
-      // Note: In a real app, you might want to handle cascade deletes 
-      // or check if volunteers exist first. 
-      // For now, we proceed with direct deletion.
-      const { error } = await supabase
-        .from('organisations')
-        .delete()
-        .eq('id', orgToDelete.id);
-
-      if (error) throw error;
-
-      // Also clean up associated profiles if necessary
-      await supabase.from('profiles').delete().eq('organisation_id', orgToDelete.id);
-
-      addNotification(`${orgToDelete.name} node purged from registry.`, 'success');
+      await supabase.from('organisations').delete().eq('id', orgToDelete.id);
+      addNotification(`${orgToDelete.name} node purged.`, 'success');
       setOrgToDelete(null);
       fetchOrganisations();
     } catch (err: any) {
-      addNotification(`Purge failed: ${err.message}`, 'error');
+      addNotification(`Purge failed.`, 'error');
     } finally {
       setIsDeleting(false);
-    }
-  };
-
-  const handleUpdateOrganisation = async () => {
-    if (!editingOrg) return;
-    setIsSubmitting(true);
-    
-    try {
-      const { error: orgError } = await supabase.from('organisations').update({
-          name: editingOrg.name, 
-          mobile: editingOrg.mobile,
-          secretary_name: editingOrg.secretary_name, 
-          status: editingOrg.status
-      }).eq('id', editingOrg.id);
-
-      if (orgError) throw orgError;
-
-      const { error: profileError } = await supabase.from('profiles').update({
-          name: editingOrg.secretary_name,
-          mobile: editingOrg.mobile,
-          email: editingOrg.email,
-          status: editingOrg.status
-      }).eq('organisation_id', editingOrg.id).eq('role', 'Organisation');
-
-      if (editingOrg.newPassword) {
-          addNotification("Auth key rotation requires high-level privileges. Metadata synced.", "info");
-      } else {
-          addNotification(`Sector parameters updated.`, 'success');
-      }
-      
-      fetchOrganisations();
-      setIsModalOpen(false);
-    } catch (err: any) {
-        addNotification(`Update failed: ${err.message}`, 'error');
-    } finally {
-        setIsSubmitting(false);
     }
   };
 
@@ -240,26 +192,12 @@ const ManageOrganisations: React.FC = () => {
               <Input label="Primary Mobile" name="mobile" value={newOrg.mobile} onChange={handleInputChange} placeholder="91XXXXXXXX" icon={<Phone size={16} />} />
               <Input label="Secretary Name" name="secretaryName" value={newOrg.secretaryName} onChange={handleInputChange} icon={<User size={16} />} />
               <Input label="Access Email" name="email" type="email" value={newOrg.email} onChange={handleInputChange} placeholder="admin@node.com" icon={<Mail size={16} />} />
-              
               <div className="relative">
-                <Input 
-                  label="Access Key" 
-                  name="password" 
-                  type={showPassword ? "text" : "password"} 
-                  value={newOrg.password} 
-                  onChange={handleInputChange} 
-                  placeholder="Min 6 characters" 
-                  icon={<Lock size={16} />}
-                />
-                <button 
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-[34px] text-gray-500 hover:text-white transition-colors"
-                >
+                <Input label="Access Key" name="password" type={showPassword ? "text" : "password"} value={newOrg.password} onChange={handleInputChange} placeholder="Min 6 characters" icon={<Lock size={16} />} />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-[34px] text-gray-500 hover:text-white transition-colors">
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-
               <Button type="button" onClick={handleAddOrganisation} disabled={isSubmitting} className="w-full py-5 flex items-center justify-center gap-3 text-[11px] font-black uppercase tracking-widest shadow-xl">
                 {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <UserPlus size={18} />}
                 {isSubmitting ? 'ESTABLISHING...' : 'Deploy Sector'}
@@ -281,7 +219,6 @@ const ManageOrganisations: React.FC = () => {
                     <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                 </button>
             </div>
-            
             <div className="overflow-x-auto">
                 <table className="w-full text-left">
                     <thead className="border-b border-gray-800">
@@ -312,14 +249,8 @@ const ManageOrganisations: React.FC = () => {
                             </td>
                             <td className="p-6 text-right">
                                 <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all">
-                                    <Button size="sm" variant="secondary" onClick={() => handleEditClick(org)} className="scale-95 hover:scale-100">Modify Node</Button>
-                                    <button 
-                                        onClick={() => setOrgToDelete(org)}
-                                        className="p-2 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
-                                        title="Purge Sector"
-                                    >
-                                        <Trash2 size={18} />
-                                    </button>
+                                    <Button size="sm" variant="secondary" onClick={() => handleEditClick(org)}>Modify</Button>
+                                    <button onClick={() => setOrgToDelete(org)} className="p-2 text-red-500/40 hover:text-red-500 rounded-lg transition-all"><Trash2 size={18} /></button>
                                 </div>
                             </td>
                         </tr>
@@ -331,133 +262,38 @@ const ManageOrganisations: React.FC = () => {
         </div>
       </div>
 
-      {/* Edit Modal */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Modify Sector Parameters">
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Modify Sector">
           {editingOrg && (
-            <div className="space-y-6 p-2 max-h-[80vh] overflow-y-auto custom-scrollbar">
-                <div className="flex items-center gap-4 mb-6 p-5 bg-orange-500/5 border border-orange-500/10 rounded-2xl relative overflow-hidden">
-                    <div className="p-3 bg-orange-500/10 rounded-xl text-orange-500">
-                        <Settings size={20} />
-                    </div>
-                    <div className="relative z-10">
-                        <p className="text-[10px] text-orange-500/60 font-black uppercase tracking-widest leading-none mb-1">Administrative Override</p>
-                        <p className="text-sm font-bold text-white">Target Node: {editingOrg.name}</p>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="md:col-span-2">
-                    <Input 
-                      label="ORGANISATION NAME" 
-                      name="name" 
-                      value={editingOrg.name} 
-                      onChange={(e) => setEditingOrg({...editingOrg, name: e.target.value})} 
-                      icon={<Building2 size={16} />}
-                    />
-                  </div>
-                  
-                  <Input 
-                    label="SECRETARY NAME" 
-                    name="secretary_name" 
-                    value={editingOrg.secretary_name} 
-                    onChange={(e) => setEditingOrg({...editingOrg, secretary_name: e.target.value})} 
-                    icon={<User size={16} />}
-                  />
-                  
-                  <Input 
-                    label="CONTACT MOBILE" 
-                    name="mobile" 
-                    value={editingOrg.mobile} 
-                    onChange={(e) => setEditingOrg({...editingOrg, mobile: e.target.value})} 
-                    icon={<Phone size={16} />}
-                  />
-                  
-                  <div className="md:col-span-2">
-                    <Input 
-                      label="OPERATIONAL EMAIL" 
-                      name="email" 
-                      type="email"
-                      value={editingOrg.email || ''} 
-                      onChange={(e) => setEditingOrg({...editingOrg, email: e.target.value})} 
-                      icon={<Mail size={16} />}
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Access Key Override</label>
-                      <button 
-                        type="button"
-                        onClick={() => setShowEditPassword(!showEditPassword)}
-                        className="text-[10px] font-black uppercase tracking-widest text-orange-500 hover:text-orange-400 transition-colors"
-                      >
-                        {showEditPassword ? "Cancel" : "Modify Key"}
-                      </button>
-                    </div>
-                    {showEditPassword && (
-                      <div className="relative animate-in slide-in-from-top-2 fade-in">
-                        <Input 
-                          placeholder="New Security Key" 
-                          type={showEditPasswordReveal ? "text" : "password"}
-                          value={editingOrg.newPassword || ''}
-                          onChange={(e) => setEditingOrg({...editingOrg, newPassword: e.target.value})}
-                          icon={<Lock size={16} />}
-                        />
-                        <button 
-                          type="button" 
-                          onClick={() => setShowEditPasswordReveal(!showEditPasswordReveal)}
-                          className="absolute right-3 top-[10px] text-gray-500 hover:text-white transition-colors"
-                        >
-                          {showEditPasswordReveal ? <EyeOff size={18} /> : <Eye size={18} />}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <Select label="OPERATIONAL STATUS" name="status" value={editingOrg.status} onChange={(e) => setEditingOrg({...editingOrg, status: e.target.value as any})}>
-                        <option value="Active">Active / Online</option>
-                        <option value="Deactivated">Deactivated / Locked</option>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-4 pt-10 sticky bottom-0 bg-gray-900 pb-2 border-t border-white/5 mt-6 z-10">
-                    <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)} className="px-8 border-white/10 hover:bg-white/5 py-4 text-[10px] uppercase font-black tracking-widest">Cancel</Button>
-                    <Button 
-                      type="button" 
-                      onClick={handleUpdateOrganisation} 
-                      disabled={isSubmitting}
-                      className="px-8 shadow-lg shadow-orange-950/20 py-4 text-[10px] uppercase font-black tracking-widest flex items-center gap-2"
-                    >
-                      {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
-                      {isSubmitting ? "Syncing..." : "Apply Changes"}
-                    </Button>
+            <div className="space-y-6">
+                <Input label="ORGANISATION NAME" name="name" value={editingOrg.name} onChange={(e) => setEditingOrg({...editingOrg, name: e.target.value})} icon={<Building2 size={16} />} />
+                <Input label="SECRETARY NAME" name="secretary_name" value={editingOrg.secretary_name} onChange={(e) => setEditingOrg({...editingOrg, secretary_name: e.target.value})} icon={<User size={16} />} />
+                <Input label="CONTACT MOBILE" name="mobile" value={editingOrg.mobile} onChange={(e) => setEditingOrg({...editingOrg, mobile: e.target.value})} icon={<Phone size={16} />} />
+                <Select label="OPERATIONAL STATUS" name="status" value={editingOrg.status} onChange={(e) => setEditingOrg({...editingOrg, status: e.target.value as any})}>
+                    <option value="Active">Active</option>
+                    <option value="Deactivated">Deactivated</option>
+                </Select>
+                <div className="flex justify-end gap-4 pt-4 border-t border-white/5">
+                    <Button variant="secondary" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+                    <Button onClick={handleUpdateOrganisation} disabled={isSubmitting}>{isSubmitting ? "Syncing..." : "Apply Changes"}</Button>
                 </div>
             </div>
           )}
       </Modal>
 
-      {/* Delete Confirmation Modal */}
-      <Modal isOpen={!!orgToDelete} onClose={() => setOrgToDelete(null)} title="Security Protocol: Node Purge">
+      <Modal isOpen={!!orgToDelete} onClose={() => setOrgToDelete(null)} title="Security Protocol: Purge Node">
         <div className="p-6 text-center space-y-8">
-            <div className="p-6 bg-red-500/10 rounded-full w-24 h-24 mx-auto flex items-center justify-center text-red-500 border border-red-500/20 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
+            <div className="p-6 bg-red-500/10 rounded-full w-24 h-24 mx-auto flex items-center justify-center text-red-500 border border-red-500/20">
                 <AlertTriangle size={48} />
             </div>
             <div>
                 <h4 className="text-2xl font-cinzel text-white mb-3">Irreversible Purge</h4>
                 <p className="text-sm text-gray-500 leading-relaxed uppercase tracking-widest font-black">
-                    You are about to purge <span className="text-red-500">"{orgToDelete?.name}"</span>. 
-                    This will disconnect all associated personnel and data nodes.
+                    Purge <span className="text-red-500">"{orgToDelete?.name}"</span>? 
                 </p>
             </div>
             <div className="flex gap-4">
-                <Button variant="secondary" onClick={() => setOrgToDelete(null)} className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest">Abort</Button>
-                <Button 
-                    onClick={handleDeleteOrganisation} 
-                    disabled={isDeleting}
-                    className="flex-1 bg-red-600 hover:bg-red-700 py-4 text-[10px] font-black uppercase tracking-widest shadow-xl shadow-red-950/20"
-                >
+                <Button variant="secondary" onClick={() => setOrgToDelete(null)} className="flex-1">Abort</Button>
+                <Button onClick={handleDeleteOrganisation} disabled={isDeleting} className="flex-1 bg-red-600 hover:bg-red-700">
                     {isDeleting ? 'PURGING...' : 'Confirm Purge'}
                 </Button>
             </div>

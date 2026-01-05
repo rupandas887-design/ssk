@@ -73,7 +73,8 @@ export interface Member {
   emergency_contact: string;
   pincode: string;
   address: string;
-  member_image_url: string;
+  aadhaar_front_url: string;
+  aadhaar_back_url: string;
   occupation: Occupation;
   support_need: SupportNeed;
   volunteer_id: string;

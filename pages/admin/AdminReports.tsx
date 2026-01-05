@@ -31,7 +31,8 @@ import {
   MapPin,
   Briefcase,
   Zap,
-  Loader2
+  Loader2,
+  ImageIcon
 } from 'lucide-react';
 
 type MemberWithAgent = Member & {
@@ -287,9 +288,6 @@ const AdminReports: React.FC = () => {
                                         </td>
                                     </tr>
                                 ))}
-                                {filteredMembers.length === 0 && !loading && (
-                                    <tr><td colSpan={4} className="p-40 text-center text-[11px] text-gray-600 uppercase tracking-[0.5em] font-black">No records found.</td></tr>
-                                )}
                             </tbody>
                         </table>
                     </div>
@@ -299,27 +297,33 @@ const AdminReports: React.FC = () => {
             <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Master Identity Override">
                 {editingMember && (
                     <div className="space-y-8 p-2 max-h-[85vh] overflow-y-auto custom-scrollbar">
-                        <div className="flex flex-col md:flex-row gap-8 p-8 bg-orange-500/5 border border-orange-500/10 rounded-[2.5rem] relative overflow-hidden group">
+                        <div className="p-8 bg-orange-500/5 border border-orange-500/10 rounded-[2.5rem] relative overflow-hidden group">
                              <div className="absolute top-0 right-0 p-10 opacity-[0.03] pointer-events-none">
                                 <Fingerprint size={100} />
                             </div>
                             
-                            {editingMember.member_image_url ? (
-                                <div className="relative h-40 w-full md:w-56 rounded-[2rem] overflow-hidden border-2 border-white/10 shrink-0 shadow-2xl">
-                                    <img src={editingMember.member_image_url} alt="Identity Document" className="w-full h-full object-cover" />
-                                    <a href={editingMember.member_image_url} target="_blank" rel="noreferrer" className="absolute inset-0 bg-black/70 opacity-0 hover:opacity-100 flex flex-col items-center justify-center transition-opacity text-white gap-2">
-                                        <ExternalLink size={20} />
-                                        <span className="text-[9px] font-black uppercase tracking-widest">Verify Document</span>
-                                    </a>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+                                <div className="space-y-3">
+                                    <p className="text-[9px] font-black text-orange-500/60 uppercase tracking-widest">Aadhaar Front Side</p>
+                                    <div className="aspect-video rounded-[2rem] overflow-hidden border border-white/10 bg-black/40 shadow-2xl relative group/img">
+                                        <img src={editingMember.aadhaar_front_url} className="w-full h-full object-cover" />
+                                        <a href={editingMember.aadhaar_front_url} target="_blank" className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity">
+                                            <ExternalLink className="text-white" size={24} />
+                                        </a>
+                                    </div>
                                 </div>
-                            ) : (
-                                <div className="h-40 w-full md:w-56 rounded-[2rem] bg-gray-950 border-2 border-white/5 flex flex-col items-center justify-center text-gray-700 shrink-0 gap-3">
-                                    <FileText size={32} strokeWidth={1} />
-                                    <span className="text-[9px] font-black uppercase tracking-widest">No Doc Scan</span>
+                                <div className="space-y-3">
+                                    <p className="text-[9px] font-black text-orange-500/60 uppercase tracking-widest">Aadhaar Back Side</p>
+                                    <div className="aspect-video rounded-[2rem] overflow-hidden border border-white/10 bg-black/40 shadow-2xl relative group/img">
+                                        <img src={editingMember.aadhaar_back_url} className="w-full h-full object-cover" />
+                                        <a href={editingMember.aadhaar_back_url} target="_blank" className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity">
+                                            <ExternalLink className="text-white" size={24} />
+                                        </a>
+                                    </div>
                                 </div>
-                            )}
+                            </div>
 
-                            <div className="flex-1 space-y-4 pt-2">
+                            <div className="mt-8 space-y-4 pt-2 border-t border-white/5 relative z-10">
                                 <div>
                                     <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.4em] mb-1">Target Identity Node</p>
                                     <h4 className="text-2xl font-cinzel text-white leading-tight break-words overflow-hidden line-clamp-2">{editingMember.name} {editingMember.surname}</h4>
@@ -367,37 +371,13 @@ const AdminReports: React.FC = () => {
 
                         <div className="flex justify-end gap-4 pt-10 border-t border-white/5 mt-8 sticky bottom-0 bg-gray-900 pb-4 z-10">
                             <Button variant="secondary" onClick={() => setIsEditModalOpen(false)} className="px-10 py-4 text-[10px] font-black uppercase tracking-widest">Cancel</Button>
-                            <Button onClick={handleUpdateMember} disabled={isUpdating} className="px-12 py-4 text-[10px] font-black uppercase tracking-widest shadow-2xl bg-orange-600 hover:bg-orange-500 flex items-center gap-2">
+                            <Button onClick={handleUpdateMember} disabled={isUpdating} className="px-12 py-4 text-[10px] font-black uppercase tracking-widest bg-orange-600 hover:bg-orange-500 flex items-center gap-2">
                                 {isUpdating ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                                 {isUpdating ? 'Syncing...' : 'Update File'}
                             </Button>
                         </div>
                     </div>
                 )}
-            </Modal>
-
-            <Modal isOpen={!!memberToDelete} onClose={() => setMemberToDelete(null)} title="Security Protocol: Purge Node">
-                <div className="p-6 text-center space-y-8">
-                    <div className="p-6 bg-red-500/10 rounded-full w-24 h-24 mx-auto flex items-center justify-center text-red-500 border border-red-500/20">
-                        <AlertTriangle size={48} />
-                    </div>
-                    <div>
-                        <h4 className="text-2xl font-cinzel text-white mb-3">Irreversible Purge</h4>
-                        <p className="text-sm text-gray-300 leading-relaxed uppercase tracking-widest font-black">
-                            Confirm total node deletion. This action cannot be undone.
-                        </p>
-                    </div>
-                    <div className="flex gap-4">
-                        <Button variant="secondary" onClick={() => setMemberToDelete(null)} className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest">Abort</Button>
-                        <Button 
-                            onClick={handleDeleteMember} 
-                            disabled={isDeleting}
-                            className="flex-1 bg-red-600 hover:bg-red-700 py-4 text-[10px] font-black uppercase tracking-widest"
-                        >
-                            {isDeleting ? 'PURGING...' : 'Purge Registry'}
-                        </Button>
-                    </div>
-                </div>
             </Modal>
         </DashboardLayout>
     );
