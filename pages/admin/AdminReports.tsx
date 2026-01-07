@@ -28,7 +28,8 @@ import {
   MapPin,
   Loader2,
   Copy,
-  AlertTriangle
+  AlertTriangle,
+  Image as ImageIcon
 } from 'lucide-react';
 
 type MemberWithAgent = Member & {
@@ -80,7 +81,8 @@ const AdminReports: React.FC = () => {
             ]);
             
             if (membersRes.data) setMembers(membersRes.data as MemberWithAgent[]);
-            if (orgsRes.data) setOrganisations(orgsRes.data);
+            // Fix: Use 'orgsRes' as destructured from Promise.all above instead of 'organisationsRes'
+            if (orgsRes.data) setOrganisations(orgsRes.data || []);
         } catch (err) {
             addNotification("Master registry uplink failed.", "error");
         } finally {
@@ -319,28 +321,22 @@ const AdminReports: React.FC = () => {
                                 <Fingerprint size={100} />
                             </div>
                             
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+                            <div className="max-w-md mx-auto relative z-10">
                                 <div className="space-y-3">
-                                    <p className="text-[9px] font-black text-orange-500/60 uppercase tracking-widest">Aadhaar Front</p>
-                                    <div className="aspect-video rounded-[2rem] overflow-hidden border border-white/10 bg-black/40 shadow-2xl relative group/img">
+                                    <div className="flex items-center gap-2">
+                                        <ImageIcon className="text-orange-500/60" size={14} />
+                                        <p className="text-[9px] font-black text-orange-500/60 uppercase tracking-widest">Aadhaar Card Photo</p>
+                                    </div>
+                                    <div className="aspect-video rounded-[2.5rem] overflow-hidden border border-white/10 bg-black/40 shadow-2xl relative group/img">
                                         <img src={editingMember.aadhaar_front_url} className="w-full h-full object-cover" />
                                         <a href={editingMember.aadhaar_front_url} target="_blank" className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity">
                                             <ExternalLink className="text-white" size={24} />
                                         </a>
                                     </div>
                                 </div>
-                                <div className="space-y-3">
-                                    <p className="text-[9px] font-black text-orange-500/60 uppercase tracking-widest">Aadhaar Back</p>
-                                    <div className="aspect-video rounded-[2rem] overflow-hidden border border-white/10 bg-black/40 shadow-2xl relative group/img">
-                                        <img src={editingMember.aadhaar_back_url} className="w-full h-full object-cover" />
-                                        <a href={editingMember.aadhaar_back_url} target="_blank" className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity">
-                                            <ExternalLink className="text-white" size={24} />
-                                        </a>
-                                    </div>
-                                </div>
                             </div>
 
-                            <div className="mt-8 space-y-4 pt-2 border-t border-white/5 relative z-10">
+                            <div className="mt-10 space-y-4 pt-6 border-t border-white/5 relative z-10">
                                 <div>
                                     <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.4em] mb-1">Target Identity</p>
                                     <h4 className="text-2xl font-cinzel text-white leading-tight truncate">

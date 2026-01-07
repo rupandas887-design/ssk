@@ -11,7 +11,7 @@ import { supabase } from '../../supabase/client';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import { syncToSheets, SheetType } from '../../services/googleSheets';
-import { ShieldAlert, RefreshCw, Fingerprint, ShieldCheck, Search, XCircle, ImageIcon } from 'lucide-react';
+import { ShieldAlert, RefreshCw, Fingerprint, ShieldCheck, Search, XCircle, ImageIcon, Image as ImageIcon2 } from 'lucide-react';
 
 const initialFormData = {
   aadhaar: '',
@@ -24,8 +24,7 @@ const initialFormData = {
   emergencyContact: '',
   pincode: '',
   address: '',
-  aadhaarFront: null as File | null,
-  aadhaarBack: null as File | null,
+  aadhaarPhoto: null as File | null,
   occupation: Occupation.Job,
   supportNeed: SupportNeed.Education,
 };
@@ -39,11 +38,8 @@ const NewMemberForm: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   
-  const [frontPreview, setFrontPreview] = useState<string | null>(null);
-  const [backPreview, setBackPreview] = useState<string | null>(null);
-  
-  const frontInputRef = useRef<HTMLInputElement>(null);
-  const backInputRef = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const formatInput = (text: string) => {
       return text.trim().toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
@@ -55,31 +51,19 @@ const NewMemberForm: React.FC = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, side: 'front' | 'back') => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
-        if (side === 'front') {
-            setFormData(prev => ({ ...prev, aadhaarFront: file }));
-            if(frontPreview) URL.revokeObjectURL(frontPreview);
-            setFrontPreview(URL.createObjectURL(file));
-        } else {
-            setFormData(prev => ({ ...prev, aadhaarBack: file }));
-            if(backPreview) URL.revokeObjectURL(backPreview);
-            setBackPreview(URL.createObjectURL(file));
-        }
+        setFormData(prev => ({ ...prev, aadhaarPhoto: file }));
+        if(preview) URL.revokeObjectURL(preview);
+        setPreview(URL.createObjectURL(file));
     }
   };
   
-  const handleRemoveImage = (side: 'front' | 'back') => {
-    if (side === 'front') {
-        if (frontPreview) URL.revokeObjectURL(frontPreview);
-        setFormData(prev => ({ ...prev, aadhaarFront: null }));
-        setFrontPreview(null);
-    } else {
-        if (backPreview) URL.revokeObjectURL(backPreview);
-        setFormData(prev => ({ ...prev, aadhaarBack: null }));
-        setBackPreview(null);
-    }
+  const handleRemoveImage = () => {
+    if (preview) URL.revokeObjectURL(preview);
+    setFormData(prev => ({ ...prev, aadhaarPhoto: null }));
+    setPreview(null);
   };
 
   const handleStep1Next = async () => {
@@ -117,7 +101,7 @@ const NewMemberForm: React.FC = () => {
   const handleStep2Next = () => {
       setValidationError('');
       if (!formData.name || !formData.surname || !formData.fatherName || !formData.dob || !formData.gender || !formData.emergencyContact || !formData.pincode || !formData.address) {
-          setValidationError('Action Required: All fields are mandatory.');
+          setValidationError('Action Required: All text fields are mandatory.');
           return;
       }
       
@@ -136,8 +120,8 @@ const NewMemberForm: React.FC = () => {
           return;
       }
 
-      if (!formData.aadhaarFront || !formData.aadhaarBack) {
-          setValidationError('Identity Scans are mandatory.');
+      if (!formData.aadhaarPhoto) {
+          setValidationError('Identity Scan is mandatory.');
           return;
       }
 
@@ -145,8 +129,8 @@ const NewMemberForm: React.FC = () => {
       window.scrollTo(0, 0);
   };
 
-  const uploadFile = async (file: File, prefix: string) => {
-      const fileName = `${prefix}_${uuidv4()}.jpg`;
+  const uploadFile = async (file: File) => {
+      const fileName = `aadhaar_${uuidv4()}.jpg`;
       const { data, error } = await supabase.storage.from('member-images').upload(fileName, file);
       if (error) throw error;
       return supabase.storage.from('member-images').getPublicUrl(data.path).data.publicUrl;
@@ -158,10 +142,7 @@ const NewMemberForm: React.FC = () => {
       
       setIsSubmitting(true);
       try {
-          const [frontUrl, backUrl] = await Promise.all([
-              uploadFile(formData.aadhaarFront!, 'front'),
-              uploadFile(formData.aadhaarBack!, 'back')
-          ]);
+          const photoUrl = await uploadFile(formData.aadhaarPhoto!);
 
           const memberPayload = {
               aadhaar: formData.aadhaar,
@@ -174,8 +155,8 @@ const NewMemberForm: React.FC = () => {
               emergency_contact: formData.emergencyContact,
               pincode: formData.pincode,
               address: formData.address.trim(),
-              aadhaar_front_url: frontUrl,
-              aadhaar_back_url: backUrl,
+              aadhaar_front_url: photoUrl,
+              aadhaar_back_url: photoUrl, // Copying to both fields for compatibility with existing schema
               occupation: formData.occupation,
               support_need: formData.supportNeed,
               volunteer_id: user.id,
@@ -195,8 +176,7 @@ const NewMemberForm: React.FC = () => {
 
           addNotification("Identity record synchronized.", 'success');
           setFormData(initialFormData);
-          setFrontPreview(null);
-          setBackPreview(null);
+          setPreview(null);
           setStep(1);
           window.scrollTo(0, 0);
       } catch (err: any) {
@@ -277,7 +257,7 @@ const NewMemberForm: React.FC = () => {
             
             {step === 2 && (
                 <Card title="Citizen Identity File" className="bg-[#0a0c14] border-white/10 rounded-[2.5rem] p-8 md:p-14 shadow-2xl relative">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-12">
                         <Input label="GIVEN NAME *" name="name" value={formData.name} onChange={handleChange} placeholder="First Name" required />
                         <Input label="SURNAME *" name="surname" value={formData.surname} onChange={handleChange} placeholder="Last Name" required />
                         <Input label="FATHER / GUARDIAN NAME *" name="fatherName" value={formData.fatherName} onChange={handleChange} description="Maintained separately from primary identity name." required />
@@ -290,48 +270,37 @@ const NewMemberForm: React.FC = () => {
                         <div className="md:col-span-2">
                             <Input label="FULL ADDRESS *" name="address" value={formData.address} onChange={handleChange} placeholder="Residential address" required />
                         </div>
-                        
-                        <div className="md:col-span-2 pt-10 grid grid-cols-1 md:grid-cols-2 gap-10 border-t border-white/5">
-                            <div className="space-y-4">
-                                <label className="block text-[10px] font-black uppercase tracking-[0.3em] text-gray-500">ID FRONT SIDE *</label>
-                                <div className="relative border-2 border-gray-800 border-dashed rounded-[2rem] bg-black/60 aspect-video flex flex-col items-center justify-center overflow-hidden">
-                                    {frontPreview ? (
-                                        <>
-                                            <img src={frontPreview} className="w-full h-full object-cover" />
-                                            <button onClick={() => handleRemoveImage('front')} className="absolute top-4 right-4 p-2 bg-red-600 text-white rounded-xl"><XCircle size={20} /></button>
-                                        </>
-                                    ) : (
-                                        <button onClick={() => frontInputRef.current?.click()} className="flex flex-col items-center gap-4 text-gray-700">
-                                            <ImageIcon size={48} strokeWidth={1} />
-                                            <span className="text-[10px] font-black uppercase tracking-[0.3em]">UPLOAD FRONT</span>
-                                        </button>
-                                    )}
-                                    <input ref={frontInputRef} type="file" className="sr-only" onChange={(e) => handleFileChange(e, 'front')} accept="image/*" />
-                                </div>
-                            </div>
+                    </div>
 
+                    <div className="pt-10 border-t border-white/5">
+                        <div className="flex items-center gap-3 mb-8">
+                             <ImageIcon2 className="text-orange-500" size={20} />
+                             <h3 className="font-cinzel text-xl text-white uppercase tracking-widest">Aadhaar Card Upload</h3>
+                        </div>
+                        
+                        <div className="max-w-lg mx-auto">
                             <div className="space-y-4">
-                                <label className="block text-[10px] font-black uppercase tracking-[0.3em] text-gray-500">ID BACK SIDE *</label>
-                                <div className="relative border-2 border-gray-800 border-dashed rounded-[2rem] bg-black/60 aspect-video flex flex-col items-center justify-center overflow-hidden">
-                                    {backPreview ? (
+                                <label className="block text-[10px] font-black uppercase tracking-[0.3em] text-gray-500">AADHAAR PHOTO (SINGLE SIDE) *</label>
+                                <div className="relative border-2 border-gray-800 border-dashed rounded-[2.5rem] bg-black/60 aspect-video flex flex-col items-center justify-center overflow-hidden group/upload hover:border-orange-500/50 transition-all duration-500">
+                                    {preview ? (
                                         <>
-                                            <img src={backPreview} className="w-full h-full object-cover" />
-                                            <button onClick={() => handleRemoveImage('back')} className="absolute top-4 right-4 p-2 bg-red-600 text-white rounded-xl"><XCircle size={20} /></button>
+                                            <img src={preview} className="w-full h-full object-cover" />
+                                            <button onClick={handleRemoveImage} className="absolute top-6 right-6 p-3 bg-red-600 text-white rounded-2xl shadow-xl hover:bg-red-700 transition-all scale-90 hover:scale-100"><XCircle size={24} /></button>
                                         </>
                                     ) : (
-                                        <button onClick={() => backInputRef.current?.click()} className="flex flex-col items-center gap-4 text-gray-700">
-                                            <ImageIcon size={48} strokeWidth={1} />
-                                            <span className="text-[10px] font-black uppercase tracking-[0.3em]">UPLOAD BACK</span>
+                                        <button onClick={() => inputRef.current?.click()} className="flex flex-col items-center gap-4 text-gray-700 group-hover/upload:text-orange-500/70 transition-colors">
+                                            <ImageIcon size={64} strokeWidth={1} />
+                                            <span className="text-[11px] font-black uppercase tracking-[0.4em]">UPLOAD CARD PHOTO</span>
                                         </button>
                                     )}
-                                    <input ref={backInputRef} type="file" className="sr-only" onChange={(e) => handleFileChange(e, 'back')} accept="image/*" />
+                                    <input ref={inputRef} type="file" className="sr-only" onChange={handleFileChange} accept="image/*" />
                                 </div>
                             </div>
                         </div>
                     </div>
                     
                     {validationError && (
-                        <div className="mt-10 flex items-center gap-4 p-5 bg-red-600/10 border border-red-500/20 rounded-2xl">
+                        <div className="mt-12 flex items-center gap-4 p-5 bg-red-600/10 border border-red-500/20 rounded-2xl">
                             <ShieldAlert size={24} className="text-red-500 shrink-0" />
                             <p className="text-xs text-red-400 font-bold uppercase tracking-widest">{validationError}</p>
                         </div>
@@ -362,7 +331,7 @@ const NewMemberForm: React.FC = () => {
                             <div className="space-y-3">
                                 <h4 className="text-base font-bold text-white uppercase tracking-tight">Identity Certification</h4>
                                 <p className="text-[11px] text-gray-500 leading-relaxed uppercase tracking-[0.2em] font-bold">
-                                    I certify that I have physically verified the Given Name and Surname of this citizen against legal documentation. Father/Guardian name is recorded separately for registry accuracy.
+                                    I certify that I have physically verified the Given Name and Surname of this citizen against legal documentation. Single-side Aadhaar verification is sufficient for this drive.
                                 </p>
                             </div>
                         </div>

@@ -25,7 +25,8 @@ import {
   UserCircle,
   BadgeCheck,
   Loader2,
-  Copy
+  Eye,
+  Image as ImageIcon
 } from 'lucide-react';
 
 type MemberWithAgent = Member & {
@@ -120,19 +121,13 @@ const OrganisationReports: React.FC = () => {
         setFilters(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleCopyDetails = (member: MemberWithAgent) => {
-        const text = `Name: ${formatDisplayName(member.name, member.surname)}\nMobile: ${member.mobile}`;
-        navigator.clipboard.writeText(text);
-        addNotification("Member contact info copied.", "info");
-    };
-
     const handleEditMember = (member: MemberWithAgent) => {
         setEditingMember({ ...member });
         setIsEditModalOpen(true);
     };
 
     const handleUpdateMember = async () => {
-        if (!editingMember) return;
+        if (!editingMember || editingMember.status === MemberStatus.Accepted) return;
         setIsUpdating(true);
         try {
             const { error } = await supabase.from('members').update({
@@ -181,6 +176,8 @@ const OrganisationReports: React.FC = () => {
         link.download = `Org_Registry_${new Date().toISOString().split('T')[0]}.csv`;
         link.click();
     };
+
+    const isVerified = editingMember?.status === MemberStatus.Accepted;
 
     return (
         <DashboardLayout title="Organization Ledger">
@@ -252,11 +249,8 @@ const OrganisationReports: React.FC = () => {
                                         </td>
                                         <td className="p-6 text-right">
                                             <div className="flex justify-end gap-2">
-                                                <button onClick={() => handleCopyDetails(member)} className="p-2.5 bg-white/5 rounded-xl border border-white/10 hover:border-blue-500/50 text-gray-500 hover:text-white transition-all" title="Copy Details">
-                                                    <Copy size={16} />
-                                                </button>
-                                                <button onClick={() => handleEditMember(member)} className="p-2.5 bg-white/5 rounded-xl border border-white/10 hover:border-blue-500/50 text-gray-500 hover:text-white transition-all" title="Edit Member">
-                                                    <Edit3 size={16} />
+                                                <button onClick={() => handleEditMember(member)} className="p-2.5 bg-white/5 rounded-xl border border-white/10 hover:border-blue-500/50 text-gray-500 hover:text-white transition-all" title={member.status === MemberStatus.Accepted ? "View Member" : "Edit Member"}>
+                                                    {member.status === MemberStatus.Accepted ? <Eye size={18} /> : <Edit3 size={18} />}
                                                 </button>
                                             </div>
                                         </td>
@@ -268,13 +262,17 @@ const OrganisationReports: React.FC = () => {
                 </Card>
             </div>
 
-            <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Identity Override">
+            <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={isVerified ? "View Identity Record" : "Identity Override"}>
                 {editingMember && (
                     <div className="space-y-8 p-2 max-h-[85vh] overflow-y-auto custom-scrollbar">
-                        <div className="p-10 bg-blue-500/5 border border-blue-500/10 rounded-[3rem] relative overflow-hidden group">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+                        <div className={`p-10 border rounded-[3rem] relative overflow-hidden group ${isVerified ? 'bg-green-500/5 border-green-500/10' : 'bg-blue-500/5 border-blue-500/10'}`}>
+                            
+                            <div className="max-w-md mx-auto relative z-10 mb-8">
                                 <div className="space-y-3">
-                                    <p className="text-[9px] font-black text-blue-500/60 uppercase tracking-widest">Aadhaar Front</p>
+                                    <div className="flex items-center gap-2">
+                                        <ImageIcon className={isVerified ? "text-green-500/60" : "text-blue-500/60"} size={14} />
+                                        <p className={`text-[9px] font-black uppercase tracking-widest ${isVerified ? "text-green-500/60" : "text-blue-500/60"}`}>Aadhaar Card Photo</p>
+                                    </div>
                                     <div className="aspect-video rounded-[2.5rem] overflow-hidden border border-white/10 bg-black/40 relative group/img shadow-2xl">
                                         <img src={editingMember.aadhaar_front_url} className="w-full h-full object-cover" />
                                         <a href={editingMember.aadhaar_front_url} target="_blank" className="absolute inset-0 bg-black/70 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity">
@@ -282,25 +280,16 @@ const OrganisationReports: React.FC = () => {
                                         </a>
                                     </div>
                                 </div>
-                                <div className="space-y-3">
-                                    <p className="text-[9px] font-black text-blue-500/60 uppercase tracking-widest">Aadhaar Back</p>
-                                    <div className="aspect-video rounded-[2.5rem] overflow-hidden border border-white/10 bg-black/40 relative group/img shadow-2xl">
-                                        <img src={editingMember.aadhaar_back_url} className="w-full h-full object-cover" />
-                                        <a href={editingMember.aadhaar_back_url} target="_blank" className="absolute inset-0 bg-black/70 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity">
-                                            <ExternalLink className="text-white" size={24} />
-                                        </a>
-                                    </div>
-                                </div>
                             </div>
                             
-                            <div className="mt-8 space-y-4 pt-6 border-t border-white/5 relative z-10">
-                                <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.4em] mb-1">Target Identity</p>
+                            <div className="space-y-4 pt-6 border-t border-white/5 relative z-10">
+                                <p className={`text-[10px] font-black uppercase tracking-[0.4em] mb-1 ${isVerified ? "text-green-500" : "text-blue-500"}`}>Target Identity</p>
                                 <h4 className="text-2xl md:text-3xl font-cinzel text-white tracking-tight leading-tight truncate">
                                     {formatDisplayName(editingMember.name, editingMember.surname)}
                                 </h4>
                                 <div className="flex flex-wrap gap-4">
                                     <div className="px-5 py-2.5 bg-black/60 rounded-2xl border border-white/5 flex items-center gap-2">
-                                        <Fingerprint size={12} className="text-blue-500/50" />
+                                        <Fingerprint size={12} className={isVerified ? "text-green-500/50" : "text-blue-500/50"} />
                                         <span className="text-[10px] font-mono text-gray-400 uppercase tracking-[0.2em]">{editingMember.aadhaar}</span>
                                     </div>
                                     <div className={`px-5 py-2.5 rounded-2xl border flex items-center gap-2 ${editingMember.status === MemberStatus.Accepted ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-orange-500/10 border-orange-500/20 text-orange-400'}`}>
@@ -308,36 +297,45 @@ const OrganisationReports: React.FC = () => {
                                         <span className="text-[10px] font-black uppercase tracking-widest">{editingMember.status}</span>
                                     </div>
                                 </div>
+                                {isVerified && (
+                                    <div className="mt-4 p-4 bg-green-500/10 border border-green-500/20 rounded-2xl">
+                                        <p className="text-[10px] font-black text-green-400 uppercase tracking-widest text-center">Record verified by master admin. Editing disabled.</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <Input label="Given Name" value={editingMember.name} onChange={(e) => setEditingMember({...editingMember, name: e.target.value})} icon={<UserIcon size={14} />} />
-                            <Input label="Surname" value={editingMember.surname} onChange={(e) => setEditingMember({...editingMember, surname: e.target.value})} icon={<UserIcon size={14} />} />
-                            <Input label="Father / Guardian" value={editingMember.father_name} onChange={(e) => setEditingMember({...editingMember, father_name: e.target.value})} icon={<UserCircle size={14} />} description="Identity display name remains strictly Given Name + Surname." />
-                            <Input label="Mobile" value={editingMember.mobile} onChange={(e) => setEditingMember({...editingMember, mobile: e.target.value})} icon={<Phone size={14} />} />
-                            <Input label="DOB" type="date" value={editingMember.dob} onChange={(e) => setEditingMember({...editingMember, dob: e.target.value})} icon={<Calendar size={14} />} />
-                            <Select label="Gender" value={editingMember.gender} onChange={(e) => setEditingMember({...editingMember, gender: e.target.value as Gender})}>
+                            <Input label="Given Name" disabled={isVerified} value={editingMember.name} onChange={(e) => setEditingMember({...editingMember, name: e.target.value})} icon={<UserIcon size={14} />} />
+                            <Input label="Surname" disabled={isVerified} value={editingMember.surname} onChange={(e) => setEditingMember({...editingMember, surname: e.target.value})} icon={<UserIcon size={14} />} />
+                            <Input label="Father / Guardian" disabled={isVerified} value={editingMember.father_name} onChange={(e) => setEditingMember({...editingMember, father_name: e.target.value})} icon={<UserCircle size={14} />} description="Identity display name remains strictly Given Name + Surname." />
+                            <Input label="Mobile" disabled={isVerified} value={editingMember.mobile} onChange={(e) => setEditingMember({...editingMember, mobile: e.target.value})} icon={<Phone size={14} />} />
+                            <Input label="DOB" disabled={isVerified} type="date" value={editingMember.dob} onChange={(e) => setEditingMember({...editingMember, dob: e.target.value})} icon={<Calendar size={14} />} />
+                            <Select label="Gender" disabled={isVerified} value={editingMember.gender} onChange={(e) => setEditingMember({...editingMember, gender: e.target.value as Gender})}>
                                 {Object.values(Gender).map(g => <option key={g} value={g}>{g}</option>)}
                             </Select>
-                            <Input label="Pincode" value={editingMember.pincode} onChange={(e) => setEditingMember({...editingMember, pincode: e.target.value})} icon={<MapPin size={14} />} />
+                            <Input label="Pincode" disabled={isVerified} value={editingMember.pincode} onChange={(e) => setEditingMember({...editingMember, pincode: e.target.value})} icon={<MapPin size={14} />} />
                             <div className="md:col-span-2">
-                                <Input label="Full Address" value={editingMember.address} onChange={(e) => setEditingMember({...editingMember, address: e.target.value})} icon={<MapPin size={14} />} />
+                                <Input label="Full Address" disabled={isVerified} value={editingMember.address} onChange={(e) => setEditingMember({...editingMember, address: e.target.value})} icon={<MapPin size={14} />} />
                             </div>
-                            <Select label="Occupation" value={editingMember.occupation} onChange={(e) => setEditingMember({...editingMember, occupation: e.target.value as Occupation})}>
+                            <Select label="Occupation" disabled={isVerified} value={editingMember.occupation} onChange={(e) => setEditingMember({...editingMember, occupation: e.target.value as Occupation})}>
                                 {Object.values(Occupation).map(o => <option key={o} value={o}>{o}</option>)}
                             </Select>
-                            <Select label="Support Need" value={editingMember.support_need} onChange={(e) => setEditingMember({...editingMember, support_need: e.target.value as SupportNeed})}>
+                            <Select label="Support Need" disabled={isVerified} value={editingMember.support_need} onChange={(e) => setEditingMember({...editingMember, support_need: e.target.value as SupportNeed})}>
                                 {Object.values(SupportNeed).map(s => <option key={s} value={s}>{s}</option>)}
                             </Select>
                         </div>
 
                         <div className="flex justify-end gap-4 pt-10 border-t border-white/5 mt-8 sticky bottom-0 bg-gray-900 pb-4 z-10">
-                            <Button variant="secondary" onClick={() => setIsEditModalOpen(false)} className="px-10 py-4 text-[10px] font-black uppercase tracking-widest">Cancel</Button>
-                            <Button onClick={handleUpdateMember} disabled={isUpdating} className="px-12 py-4 text-[10px] font-black uppercase tracking-widest bg-blue-600 hover:bg-blue-500 flex items-center gap-2">
-                                {isUpdating ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                                {isUpdating ? 'Syncing...' : 'Save Record'}
+                            <Button variant="secondary" onClick={() => setIsEditModalOpen(false)} className="px-10 py-4 text-[10px] font-black uppercase tracking-widest">
+                                {isVerified ? "Close View" : "Cancel"}
                             </Button>
+                            {!isVerified && (
+                                <Button onClick={handleUpdateMember} disabled={isUpdating} className="px-12 py-4 text-[10px] font-black uppercase tracking-widest bg-blue-600 hover:bg-blue-500 flex items-center gap-2">
+                                    {isUpdating ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                                    {isUpdating ? 'Syncing...' : 'Save Record'}
+                                </Button>
+                            )}
                         </div>
                     </div>
                 )}

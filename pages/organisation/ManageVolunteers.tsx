@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
@@ -21,7 +21,9 @@ import {
   Zap, 
   RefreshCw, 
   Activity,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Search,
+  Filter
 } from 'lucide-react';
 
 type VolunteerWithEnrollments = Volunteer & { enrollments: number };
@@ -35,6 +37,7 @@ const ManageVolunteers: React.FC = () => {
   const [newVol, setNewVol] = useState({ name: '', mobile: '', email: '', password: '' });
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   
   const { addNotification } = useNotification();
 
@@ -73,6 +76,16 @@ const ManageVolunteers: React.FC = () => {
     fetchVolunteers();
   }, [fetchVolunteers]);
 
+  // Search Logic
+  const filteredVolunteers = useMemo(() => {
+    if (!searchTerm.trim()) return volunteers;
+    const term = searchTerm.toLowerCase().trim();
+    return volunteers.filter(v => 
+      v.name.toLowerCase().includes(term) || 
+      v.mobile?.includes(term)
+    );
+  }, [volunteers, searchTerm]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setNewVol(prev => ({ ...prev, [name]: value }));
@@ -80,7 +93,8 @@ const ManageVolunteers: React.FC = () => {
 
   const handleExport = () => {
     const headers = ['Agent Name', 'Email', 'Mobile', 'Enrollments', 'Status'];
-    const rows = volunteers.map(v => [v.name, v.email, v.mobile, v.enrollments, v.status]);
+    // Export filtered results instead of full list for better UX
+    const rows = filteredVolunteers.map(v => [v.name, v.email, v.mobile, v.enrollments, v.status]);
     const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
@@ -223,7 +237,7 @@ const ManageVolunteers: React.FC = () => {
 
         <div className="lg:col-span-2">
           <Card className="bg-[#050505] border-white/5 h-full">
-            <div className="flex justify-between items-center mb-12">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-12">
                 <div className="flex items-center gap-5">
                     <div className="p-4 bg-orange-500/10 rounded-3xl text-orange-500 border border-orange-500/10">
                         <UserCircle size={28} />
@@ -236,8 +250,8 @@ const ManageVolunteers: React.FC = () => {
                       </div>
                     </div>
                 </div>
-                <div className="flex gap-4">
-                    <button onClick={handleExport} className="p-4 bg-blue-600 hover:bg-blue-700 rounded-2xl text-white transition-all shadow-xl flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                <div className="flex gap-4 w-full sm:w-auto">
+                    <button onClick={handleExport} className="flex-1 sm:flex-none p-4 bg-blue-600 hover:bg-blue-700 rounded-2xl text-white transition-all shadow-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest">
                         <FileSpreadsheet size={20} />
                         <span className="hidden sm:inline">Export CSV</span>
                     </button>
@@ -247,7 +261,27 @@ const ManageVolunteers: React.FC = () => {
                 </div>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Search Filter Node */}
+            <div className="mb-8 p-6 bg-black/40 border border-white/5 rounded-[2rem] shadow-inner relative overflow-hidden group">
+                <div className="flex items-center gap-3 mb-4 text-gray-500">
+                    <Filter size={14} />
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em]">Query Parameters</span>
+                </div>
+                <div className="relative">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-orange-500/50 group-focus-within:text-orange-500 transition-colors">
+                        <Search size={18} />
+                    </div>
+                    <input 
+                        type="text"
+                        placeholder="Search Identity by Name or Mobile..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full bg-black/60 border border-gray-800 rounded-2xl py-4 pl-12 pr-4 text-white placeholder-gray-700 focus:outline-none focus:ring-1 focus:ring-orange-500/40 focus:border-orange-500 transition-all font-medium"
+                    />
+                </div>
+            </div>
+
+            <div className="overflow-x-auto custom-scrollbar">
               <table className="w-full text-left">
                 <thead className="border-b border-gray-800">
                   <tr>
@@ -257,7 +291,15 @@ const ManageVolunteers: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {volunteers.map(vol => (
+                  {loading ? (
+                    <tr>
+                      <td colSpan={3} className="p-20 text-center text-[10px] font-black uppercase tracking-[0.5em] text-gray-600 animate-pulse">Syncing...</td>
+                    </tr>
+                  ) : filteredVolunteers.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="p-20 text-center text-[10px] font-black uppercase tracking-[0.5em] text-gray-700 italic">No matching personnel records detected.</td>
+                    </tr>
+                  ) : filteredVolunteers.map(vol => (
                     <tr key={vol.id} className="group border-b border-gray-900/50 hover:bg-white/[0.015] transition-all">
                       <td className="p-6">
                         <div className="flex flex-col gap-2">
