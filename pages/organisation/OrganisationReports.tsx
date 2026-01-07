@@ -24,7 +24,8 @@ import {
   Phone,
   UserCircle,
   BadgeCheck,
-  Loader2
+  Loader2,
+  Copy
 } from 'lucide-react';
 
 type MemberWithAgent = Member & {
@@ -119,6 +120,12 @@ const OrganisationReports: React.FC = () => {
         setFilters(prev => ({ ...prev, [name]: value }));
     };
 
+    const handleCopyDetails = (member: MemberWithAgent) => {
+        const text = `Name: ${formatDisplayName(member.name, member.surname)}\nMobile: ${member.mobile}`;
+        navigator.clipboard.writeText(text);
+        addNotification("Member contact info copied.", "info");
+    };
+
     const handleEditMember = (member: MemberWithAgent) => {
         setEditingMember({ ...member });
         setIsEditModalOpen(true);
@@ -210,7 +217,7 @@ const OrganisationReports: React.FC = () => {
                                     <th className="p-6">Identity Node</th>
                                     <th className="p-6">Agent</th>
                                     <th className="p-6 text-center">Status</th>
-                                    <th className="p-6"></th>
+                                    <th className="p-6 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -244,9 +251,12 @@ const OrganisationReports: React.FC = () => {
                                             </span>
                                         </td>
                                         <td className="p-6 text-right">
-                                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
-                                                <button onClick={() => handleEditMember(member)} className="p-3 bg-white/5 rounded-xl border border-white/10 hover:border-blue-500/50 text-gray-400 hover:text-white transition-all">
-                                                    <Edit3 size={18} />
+                                            <div className="flex justify-end gap-2">
+                                                <button onClick={() => handleCopyDetails(member)} className="p-2.5 bg-white/5 rounded-xl border border-white/10 hover:border-blue-500/50 text-gray-500 hover:text-white transition-all" title="Copy Details">
+                                                    <Copy size={16} />
+                                                </button>
+                                                <button onClick={() => handleEditMember(member)} className="p-2.5 bg-white/5 rounded-xl border border-white/10 hover:border-blue-500/50 text-gray-500 hover:text-white transition-all" title="Edit Member">
+                                                    <Edit3 size={16} />
                                                 </button>
                                             </div>
                                         </td>

@@ -26,7 +26,6 @@ import {
 
 type VolunteerWithEnrollments = Volunteer & { enrollments: number };
 
-// Credentials from supabase/client.ts
 const supabaseUrl = "https://baetdjjzfqupdzsoecph.supabase.co";
 const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJhZXRkamp6ZnF1cGR6c29lY3BoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0NzEwMTYsImV4cCI6MjA4MjA0NzAxNn0.MYrwQ7E4HVq7TwXpxum9ZukIz4ZAwyunlhpkwkpZ-bo";
 
@@ -93,12 +92,18 @@ const ManageVolunteers: React.FC = () => {
   const copyVolunteerCreds = (vol: VolunteerWithEnrollments) => {
     const creds = `Login Email: ${vol.email}\nStatus: ${vol.status}`;
     navigator.clipboard.writeText(creds).then(() => {
-      addNotification('Agent details copied.', 'info');
+      addNotification('Agent credentials copied to clipboard.', 'info');
     });
   };
 
   const handleToggleStatus = async (vol: VolunteerWithEnrollments) => {
     const newStatus = vol.status === 'Active' ? 'Deactivated' : 'Active';
+    const confirmMsg = newStatus === 'Deactivated' 
+        ? `Are you sure you wish to Deactivate Agent "${vol.name}"? This will suspend their field access.`
+        : `Activate Agent "${vol.name}"?`;
+        
+    if (!window.confirm(confirmMsg)) return;
+
     try {
       const { error } = await supabase
         .from('profiles')
@@ -127,8 +132,6 @@ const ManageVolunteers: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-        // CRITICAL: We create a temporary client with NO session persistence.
-        // This prevents the new user's session from overwriting the current lead's session.
         const authClient = createClient(supabaseUrl, supabaseAnonKey, {
           auth: {
             persistSession: false,
@@ -250,7 +253,7 @@ const ManageVolunteers: React.FC = () => {
                   <tr>
                     <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-gray-500 font-black">Personnel Node</th>
                     <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-gray-500 font-black text-center">Enrollments</th>
-                    <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-gray-500 font-black text-right">Node Action</th>
+                    <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-gray-500 font-black text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -273,13 +276,14 @@ const ManageVolunteers: React.FC = () => {
                         </div>
                       </td>
                       <td className="p-6 text-right">
-                        <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0 duration-500">
-                            <button onClick={() => copyVolunteerCreds(vol)} className="p-4 bg-gray-950 border border-white/5 text-gray-600 hover:text-orange-500 rounded-2xl transition-all">
+                        <div className="flex justify-end gap-3 transition-all duration-500">
+                            <button onClick={() => copyVolunteerCreds(vol)} className="p-4 bg-gray-950 border border-white/5 text-gray-600 hover:text-orange-500 rounded-2xl transition-all" title="Copy Credentials">
                                 <Copy size={18} />
                             </button>
                             <button 
                                 onClick={() => handleToggleStatus(vol)}
                                 className={`p-4 rounded-2xl border transition-all ${vol.status === 'Active' ? 'text-red-400 border-red-500/10 bg-red-500/5' : 'text-green-400 border-green-500/10 bg-green-500/5'}`}
+                                title={vol.status === 'Active' ? 'Deactivate Node' : 'Activate Node'}
                             >
                                 <Power size={18} />
                             </button>

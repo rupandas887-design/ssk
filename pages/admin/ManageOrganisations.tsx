@@ -29,7 +29,8 @@ import {
   User,
   Trash2,
   AlertTriangle,
-  Map
+  Map,
+  Edit
 } from 'lucide-react';
 
 const supabaseUrl = "https://baetdjjzfqupdzsoecph.supabase.co";
@@ -88,7 +89,6 @@ const ManageOrganisations: React.FC = () => {
 
         if (orgError) throw orgError;
 
-        // Prevent session override by using a separate client instance
         const authClient = createClient(supabaseUrl, supabaseAnonKey, {
           auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
         });
@@ -226,7 +226,7 @@ const ManageOrganisations: React.FC = () => {
                         <tr>
                             <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-gray-500 font-black">Organization Identity</th>
                             <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-gray-500 font-black text-right">Verification</th>
-                            <th className="p-6"></th>
+                            <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-gray-500 font-black text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -249,9 +249,13 @@ const ManageOrganisations: React.FC = () => {
                                 </span>
                             </td>
                             <td className="p-6 text-right">
-                                <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all">
-                                    <Button size="sm" variant="secondary" onClick={() => handleEditClick(org)} className="text-[10px] font-black tracking-widest px-4">Modify</Button>
-                                    <button onClick={() => setOrgToDelete(org)} className="p-2.5 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"><Trash2 size={18} /></button>
+                                <div className="flex items-center justify-end gap-2">
+                                    <button onClick={() => handleEditClick(org)} className="p-2.5 bg-white/5 rounded-xl border border-white/10 hover:border-orange-500/50 text-gray-500 hover:text-white transition-all" title="Edit Parameters">
+                                        <Edit size={18} />
+                                    </button>
+                                    <button onClick={() => setOrgToDelete(org)} className="p-2.5 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-xl border border-transparent hover:border-red-500/20 transition-all" title="Purge Node">
+                                        <Trash2 size={18} />
+                                    </button>
                                 </div>
                             </td>
                         </tr>

@@ -26,7 +26,9 @@ import {
   Phone,
   BadgeCheck,
   MapPin,
-  Loader2
+  Loader2,
+  Copy,
+  AlertTriangle
 } from 'lucide-react';
 
 type MemberWithAgent = Member & {
@@ -49,8 +51,9 @@ const AdminReports: React.FC = () => {
 
     const [editingMember, setEditingMember] = useState<MemberWithAgent | null>(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
+    const [memberToDelete, setMemberToDelete] = useState<MemberWithAgent | null>(null);
     const [isUpdating, setIsUpdating] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const formatDisplayName = (first: string, last: string) => {
         const f = (first || '').trim().toLowerCase();
@@ -114,6 +117,12 @@ const AdminReports: React.FC = () => {
         }
     };
 
+    const handleCopyDetails = (member: MemberWithAgent) => {
+        const text = `Name: ${formatDisplayName(member.name, member.surname)}\nMobile: ${member.mobile}\nAadhaar: ${member.aadhaar}`;
+        navigator.clipboard.writeText(text);
+        addNotification("Identity details copied to clipboard.", "info");
+    };
+
     const handleEditMember = (member: MemberWithAgent) => {
         setEditingMember({ ...member });
         setIsEditModalOpen(true);
@@ -121,14 +130,17 @@ const AdminReports: React.FC = () => {
 
     const handleDeleteMember = async () => {
         if (!memberToDelete) return;
+        setIsDeleting(true);
         try {
-            const { error } = await supabase.from('members').delete().eq('id', memberToDelete);
+            const { error } = await supabase.from('members').delete().eq('id', memberToDelete.id);
             if (error) throw error;
-            addNotification("Record purged.", "success");
+            addNotification("Identity record purged successfully.", "success");
             setMemberToDelete(null);
             fetchData();
         } catch (err: any) {
-            addNotification(`Purge failed.`, "error");
+            addNotification(`Purge operation failed.`, "error");
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -228,7 +240,7 @@ const AdminReports: React.FC = () => {
                                     <th className="p-6">Member Identity</th>
                                     <th className="p-6 text-blue-500">Personnel Attribution</th>
                                     <th className="p-6 text-center">Verification</th>
-                                    <th className="p-6"></th>
+                                    <th className="p-6">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-900/50">
@@ -272,18 +284,22 @@ const AdminReports: React.FC = () => {
                                             </span>
                                         </td>
                                         <td className="p-6 text-right">
-                                            <div className="flex justify-end items-center gap-3 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
+                                            <div className="flex justify-end items-center gap-2">
                                                 <button 
                                                   onClick={() => handleVerifyStatus(m)} 
-                                                  className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${m.status === MemberStatus.Accepted ? 'bg-red-500/5 text-red-500 border-red-500/10 hover:bg-red-500/10' : 'bg-green-500/5 text-green-500 border-green-500/10 hover:bg-green-500/10'}`}
+                                                  className={`px-3 py-2 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all ${m.status === MemberStatus.Accepted ? 'bg-red-500/5 text-red-500 border-red-500/10 hover:bg-red-500/10' : 'bg-green-500/5 text-green-500 border-green-500/10 hover:bg-green-500/10'}`}
+                                                  title={m.status === MemberStatus.Accepted ? 'Unverify member' : 'Verify member'}
                                                 >
                                                     {m.status === MemberStatus.Accepted ? 'Unverify' : 'Verify'}
                                                 </button>
-                                                <button onClick={() => handleEditMember(m)} className="p-3 bg-white/5 rounded-xl border border-white/10 hover:border-orange-500/50 text-gray-400 hover:text-white transition-all">
-                                                    <Edit3 size={18} />
+                                                <button onClick={() => handleCopyDetails(m)} className="p-2.5 bg-white/5 rounded-xl border border-white/10 hover:border-blue-500/50 text-gray-500 hover:text-white transition-all" title="Copy Details">
+                                                    <Copy size={16} />
                                                 </button>
-                                                <button onClick={() => setMemberToDelete(m.id)} className="p-3 bg-red-500/5 rounded-xl border border-red-500/10 text-red-500/60 hover:text-red-500 transition-all">
-                                                    <Trash2 size={18} />
+                                                <button onClick={() => handleEditMember(m)} className="p-2.5 bg-white/5 rounded-xl border border-white/10 hover:border-orange-500/50 text-gray-500 hover:text-white transition-all" title="Edit Member">
+                                                    <Edit3 size={16} />
+                                                </button>
+                                                <button onClick={() => setMemberToDelete(m)} className="p-2.5 bg-red-500/5 rounded-xl border border-red-500/10 text-red-500/40 hover:text-red-500 transition-all" title="Delete Member">
+                                                    <Trash2 size={16} />
                                                 </button>
                                             </div>
                                         </td>
@@ -374,6 +390,27 @@ const AdminReports: React.FC = () => {
                         </div>
                     </div>
                 )}
+            </Modal>
+
+            <Modal isOpen={!!memberToDelete} onClose={() => setMemberToDelete(null)} title="Security Protocol: Purge Identity">
+                <div className="p-6 text-center space-y-8">
+                    <div className="p-6 bg-red-500/10 rounded-full w-24 h-24 mx-auto flex items-center justify-center text-red-500 border border-red-500/20">
+                        <AlertTriangle size={48} />
+                    </div>
+                    <div>
+                        <h4 className="text-2xl font-cinzel text-white mb-3 tracking-wide">Confirm Data Removal</h4>
+                        <p className="text-sm text-gray-500 leading-relaxed uppercase tracking-[0.2em] font-black">
+                            Purge registry entry for <span className="text-red-500">"{memberToDelete ? formatDisplayName(memberToDelete.name, memberToDelete.surname) : ''}"</span>? 
+                            This action cannot be undone.
+                        </p>
+                    </div>
+                    <div className="flex gap-4">
+                        <Button variant="secondary" onClick={() => setMemberToDelete(null)} className="flex-1 text-[11px] font-black tracking-widest uppercase py-4">Abort</Button>
+                        <Button onClick={handleDeleteMember} disabled={isDeleting} className="flex-1 bg-red-600 hover:bg-red-700 text-[11px] font-black tracking-widest uppercase py-4">
+                            {isDeleting ? 'PURGING...' : 'Confirm Purge'}
+                        </Button>
+                    </div>
+                </div>
             </Modal>
         </DashboardLayout>
     );
