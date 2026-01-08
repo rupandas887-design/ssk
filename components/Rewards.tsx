@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { Award, Trophy, Shield, Star } from 'lucide-react';
+import { Award, Trophy, Shield, Star, CalendarDays } from 'lucide-react';
 import Card from './ui/Card';
 import { Member, Volunteer, Organisation } from '../types';
 
@@ -11,12 +11,29 @@ interface RewardsProps {
 }
 
 const Rewards: React.FC<RewardsProps> = ({ members, volunteers, organisations }) => {
-  const weeklyWinners = useMemo(() => {
+  const { weeklyWinners, dateRange } = useMemo(() => {
+    // Current timestamp
     const now = new Date();
-    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    // To get exactly 7 days including today, we go back 6 full days.
+    // E.g., Sunday back to Monday is 7 days: Sun, Sat, Fri, Thu, Wed, Tue, Mon.
+    const startOfWindow = new Date(now);
+    startOfWindow.setDate(now.getDate() - 6);
+    startOfWindow.setHours(0, 0, 0, 0); // Start at the beginning of the 7th day back
 
-    // Filter members enrolled in the last 7 days
-    const weeklyMembers = members.filter(m => new Date(m.submission_date) >= oneWeekAgo);
+    // Format Date Range for Display
+    const formatDate = (date: Date) => {
+        return date.toLocaleDateString('en-GB', { 
+            day: '2-digit', 
+            month: 'short' 
+        }).toUpperCase();
+    };
+    const dateRangeStr = `${formatDate(startOfWindow)} — ${formatDate(now)}`;
+
+    // Filter members enrolled within the strict 7-day window
+    const weeklyMembers = members.filter(m => {
+        const submissionDate = new Date(m.submission_date);
+        return submissionDate >= startOfWindow && submissionDate <= now;
+    });
 
     // 1. Calculate Top Volunteer of the Week
     const volCounts: Record<string, number> = {};
@@ -52,7 +69,7 @@ const Rewards: React.FC<RewardsProps> = ({ members, volunteers, organisations })
 
     const topOrg = organisations.find(o => o.id === topOrgId);
 
-    return [
+    const winners = [
       {
         title: 'Top Enroller of the Week',
         winner: topVol ? topVol.name : 'Awaiting Data',
@@ -68,6 +85,8 @@ const Rewards: React.FC<RewardsProps> = ({ members, volunteers, organisations })
         label: 'Institutional Excellence'
       }
     ];
+
+    return { weeklyWinners: winners, dateRange: dateRangeStr };
   }, [members, volunteers, organisations]);
 
   return (
@@ -76,7 +95,16 @@ const Rewards: React.FC<RewardsProps> = ({ members, volunteers, organisations })
         <h2 className="text-4xl font-cinzel text-center uppercase tracking-widest">
           Weekly <span className="text-orange-500">Hall of Fame</span>
         </h2>
-        <p className="text-[10px] font-black text-gray-600 uppercase tracking-[0.4em] mt-4">Recognition of Outstanding Contribution</p>
+        
+        <div className="mt-4 flex flex-col items-center gap-2">
+            <div className="flex items-center gap-2 px-5 py-2 bg-orange-500/10 border border-orange-500/20 rounded-full shadow-[0_0_20px_rgba(234,88,12,0.1)]">
+                <CalendarDays size={14} className="text-orange-500" />
+                <span className="text-[10px] font-black text-orange-400 uppercase tracking-[0.3em]">
+                    Rolling 7-Day Window: {dateRange}
+                </span>
+            </div>
+            <p className="text-[9px] font-black text-gray-700 uppercase tracking-[0.4em] mt-1">Recognition of Outstanding Contribution</p>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-2 gap-8">
