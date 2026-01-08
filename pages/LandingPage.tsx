@@ -187,7 +187,7 @@ const LandingPage: React.FC = () => {
                           <Activity size={32} />
                       </div>
                       <p className="text-3xl md:text-4xl font-black text-white mb-1 md:mb-2">{volunteers.length}</p>
-                      <p className="text-[9px] md:text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">FIELD AGENTS</p>
+                      <p className="text-[9px] md:text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Volunteers</p>
                       
                       <div className="mt-6 md:mt-8 pt-6 md:pt-8 border-t border-white/5 w-full">
                           <p className="text-3xl md:text-4xl font-black text-white mb-1 md:mb-2">{organisations.length}</p>
