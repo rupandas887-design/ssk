@@ -14,7 +14,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Fix: Update mapStringToRole to correctly handle and return Organisation and Volunteer roles
 export const mapStringToRole = (roleStr: any): Role | string => {
     if (!roleStr) return 'Guest';
     const normalized = String(roleStr).toLowerCase().trim();
@@ -27,7 +26,6 @@ export const mapStringToRole = (roleStr: any): Role | string => {
     if (normalized === 'volunteer') {
         return Role.Volunteer;
     }
-    // Return the string as is for data categorization, but App.tsx will block access
     return roleStr;
 };
 
@@ -54,7 +52,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                   email: authUser.email || '',
                   role: mapStringToRole(metadataRole),
                   organisationId: metadataOrgId,
-                  status: 'Active'
+                  status: 'Active',
+                  passwordResetPending: false
               };
           }
           return null;
@@ -63,7 +62,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (profile) {
           const role = mapStringToRole(profile.role || metadataRole);
           
-          // Fix: Allow roles other than MasterAdmin to authenticate successfully
           return {
               id: profile.id,
               name: profile.name,
@@ -72,7 +70,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               organisationId: profile.organisation_id || metadataOrgId,
               organisationName: profile.organisations?.name || undefined,
               mobile: profile.mobile,
-              status: (profile.status as 'Active' | 'Deactivated') || 'Active'
+              status: (profile.status as 'Active' | 'Deactivated') || 'Active',
+              passwordResetPending: profile.password_reset_pending || false
           };
       } else if (authUser) {
           const role = mapStringToRole(metadataRole);
@@ -82,7 +81,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               email: authUser.email || '',
               role: role,
               organisationId: metadataOrgId,
-              status: 'Active'
+              status: 'Active',
+              passwordResetPending: false
           };
       }
     } catch (e: any) {
@@ -128,8 +128,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [fetchProfile]);
 
   const updatePassword = async (newPassword: string) => {
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) return { success: false, error: error.message };
+      const { error: authError } = await supabase.auth.updateUser({ password: newPassword });
+      if (authError) return { success: false, error: authError.message };
+      
+      // If we successfully updated auth password, clear the flag in profiles
+      if (user?.id) {
+          await supabase.from('profiles').update({ password_reset_pending: false }).eq('id', user.id);
+          // Refresh local user state
+          await refreshProfile();
+      }
+      
       return { success: true };
   }
 

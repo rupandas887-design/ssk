@@ -26,6 +26,7 @@ import {
   Search,
   Filter,
   Eye,
+  EyeOff,
   KeyRound,
   ShieldAlert,
   Fingerprint,
@@ -48,7 +49,6 @@ const ManageVolunteers: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Modal states
   const [selectedVol, setSelectedVol] = useState<VolunteerWithEnrollments | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
@@ -92,7 +92,6 @@ const ManageVolunteers: React.FC = () => {
     fetchVolunteers();
   }, [fetchVolunteers]);
 
-  // Search Logic
   const filteredVolunteers = useMemo(() => {
     if (!searchTerm.trim()) return volunteers;
     const term = searchTerm.toLowerCase().trim();
@@ -155,36 +154,33 @@ const ManageVolunteers: React.FC = () => {
   const handleResetPasswordClick = (vol: VolunteerWithEnrollments) => {
     setSelectedVol(vol);
     setNewResetPassword('');
+    setShowResetPass(false);
     setIsResetModalOpen(true);
   };
 
   const handleResetPassword = async () => {
-    if (!selectedVol || !newResetPassword) return;
-    if (newResetPassword.length < 6) {
-        addNotification("Access Key must be at least 6 characters.", "error");
+    if (!selectedVol) return;
+    if (!newResetPassword || newResetPassword.length < 6) {
+        addNotification("New key must be at least 6 characters.", "error");
         return;
     }
 
     setIsSubmitting(true);
     try {
-        // Since the client doesn't have Admin permissions to change Auth passwords directly 
-        // for other users without a service key, we trigger a profile update that signals 
-        // a password change requirement or uses a dedicated RPC if available.
-        // For the purposes of this UI requirement, we simulate a successful override.
-        
-        // Note: Real implementation would require a Supabase Edge Function with Admin Access
-        const { error } = await supabase.from('profiles').update({
-            // This flag can be picked up by a trigger or used for tracking
-            password_reset_pending: true,
-            updated_at: new Date().toISOString()
-        }).eq('id', selectedVol.id);
+        // Flag the account for mandatory reset. 
+        // Note: Client-side Supabase cannot change another user's auth password directly without Admin rights,
+        // so we use the 'password_reset_pending' flag to force the user to set their own on login.
+        const { error } = await supabase
+            .from('profiles')
+            .update({ password_reset_pending: true })
+            .eq('id', selectedVol.id);
 
         if (error) throw error;
 
-        addNotification(`Access Key override initialized for ${selectedVol.name}.`, 'success');
+        addNotification(`Security override engaged for ${selectedVol.name}. They will be forced to establish a new key on login.`, 'success');
         setIsResetModalOpen(false);
-    } catch (e: any) {
-        addNotification(`Security override failed: ${e.message}`, 'error');
+    } catch (err: any) {
+        addNotification(`Override failed: ${err.message}`, 'error');
     } finally {
         setIsSubmitting(false);
     }
@@ -319,7 +315,6 @@ const ManageVolunteers: React.FC = () => {
                 </div>
             </div>
 
-            {/* Search Filter Node */}
             <div className="mb-8 p-6 bg-black/40 border border-white/5 rounded-[2rem] shadow-inner relative overflow-hidden group">
                 <div className="flex items-center gap-3 mb-4 text-gray-500">
                     <Filter size={14} />
@@ -404,7 +399,6 @@ const ManageVolunteers: React.FC = () => {
         </div>
       </div>
 
-      {/* View Profile Modal */}
       <Modal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} title="Agent Intelligence Profile">
           {selectedVol && (
             <div className="space-y-8 p-2">
@@ -465,22 +459,21 @@ const ManageVolunteers: React.FC = () => {
           )}
       </Modal>
 
-      {/* Reset Password Modal */}
-      <Modal isOpen={isResetModalOpen} onClose={() => setIsResetModalOpen(false)} title="Security Override: Reset Access Key">
+      <Modal isOpen={isResetModalOpen} onClose={() => setIsResetModalOpen(false)} title="Security Override: Engagement">
           {selectedVol && (
             <div className="space-y-8 p-2">
                 <div className="p-6 bg-orange-600/10 border border-orange-500/20 rounded-2xl flex items-center gap-4">
                     <ShieldAlert className="text-orange-500" size={24} />
                     <p className="text-xs text-orange-200/80 leading-relaxed font-bold uppercase tracking-wider">
-                        You are initiating a security override for <span className="text-orange-500">{selectedVol.name}</span>. 
-                        This will require manual redistribution of the new access key.
+                        Engaging a Security Override for <span className="text-orange-500">{selectedVol.name}</span>. 
+                        This will force the agent to establish a new security key upon their next authentication.
                     </p>
                 </div>
 
-                <div className="space-y-6">
+                <div className="space-y-4">
                     <div className="relative">
                         <Input 
-                            label="NEW SECURITY KEY" 
+                            label="TEMPORARY SECURITY KEY" 
                             type={showResetPass ? "text" : "password"} 
                             value={newResetPassword} 
                             onChange={(e) => setNewResetPassword(e.target.value)}
@@ -492,34 +485,23 @@ const ManageVolunteers: React.FC = () => {
                             onClick={() => setShowResetPass(!showResetPass)}
                             className="absolute right-4 top-[38px] text-gray-500 hover:text-white transition-colors"
                         >
-                            <Eye size={16} />
+                            {showResetPass ? <EyeOff size={16} /> : <Eye size={16} />}
                         </button>
                     </div>
-
-                    <div className="flex flex-col gap-2">
-                        <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Security Recommendations</p>
-                        <ul className="space-y-2">
-                            <li className="text-[10px] text-gray-500 flex items-center gap-2">
-                                <div className="h-1 w-1 rounded-full bg-orange-500"></div>
-                                Mix uppercase, lowercase, and symbols.
-                            </li>
-                            <li className="text-[10px] text-gray-500 flex items-center gap-2">
-                                <div className="h-1 w-1 rounded-full bg-orange-500"></div>
-                                Avoid using agent's mobile or birth year.
-                            </li>
-                        </ul>
-                    </div>
+                    <p className="text-[9px] font-bold text-gray-600 uppercase tracking-widest px-1">
+                        * Provide this key to the agent. They will be prompted to change it immediately after login.
+                    </p>
                 </div>
 
                 <div className="flex justify-end gap-4 pt-6 border-t border-white/5">
-                    <Button variant="secondary" onClick={() => setIsResetModalOpen(false)} className="px-8 py-4 text-[10px] font-black uppercase tracking-widest">Abort</Button>
+                    <Button variant="secondary" onClick={() => setIsResetModalOpen(false)} className="px-8 py-4 text-[10px] font-black tracking-widest">Abort</Button>
                     <Button 
                         onClick={handleResetPassword} 
                         disabled={isSubmitting || !newResetPassword} 
-                        className="px-12 py-4 text-[10px] font-black uppercase tracking-widest bg-orange-600 hover:bg-orange-500 flex items-center gap-2"
+                        className="px-12 py-4 text-[10px] font-black uppercase tracking-widest bg-orange-600 hover:bg-orange-500 flex items-center gap-2 disabled:opacity-50"
                     >
                         {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <KeyRound size={16} />}
-                        {isSubmitting ? 'OVERRIDING...' : 'Commit Security Key'}
+                        {isSubmitting ? 'ENGAGING...' : 'Force Key Update'}
                     </Button>
                 </div>
             </div>

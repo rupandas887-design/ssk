@@ -4,12 +4,13 @@ import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import Modal from '../../components/ui/Modal';
 import { useAuth } from '../../context/AuthContext';
 import { Member, MemberStatus } from '../../types';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabase/client';
 import { useNotification } from '../../context/NotificationContext';
-import { User, RefreshCw, Filter, MapPin, Phone, Building2, UserCircle, Activity, UserPlus } from 'lucide-react';
+import { User, RefreshCw, Filter, MapPin, Phone, Building2, UserCircle, Activity, UserPlus, Lock, KeyRound, ShieldAlert, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 type MemberWithAttribution = Member & {
     agent?: {
@@ -21,11 +22,16 @@ type MemberWithAttribution = Member & {
 };
 
 const VolunteerDashboard: React.FC = () => {
-    const { user } = useAuth();
+    const { user, updatePassword } = useAuth();
     const navigate = useNavigate();
     const [mySubmissions, setMySubmissions] = useState<MemberWithAttribution[]>([]);
     const [loading, setLoading] = useState(true);
     const { addNotification } = useNotification();
+
+    // Forced Password Reset State
+    const [newPass, setNewPass] = useState('');
+    const [showPass, setShowPass] = useState(false);
+    const [isUpdatingPass, setIsUpdatingPass] = useState(false);
 
     const formatDisplayName = (first: string, last: string) => {
         const f = (first || '').trim().toLowerCase();
@@ -55,6 +61,24 @@ const VolunteerDashboard: React.FC = () => {
             addNotification(`Sync Fault: ${err.message}`, 'error');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleForcePasswordChange = async () => {
+        if (newPass.length < 6) {
+            addNotification("Access Key must be at least 6 characters.", "error");
+            return;
+        }
+        setIsUpdatingPass(true);
+        try {
+            const { success, error } = await updatePassword(newPass);
+            if (success) {
+                addNotification("Security Key updated successfully. Network access restored.", "success");
+            } else {
+                addNotification(error || "Update failed.", "error");
+            }
+        } finally {
+            setIsUpdatingPass(false);
         }
     };
 
@@ -89,9 +113,11 @@ const VolunteerDashboard: React.FC = () => {
         });
     }, [mySubmissions, filters]);
 
+    const isLocked = user?.passwordResetPending;
+
     return (
         <DashboardLayout title="Agent Terminal">
-            <div className="space-y-4 md:space-y-6 pb-6">
+            <div className={`space-y-4 md:space-y-6 pb-6 transition-all duration-700 ${isLocked ? 'blur-xl grayscale pointer-events-none opacity-40' : ''}`}>
                 <div className="flex flex-col md:flex-row justify-between items-center gap-6 p-6 md:p-8 bg-blue-900/10 border border-blue-900/20 rounded-2xl md:rounded-[2rem] shadow-xl relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-6 opacity-[0.02] group-hover:rotate-6 transition-transform duration-700 pointer-events-none">
                         <User size={100} className="md:size-[120px]" />
@@ -212,6 +238,52 @@ const VolunteerDashboard: React.FC = () => {
                     </div>
                 </Card>
             </div>
+
+            {/* MANDATORY SECURITY UPDATE MODAL */}
+            <Modal isOpen={!!isLocked} onClose={() => {}} title="Critical Security Update Required">
+                <div className="space-y-8 p-4">
+                    <div className="p-6 bg-red-600/10 border border-red-500/20 rounded-3xl flex items-center gap-4">
+                        <ShieldAlert className="text-red-500 shrink-0" size={32} />
+                        <div className="space-y-1">
+                            <p className="text-xs font-black uppercase tracking-widest text-red-500">Node Compromised / Flagged</p>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider leading-relaxed">
+                                Your organization has initiated a mandatory security key update for your agent profile. Access to the Field Terminal is suspended until a new key is established.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-6">
+                        <div className="relative">
+                            <Input 
+                                label="NEW SECURITY KEY" 
+                                type={showPass ? "text" : "password"} 
+                                value={newPass} 
+                                onChange={(e) => setNewPass(e.target.value)}
+                                placeholder="Min 6 characters"
+                                icon={<Lock size={16} />}
+                            />
+                            <button 
+                                type="button" 
+                                onClick={() => setShowPass(!showPass)}
+                                className="absolute right-4 top-[38px] text-gray-500 hover:text-white transition-colors"
+                            >
+                                {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="pt-4">
+                        <Button 
+                            onClick={handleForcePasswordChange} 
+                            disabled={isUpdatingPass || !newPass} 
+                            className="w-full py-5 text-[11px] font-black uppercase tracking-[0.4em] bg-red-600 hover:bg-red-500 flex items-center justify-center gap-3"
+                        >
+                            {isUpdatingPass ? <Loader2 className="animate-spin" size={20} /> : <KeyRound size={20} />}
+                            {isUpdatingPass ? 'SYNCHRONIZING...' : 'Establish New Security Key'}
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
         </DashboardLayout>
     );
 };

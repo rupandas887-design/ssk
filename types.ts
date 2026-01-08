@@ -14,6 +14,7 @@ export interface User {
   organisationName?: string;
   mobile?: string;
   status?: 'Active' | 'Deactivated';
+  passwordResetPending?: boolean;
 }
 
 export interface Organisation {
