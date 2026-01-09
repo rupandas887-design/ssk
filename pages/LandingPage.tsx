@@ -199,7 +199,7 @@ const LandingPage: React.FC = () => {
           ) : (
             <div className="flex flex-col items-center justify-center p-20 md:p-32 gap-6">
               <RefreshCw className="animate-spin text-orange-500" size={40} />
-              <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.5em] text-white">Syncing Master Node...</p>
+              <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.5em] text-white">Syncing LEADING CONTRIBUTORS...</p>
             </div>
           )}
         </section>
@@ -208,7 +208,7 @@ const LandingPage: React.FC = () => {
         <section>
           <div className="flex flex-col items-center mb-12 md:mb-16">
             <h2 className="text-2xl md:text-4xl font-cinzel text-center uppercase tracking-widest">
-              Master <span className="text-orange-500">Nodes</span>
+              LEADING <span className="text-orange-500">CONTRIBUTORS</span>
             </h2>
           </div>
           {!loading ? (

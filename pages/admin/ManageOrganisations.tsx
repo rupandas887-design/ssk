@@ -210,13 +210,13 @@ const ManageOrganisations: React.FC = () => {
         <div className="lg:col-span-2 space-y-6">
           <Card title="Operational Registry">
             <div className="flex justify-between items-center mb-10">
-                <div className="flex items-center gap-4 text-gray-500">
+                <div className="flex items-center gap-4 text-white">
                     <div className="p-2 bg-orange-500/10 rounded-lg text-orange-500">
                         <Activity size={16} />
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-[0.3em]">Master Node Sync</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em]">LEADING CONTRIBUTORS Sync</span>
                 </div>
-                <button onClick={fetchOrganisations} className="p-3 bg-white/5 rounded-xl border border-white/5 hover:border-orange-500/40 text-gray-500 hover:text-white transition-all shadow-lg">
+                <button onClick={fetchOrganisations} className="p-3 bg-white/5 rounded-xl border border-white/5 hover:border-orange-500/40 text-white hover:text-white transition-all shadow-lg">
                     <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                 </button>
             </div>
@@ -224,14 +224,14 @@ const ManageOrganisations: React.FC = () => {
                 <table className="w-full text-left">
                     <thead className="border-b border-gray-800">
                         <tr>
-                            <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-gray-500 font-black">Organization Identity</th>
-                            <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-gray-500 font-black text-right">Verification</th>
-                            <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-gray-500 font-black text-right">Actions</th>
+                            <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-white font-black">Organization Identity</th>
+                            <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-white font-black text-right">Verification</th>
+                            <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-white font-black text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {loading ? (
-                             <tr><td colSpan={3} className="p-20 text-center animate-pulse uppercase tracking-[0.5em] text-[10px] text-gray-600 font-black">Syncing Network Ledger...</td></tr>
+                             <tr><td colSpan={3} className="p-20 text-center animate-pulse uppercase tracking-[0.5em] text-[10px] text-white font-black">Syncing Network Ledger...</td></tr>
                         ) : organisations.map(org => (
                         <tr key={org.id} className="group border-b border-gray-900/50 hover:bg-white/[0.02] transition-all">
                             <td className="p-6">
@@ -240,7 +240,7 @@ const ManageOrganisations: React.FC = () => {
                                         <span className="font-bold text-white text-lg group-hover:text-orange-500 transition-colors">{org.name}</span>
                                         {org.status === 'Active' && <CheckCircle2 size={14} className="text-green-500/50" />}
                                     </div>
-                                    <span className="text-[11px] text-gray-600 uppercase font-mono tracking-tighter">{org.secretary_name} • {org.mobile}</span>
+                                    <span className="text-[11px] text-white uppercase font-mono tracking-tighter">{org.secretary_name} • {org.mobile}</span>
                                 </div>
                             </td>
                             <td className="p-6 text-right">
@@ -250,7 +250,7 @@ const ManageOrganisations: React.FC = () => {
                             </td>
                             <td className="p-6 text-right">
                                 <div className="flex items-center justify-end gap-2">
-                                    <button onClick={() => handleEditClick(org)} className="p-2.5 bg-white/5 rounded-xl border border-white/10 hover:border-orange-500/50 text-gray-500 hover:text-white transition-all" title="Edit Parameters">
+                                    <button onClick={() => handleEditClick(org)} className="p-2.5 bg-white/5 rounded-xl border border-white/10 hover:border-orange-500/50 text-white hover:text-white transition-all" title="Edit Parameters">
                                         <Edit size={18} />
                                     </button>
                                     <button onClick={() => setOrgToDelete(org)} className="p-2.5 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-xl border border-transparent hover:border-red-500/20 transition-all" title="Purge Node">
@@ -292,7 +292,7 @@ const ManageOrganisations: React.FC = () => {
             </div>
             <div>
                 <h4 className="text-2xl font-cinzel text-white mb-3 tracking-wide">Confirm Purge</h4>
-                <p className="text-sm text-gray-500 leading-relaxed uppercase tracking-[0.2em] font-black">
+                <p className="text-sm text-white leading-relaxed uppercase tracking-[0.2em] font-black">
                     Purge <span className="text-red-500">"{orgToDelete?.name}"</span>? 
                     This action is irreversible.
                 </p>
