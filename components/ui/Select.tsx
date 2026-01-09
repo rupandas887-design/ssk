@@ -17,7 +17,7 @@ const Select: React.FC<SelectProps> = ({ label, id, children, description, class
       <div className="relative group">
         <select
           id={id}
-          className={`w-full bg-black/60 border border-gray-800 rounded-xl py-3 px-4 text-white font-bold text-sm focus:outline-none focus:ring-1 focus:ring-orange-500/40 focus:border-orange-500 transition-all duration-200 appearance-none cursor-pointer ${className}`}
+          className={`w-full bg-[#050505] border border-gray-800 rounded-xl py-3 px-4 text-white font-bold text-sm focus:outline-none focus:ring-1 focus:ring-orange-500/40 focus:border-orange-500 transition-all duration-200 appearance-none cursor-pointer ${className}`}
           style={{ 
             backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ea580c' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7' /%3E%3C/svg%3E")`, 
             backgroundRepeat: 'no-repeat', 

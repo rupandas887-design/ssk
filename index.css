@@ -1,5 +1,9 @@
 /* Base Tailwind directives are handled by the CDN script in index.html */
 
+:root {
+  color-scheme: dark;
+}
+
 body {
   background-color: #000000;
   color: #ffffff;
@@ -10,6 +14,12 @@ body {
 
 .font-cinzel {
   font-family: 'Cinzel', serif;
+}
+
+/* Ensure native selectors are dark */
+select {
+  background-color: #050505;
+  color: white;
 }
 
 /* Exact Chart Card Styling from Screenshot */
