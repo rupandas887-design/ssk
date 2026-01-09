@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
@@ -26,11 +25,14 @@ import {
   BadgeCheck,
   Loader2,
   Eye,
-  Image as ImageIcon
+  Image as ImageIcon,
+  CheckCircle,
+  Clock,
+  Copy
 } from 'lucide-react';
 
 type MemberWithAgent = Member & {
-    agent_profile?: { name: string, mobile: string }
+    agent_profile?: { name: string, mobile: string, profile_photo_url?: string }
 };
 
 const OrganisationReports: React.FC = () => {
@@ -65,7 +67,7 @@ const OrganisationReports: React.FC = () => {
             const [membersRes, profilesRes] = await Promise.all([
                 supabase
                     .from('members')
-                    .select('*, agent_profile:profiles!volunteer_id(name, mobile)')
+                    .select('*, agent_profile:profiles!volunteer_id(name, mobile, profile_photo_url)')
                     .eq('organisation_id', user.organisationId)
                     .order('submission_date', { ascending: false }),
                 supabase
@@ -124,6 +126,12 @@ const OrganisationReports: React.FC = () => {
     const handleEditMember = (member: MemberWithAgent) => {
         setEditingMember({ ...member });
         setIsEditModalOpen(true);
+    };
+
+    const handleCopyDetails = (member: MemberWithAgent) => {
+        const text = `Name: ${formatDisplayName(member.name, member.surname)}\nMobile: ${member.mobile}\nAadhaar: ${member.aadhaar}`;
+        navigator.clipboard.writeText(text);
+        addNotification("Identity details copied to clipboard.", "info");
     };
 
     const handleUpdateMember = async () => {
@@ -224,7 +232,7 @@ const OrganisationReports: React.FC = () => {
                                     <tr key={member.id} className="group border-b border-gray-900/50 hover:bg-white/[0.02] transition-all">
                                         <td className="p-6">
                                             <div className="flex flex-col">
-                                                <span className="font-bold text-white text-lg group-hover:text-blue-500 transition-colors truncate">
+                                                <span className="font-bold text-white text-lg group-hover:text-blue-400 transition-colors truncate">
                                                     {formatDisplayName(member.name, member.surname)}
                                                 </span>
                                                 <div className="flex items-center gap-3 mt-1 text-[11px] text-gray-400 font-mono tracking-tighter">
@@ -236,8 +244,18 @@ const OrganisationReports: React.FC = () => {
                                         </td>
                                         <td className="p-6">
                                             <div className="flex items-center gap-3">
-                                                <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500">
-                                                    <UserCircle size={16} />
+                                                <div className="h-10 w-10 flex-shrink-0 rounded-xl overflow-hidden border border-white/10 group-hover:border-blue-500/50 transition-all shadow-lg bg-black/40">
+                                                  {member.agent_profile?.profile_photo_url ? (
+                                                    <img 
+                                                      src={member.agent_profile.profile_photo_url} 
+                                                      className="h-full w-full object-cover" 
+                                                      alt="Agent profile" 
+                                                    />
+                                                  ) : (
+                                                    <div className="h-full w-full flex items-center justify-center text-blue-500/30">
+                                                        <UserCircle size={18} />
+                                                    </div>
+                                                  )}
                                                 </div>
                                                 <span className="text-[11px] font-black text-white uppercase tracking-widest">{member.agent_profile?.name || 'Agent'}</span>
                                             </div>
@@ -262,78 +280,100 @@ const OrganisationReports: React.FC = () => {
                 </Card>
             </div>
 
-            <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={isVerified ? "View Identity Record" : "Identity Override"}>
+            <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={isVerified ? "Review Identity File" : "Operational Override"} maxWidth="4xl">
                 {editingMember && (
-                    <div className="space-y-8 p-2 max-h-[85vh] overflow-y-auto custom-scrollbar">
-                        <div className={`p-10 border rounded-[3rem] relative overflow-hidden group ${isVerified ? 'bg-green-500/5 border-green-500/10' : 'bg-blue-500/5 border-blue-500/10'}`}>
-                            
-                            <div className="max-w-md mx-auto relative z-10 mb-8">
-                                <div className="space-y-3">
+                    <div className="space-y-6 pb-4">
+                        <div className={`p-5 sm:p-6 border rounded-[2rem] relative overflow-hidden group transition-all duration-500 ${isVerified ? 'bg-green-500/5 border-green-500/10' : 'bg-blue-500/5 border-blue-500/10'}`}>
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center relative z-10">
+                                <div className="lg:col-span-5 space-y-3">
                                     <div className="flex items-center gap-2">
-                                        <ImageIcon className={isVerified ? "text-green-500/60" : "text-blue-500/60"} size={14} />
-                                        <p className={`text-[9px] font-black uppercase tracking-widest ${isVerified ? "text-green-500/60" : "text-blue-500/60"}`}>Aadhaar Card Photo</p>
+                                        <ImageIcon className={isVerified ? "text-green-500/60" : "text-blue-500/60"} size={12} />
+                                        <p className={`text-[9px] font-black uppercase tracking-widest ${isVerified ? "text-green-500/60" : "text-blue-500/60"}`}>Identification Scan</p>
                                     </div>
-                                    <div className="aspect-video rounded-[2.5rem] overflow-hidden border border-white/10 bg-black/40 relative group/img shadow-2xl">
-                                        <img src={editingMember.aadhaar_front_url} className="w-full h-full object-cover" />
-                                        <a href={editingMember.aadhaar_front_url} target="_blank" className="absolute inset-0 bg-black/70 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity">
+                                    <div className="rounded-[1.25rem] overflow-hidden border border-white/10 bg-black/40 relative group/img shadow-xl aspect-[1.58/1]">
+                                        <img src={editingMember.aadhaar_front_url} className="w-full h-full object-cover transition-transform duration-700 group-hover/img:scale-105" alt="Aadhaar Front" />
+                                        <a href={editingMember.aadhaar_front_url} target="_blank" className="absolute inset-0 bg-black/70 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity backdrop-blur-sm">
                                             <ExternalLink className="text-white" size={24} />
                                         </a>
                                     </div>
                                 </div>
-                            </div>
-                            
-                            <div className="space-y-4 pt-6 border-t border-white/5 relative z-10">
-                                <p className={`text-[10px] font-black uppercase tracking-[0.4em] mb-1 ${isVerified ? "text-green-500" : "text-blue-500"}`}>Target Identity</p>
-                                <h4 className="text-2xl md:text-3xl font-cinzel text-white tracking-tight leading-tight truncate">
-                                    {formatDisplayName(editingMember.name, editingMember.surname)}
-                                </h4>
-                                <div className="flex flex-wrap gap-4">
-                                    <div className="px-5 py-2.5 bg-black/60 rounded-2xl border border-white/5 flex items-center gap-2">
-                                        <Fingerprint size={12} className={isVerified ? "text-green-500/50" : "text-blue-500/50"} />
-                                        <span className="text-[10px] font-mono text-gray-400 uppercase tracking-[0.2em]">{editingMember.aadhaar}</span>
+                                
+                                <div className="lg:col-span-7 flex flex-col justify-center space-y-4 lg:space-y-5">
+                                    <div className="space-y-4">
+                                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/5 pb-3">
+                                            <div className="space-y-1">
+                                                <p className={`text-[9px] font-black uppercase tracking-[0.4em] ${isVerified ? "text-green-500" : "text-blue-500"}`}>Target Identity</p>
+                                                <h4 className="text-xl sm:text-2xl font-cinzel text-white leading-none font-bold uppercase break-words pr-2">
+                                                    {formatDisplayName(editingMember.name, editingMember.surname)}
+                                                </h4>
+                                            </div>
+                                            <div className="flex-shrink-0">
+                                                <div className={`px-4 py-1.5 rounded-full border text-[8px] font-black uppercase tracking-widest whitespace-nowrap ${editingMember.status === MemberStatus.Accepted ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-orange-500/10 border-orange-500/20 text-orange-400'}`}>
+                                                    {editingMember.status} Record
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="px-4 py-3 bg-black/40 rounded-xl border border-white/5 flex items-center gap-4 transition-all hover:bg-black/60">
+                                                <Fingerprint size={16} className={isVerified ? "text-green-500/50" : "text-blue-500/50"} />
+                                                <div className="flex flex-col min-w-0">
+                                                    <span className="text-[7px] font-black uppercase tracking-widest text-gray-600 leading-none mb-1">Citizen ID</span>
+                                                    <span className="text-sm font-mono text-white tracking-widest truncate">{editingMember.aadhaar}</span>
+                                                </div>
+                                            </div>
+                                            <div className="px-4 py-3 bg-black/40 rounded-xl border border-white/5 flex items-center gap-4 transition-all hover:bg-black/60">
+                                                <BadgeCheck size={16} className={isVerified ? "text-green-500/50" : "text-blue-500/50"} />
+                                                <div className="flex flex-col min-w-0">
+                                                    <span className="text-[7px] font-black uppercase tracking-widest text-gray-600 leading-none mb-1">Verification</span>
+                                                    <span className="text-xs font-bold text-white uppercase tracking-tighter truncate">Tier-1 Citizen</span>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className={`px-5 py-2.5 rounded-2xl border flex items-center gap-2 ${editingMember.status === MemberStatus.Accepted ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-orange-500/10 border-orange-500/20 text-orange-400'}`}>
-                                        <BadgeCheck size={12} />
-                                        <span className="text-[10px] font-black uppercase tracking-widest">{editingMember.status}</span>
-                                    </div>
+                                    {isVerified && (
+                                        <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-xl flex items-center gap-3">
+                                            <CheckCircle size={14} className="text-green-500 shrink-0" />
+                                            <p className="text-[9px] font-black text-green-400 uppercase tracking-widest">Verified: Locked</p>
+                                        </div>
+                                    )}
                                 </div>
-                                {isVerified && (
-                                    <div className="mt-4 p-4 bg-green-500/10 border border-green-500/20 rounded-2xl">
-                                        <p className="text-[10px] font-black text-green-400 uppercase tracking-widest text-center">Record verified by master admin. Editing disabled.</p>
-                                    </div>
-                                )}
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <Input label="Given Name" disabled={isVerified} value={editingMember.name} onChange={(e) => setEditingMember({...editingMember, name: e.target.value})} icon={<UserIcon size={14} />} />
-                            <Input label="Surname" disabled={isVerified} value={editingMember.surname} onChange={(e) => setEditingMember({...editingMember, surname: e.target.value})} icon={<UserIcon size={14} />} />
-                            <Input label="Father / Guardian" disabled={isVerified} value={editingMember.father_name} onChange={(e) => setEditingMember({...editingMember, father_name: e.target.value})} icon={<UserCircle size={14} />} description="Identity display name remains strictly Given Name + Surname." />
-                            <Input label="Mobile" disabled={isVerified} value={editingMember.mobile} onChange={(e) => setEditingMember({...editingMember, mobile: e.target.value})} icon={<Phone size={14} />} />
-                            <Input label="DOB" disabled={isVerified} type="date" value={editingMember.dob} onChange={(e) => setEditingMember({...editingMember, dob: e.target.value})} icon={<Calendar size={14} />} />
-                            <Select label="Gender" disabled={isVerified} value={editingMember.gender} onChange={(e) => setEditingMember({...editingMember, gender: e.target.value as Gender})}>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5">
+                            <Input label="Given Name" disabled={isVerified} value={editingMember.name} onChange={(e) => setEditingMember({...editingMember, name: e.target.value})} icon={<UserIcon size={12} />} className="py-2.5 text-xs font-bold" />
+                            <Input label="Surname" disabled={isVerified} value={editingMember.surname} onChange={(e) => setEditingMember({...editingMember, surname: e.target.value})} icon={<UserIcon size={12} />} className="py-2.5 text-xs font-bold" />
+                            <Input label="Father Name" disabled={isVerified} value={editingMember.father_name} onChange={(e) => setEditingMember({...editingMember, father_name: e.target.value})} icon={<UserCircle size={12} />} className="py-2.5 text-xs font-bold" />
+                            <Input label="Mobile" disabled={isVerified} value={editingMember.mobile} onChange={(e) => setEditingMember({...editingMember, mobile: e.target.value})} icon={<Phone size={12} />} className="py-2.5 text-xs font-bold" />
+                            <Input label="DOB" disabled={isVerified} type="date" value={editingMember.dob} onChange={(e) => setEditingMember({...editingMember, dob: e.target.value})} icon={<Calendar size={12} />} className="py-2.5 text-xs font-bold" />
+                            <Select label="Gender" disabled={isVerified} value={editingMember.gender} onChange={(e) => setEditingMember({...editingMember, gender: e.target.value as Gender})} className="py-2.5 text-xs font-bold">
                                 {Object.values(Gender).map(g => <option key={g} value={g}>{g}</option>)}
                             </Select>
-                            <Input label="Pincode" disabled={isVerified} value={editingMember.pincode} onChange={(e) => setEditingMember({...editingMember, pincode: e.target.value})} icon={<MapPin size={14} />} />
-                            <div className="md:col-span-2">
-                                <Input label="Full Address" disabled={isVerified} value={editingMember.address} onChange={(e) => setEditingMember({...editingMember, address: e.target.value})} icon={<MapPin size={14} />} />
+                            <Input label="Pincode" disabled={isVerified} value={editingMember.pincode} onChange={(e) => setEditingMember({...editingMember, pincode: e.target.value})} icon={<MapPin size={12} />} className="py-2.5 text-xs font-bold" />
+                            <div className="sm:col-span-2">
+                                <Input label="Full Residence" disabled={isVerified} value={editingMember.address} onChange={(e) => setEditingMember({...editingMember, address: e.target.value})} icon={<MapPin size={12} />} className="py-2.5 text-xs font-bold" />
                             </div>
-                            <Select label="Occupation" disabled={isVerified} value={editingMember.occupation} onChange={(e) => setEditingMember({...editingMember, occupation: e.target.value as Occupation})}>
+                            <Select label="Vocation" disabled={isVerified} value={editingMember.occupation} onChange={(e) => setEditingMember({...editingMember, occupation: e.target.value as Occupation})} className="py-2.5 text-xs font-bold">
                                 {Object.values(Occupation).map(o => <option key={o} value={o}>{o}</option>)}
                             </Select>
-                            <Select label="Support Need" disabled={isVerified} value={editingMember.support_need} onChange={(e) => setEditingMember({...editingMember, support_need: e.target.value as SupportNeed})}>
+                            <Select label="Support Matrix" disabled={isVerified} value={editingMember.support_need} onChange={(e) => setEditingMember({...editingMember, support_need: e.target.value as SupportNeed})} className="py-2.5 text-xs font-bold">
                                 {Object.values(SupportNeed).map(s => <option key={s} value={s}>{s}</option>)}
                             </Select>
                         </div>
 
-                        <div className="flex justify-end gap-4 pt-10 border-t border-white/5 mt-8 sticky bottom-0 bg-gray-900 pb-4 z-10">
-                            <Button variant="secondary" onClick={() => setIsEditModalOpen(false)} className="px-10 py-4 text-[10px] font-black uppercase tracking-widest">
-                                {isVerified ? "Close View" : "Cancel"}
-                            </Button>
+                        <div className="flex flex-wrap justify-end items-center gap-4 pt-6 border-t border-white/10 mt-6 sticky bottom-0 bg-[#050505] pb-2 z-10">
+                            <div className="flex gap-3 w-full sm:w-auto">
+                                <Button variant="secondary" onClick={() => handleCopyDetails(editingMember)} className="flex-1 sm:flex-none px-4 py-3 text-[9px] font-black uppercase tracking-widest gap-2 bg-white/5 border border-white/5">
+                                    <Copy size={14} /> <span className="hidden xs:inline">Copy</span>
+                                </Button>
+                                <Button variant="secondary" onClick={() => setIsEditModalOpen(false)} className="flex-1 sm:flex-none px-8 py-3 text-[9px] font-black uppercase tracking-widest">
+                                    {isVerified ? "Close" : "Cancel"}
+                                </Button>
+                            </div>
                             {!isVerified && (
-                                <Button onClick={handleUpdateMember} disabled={isUpdating} className="px-12 py-4 text-[10px] font-black uppercase tracking-widest bg-blue-600 hover:bg-blue-500 flex items-center gap-2">
+                                <Button onClick={handleUpdateMember} disabled={isUpdating} className="w-full sm:w-auto px-12 py-4 text-[10px] font-black uppercase tracking-[0.3em] bg-blue-600 hover:bg-blue-500 shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all">
                                     {isUpdating ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                                    {isUpdating ? 'Syncing...' : 'Save Record'}
+                                    {isUpdating ? 'SYNCING...' : 'SAVE RECORD'}
                                 </Button>
                             )}
                         </div>
