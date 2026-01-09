@@ -449,7 +449,7 @@ const AdminReports: React.FC = () => {
                     </div>
                 </div>
             </Modal>
-        </div>
+        </DashboardLayout>
     );
 };
 
