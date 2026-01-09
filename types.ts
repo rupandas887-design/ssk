@@ -15,6 +15,7 @@ export interface User {
   mobile?: string;
   status?: 'Active' | 'Deactivated';
   passwordResetPending?: boolean;
+  profile_photo_url?: string;
 }
 
 export interface Organisation {

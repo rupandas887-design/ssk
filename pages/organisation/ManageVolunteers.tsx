@@ -1,6 +1,7 @@
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { v4 as uuidv4 } from 'uuid';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
@@ -33,7 +34,9 @@ import {
   Phone,
   Building2,
   Lock,
-  ShieldQuestion
+  ShieldQuestion,
+  Camera,
+  XCircle
 } from 'lucide-react';
 
 type VolunteerWithEnrollments = Volunteer & { enrollments: number };
@@ -44,7 +47,10 @@ const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 const ManageVolunteers: React.FC = () => {
   const { user } = useAuth();
   const [volunteers, setVolunteers] = useState<VolunteerWithEnrollments[]>([]);
-  const [newVol, setNewVol] = useState({ name: '', mobile: '', email: '', password: '' });
+  const [newVol, setNewVol] = useState({ name: '', mobile: '', email: '', password: '', profilePhoto: null as File | null });
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -77,7 +83,8 @@ const ManageVolunteers: React.FC = () => {
             organisationId: v.organisation_id,
             organisationName: user.organisationName,
             status: v.status || 'Active',
-            enrollments: v.members?.length || 0
+            enrollments: v.members?.length || 0,
+            profile_photo_url: v.profile_photo_url
         })) || []);
     } catch (e: any) {
         addNotification(`Uplink Error: ${e.message}`, 'error');
@@ -102,6 +109,29 @@ const ManageVolunteers: React.FC = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setNewVol(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setNewVol(prev => ({ ...prev, profilePhoto: file }));
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setNewVol(prev => ({ ...prev, profilePhoto: null }));
+    setPreviewUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const uploadProfilePhoto = async (file: File) => {
+    const fileName = `agent_profile_${uuidv4()}.jpg`;
+    const { data, error } = await supabase.storage.from('member-images').upload(fileName, file);
+    if (error) throw new Error(`Storage Error: ${error.message}`);
+    return supabase.storage.from('member-images').getPublicUrl(data.path).data.publicUrl;
   };
 
   const handleExport = () => {
@@ -189,6 +219,11 @@ const ManageVolunteers: React.FC = () => {
 
     setIsSubmitting(true);
     try {
+        let photoUrl = '';
+        if (newVol.profilePhoto) {
+          photoUrl = await uploadProfilePhoto(newVol.profilePhoto);
+        }
+
         const authClient = createClient(supabaseUrl, supabaseAnonKey, {
           auth: {
             persistSession: false,
@@ -220,7 +255,8 @@ const ManageVolunteers: React.FC = () => {
                 role: 'Volunteer',
                 organisation_id: user.organisationId,
                 mobile,
-                status: 'Active'
+                status: 'Active',
+                profile_photo_url: photoUrl || undefined
             });
             
             if (profileError) throw profileError;
@@ -233,7 +269,8 @@ const ManageVolunteers: React.FC = () => {
             });
 
             addNotification('Agent authorized successfully.', 'success');
-            setNewVol({ name: '', mobile: '', email: '', password: '' });
+            setNewVol({ name: '', mobile: '', email: '', password: '', profilePhoto: null });
+            setPreviewUrl(null);
             fetchVolunteers(); 
         }
     } catch (err: any) {
@@ -258,6 +295,44 @@ const ManageVolunteers: React.FC = () => {
                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400/80 leading-tight">Identity Tier</span>
                     <span className="text-xs font-bold text-white uppercase">Field Operator</span>
                  </div>
+              </div>
+
+              {/* Profile Image Section */}
+              <div className="flex flex-col items-center gap-4 pb-4">
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="relative group cursor-pointer"
+                >
+                  <div className="h-28 w-28 rounded-full border-2 border-dashed border-gray-800 bg-black/40 flex items-center justify-center overflow-hidden group-hover:border-blue-500/50 transition-all duration-300">
+                    {previewUrl ? (
+                      <img src={previewUrl} alt="Preview" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex flex-col items-center gap-1 text-gray-600 group-hover:text-blue-500/70 transition-colors">
+                        <Camera size={28} strokeWidth={1.5} />
+                        <span className="text-[8px] font-black uppercase tracking-widest">Add Photo</span>
+                      </div>
+                    )}
+                  </div>
+                  {previewUrl && (
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemovePhoto();
+                      }}
+                      className="absolute -top-1 -right-1 p-1.5 bg-red-600 text-white rounded-full shadow-lg hover:bg-red-700 transition-all"
+                    >
+                      <XCircle size={14} />
+                    </button>
+                  )}
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    accept="image/*" 
+                    onChange={handleFileChange} 
+                  />
+                </div>
+                <p className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-700">Profile Image (Optional)</p>
               </div>
               
               <Input label="FULL NAME" name="name" value={newVol.name} onChange={handleInputChange} placeholder="Ex: Rahul S" />
@@ -344,12 +419,27 @@ const ManageVolunteers: React.FC = () => {
                   ) : filteredVolunteers.map(vol => (
                     <tr key={vol.id} className="group border-b border-gray-900/50 hover:bg-white/[0.015] transition-all">
                       <td className="p-6">
-                        <div className="flex flex-col gap-2">
-                            <span className="font-bold text-white text-lg group-hover:text-orange-500 transition-colors">{vol.name}</span>
-                            <div className="flex items-center gap-3">
-                                <span className="text-[10px] text-white font-mono tracking-tight">{vol.email}</span>
-                                <span className="h-1 w-1 rounded-full bg-gray-700"></span>
-                                <span className="text-[10px] text-white font-mono tracking-tight">{vol.mobile}</span>
+                        <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 flex-shrink-0 rounded-xl overflow-hidden border border-white/10 group-hover:border-blue-500/50 transition-all shadow-lg bg-black/40">
+                                {vol.profile_photo_url ? (
+                                    <img 
+                                        src={vol.profile_photo_url} 
+                                        alt={vol.name} 
+                                        className="h-full w-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="h-full w-full flex items-center justify-center text-blue-500/50 bg-blue-500/5">
+                                        <UserCircle size={24} />
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <span className="font-bold text-white text-lg group-hover:text-blue-500 transition-colors">{vol.name}</span>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-[10px] text-white font-mono tracking-tight">{vol.email}</span>
+                                    <span className="h-1 w-1 rounded-full bg-gray-700"></span>
+                                    <span className="text-[10px] text-white font-mono tracking-tight">{vol.mobile}</span>
+                                </div>
                             </div>
                         </div>
                       </td>
@@ -395,8 +485,12 @@ const ManageVolunteers: React.FC = () => {
                      <div className="absolute top-0 right-0 p-10 opacity-[0.03] pointer-events-none group-hover:scale-110 transition-transform duration-700">
                         <Fingerprint size={100} />
                     </div>
-                    <div className="h-20 w-20 rounded-[2rem] bg-black/60 border border-blue-500/20 flex items-center justify-center text-blue-500 shadow-2xl relative z-10">
-                        <UserCircle size={40} />
+                    <div className="h-20 w-20 rounded-[2rem] bg-black/60 border border-blue-500/20 flex items-center justify-center text-blue-500 shadow-2xl relative z-10 overflow-hidden">
+                        {selectedVol.profile_photo_url ? (
+                            <img src={selectedVol.profile_photo_url} className="h-full w-full object-cover" />
+                        ) : (
+                            <UserCircle size={40} />
+                        )}
                     </div>
                     <div className="relative z-10 flex-1 overflow-hidden">
                         <div className="flex items-center gap-2 mb-1">
