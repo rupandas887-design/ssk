@@ -3,20 +3,25 @@ import React, { createContext, useState, useContext, ReactNode, useCallback } fr
 import Notification, { NotificationProps } from '../components/ui/Notification';
 import { v4 as uuidv4 } from 'uuid';
 
-type NotificationData = Omit<NotificationProps, 'id' | 'onDismiss'>;
+export type NotificationType = 'success' | 'error' | 'info' | 'registry-success';
+
+interface ExtendedNotificationProps extends Omit<NotificationProps, 'onDismiss'> {
+    imageUrl?: string;
+    title?: string;
+}
 
 interface NotificationContextType {
-  addNotification: (message: string, type: 'success' | 'error' | 'info') => void;
+  addNotification: (message: string, type: NotificationType, imageUrl?: string, title?: string) => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [notifications, setNotifications] = useState<Omit<NotificationProps, 'onDismiss'>[]>([]);
+  const [notifications, setNotifications] = useState<ExtendedNotificationProps[]>([]);
 
-  const addNotification = useCallback((message: string, type: 'success' | 'error' | 'info') => {
+  const addNotification = useCallback((message: string, type: NotificationType, imageUrl?: string, title?: string) => {
     const id = uuidv4();
-    setNotifications(prev => [...prev, { id, message, type }]);
+    setNotifications(prev => [...prev, { id, message, type, imageUrl, title }]);
   }, []);
 
   const dismissNotification = useCallback((id: string) => {
@@ -26,9 +31,11 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   return (
     <NotificationContext.Provider value={{ addNotification }}>
       {children}
-      <div className="fixed top-5 right-5 z-50 space-y-3 w-full max-w-sm">
+      <div className="fixed top-5 right-5 z-[100] space-y-3 w-full max-w-sm pointer-events-none">
         {notifications.map((notification) => (
-          <Notification key={notification.id} {...notification} onDismiss={dismissNotification} />
+          <div key={notification.id} className="pointer-events-auto">
+            <Notification {...notification} onDismiss={dismissNotification} />
+          </div>
         ))}
       </div>
     </NotificationContext.Provider>

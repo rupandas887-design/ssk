@@ -34,7 +34,8 @@ import {
   Edit,
   Camera,
   XCircle,
-  Image as ImageIcon
+  Image as ImageIcon,
+  PartyPopper
 } from 'lucide-react';
 
 const supabaseUrl = "https://baetdjjzfqupdzsoecph.supabase.co";
@@ -60,6 +61,7 @@ const ManageOrganisations: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOrg, setEditingOrg] = useState<(Organisation & { email?: string, newPassword?: string }) | null>(null);
+  const [showSuccessSplash, setShowSuccessSplash] = useState(false);
   const { addNotification } = useNotification();
 
   const fetchOrganisations = useCallback(async () => {
@@ -167,10 +169,19 @@ const ManageOrganisations: React.FC = () => {
           registration_date: new Date().toLocaleDateString()
         });
 
+        const createdOrgName = name;
+        const createdOrgPhoto = photoUrl;
+
         setNewOrg({ name: '', mobile: '', secretaryName: '', email: '', password: '', profilePhoto: null });
         setPreviewUrl(null);
         fetchOrganisations();
-        addNotification('Organization authorized successfully.', 'success');
+        
+        // Trigger high-motion registry success notification
+        addNotification(createdOrgName, 'registry-success', createdOrgPhoto || undefined);
+        
+        // Secondary splash celebration
+        setShowSuccessSplash(true);
+        setTimeout(() => setShowSuccessSplash(false), 3000);
     } catch (err: any) {
         addNotification(err?.message || 'Handshake failed.', 'error');
     } finally {
@@ -326,13 +337,15 @@ const ManageOrganisations: React.FC = () => {
                         <tr key={org.id} className="group border-b border-gray-900/50 hover:bg-white/[0.02] transition-all">
                             <td className="p-6">
                                 <div className="flex items-center gap-4">
-                                    {org.profile_photo_url ? (
-                                      <img src={org.profile_photo_url} alt={org.name} className="h-12 w-12 rounded-xl object-cover border border-white/10 group-hover:border-orange-500/50 transition-all" />
-                                    ) : (
-                                      <div className="h-12 w-12 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500 border border-orange-500/10">
-                                        <Building2 size={24} />
-                                      </div>
-                                    )}
+                                    <div className="h-12 w-12 flex-shrink-0 rounded-xl overflow-hidden border border-white/10 group-hover:border-orange-500/50 transition-all shadow-lg bg-black/40">
+                                      {org.profile_photo_url ? (
+                                        <img src={org.profile_photo_url} alt={org.name} className="h-full w-full object-cover" />
+                                      ) : (
+                                        <div className="h-full w-full flex items-center justify-center text-orange-500/50">
+                                          <Building2 size={24} />
+                                        </div>
+                                      )}
+                                    </div>
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center gap-3">
                                             <span className="font-bold text-white text-lg group-hover:text-orange-500 transition-colors">{org.name}</span>
@@ -365,6 +378,23 @@ const ManageOrganisations: React.FC = () => {
           </Card>
         </div>
       </div>
+
+      {/* SUCCESS CELEBRATION SPLASH */}
+      {showSuccessSplash && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in"></div>
+            <div className="relative animate-splash bg-[#0a0a0a] border border-orange-500/30 rounded-[3rem] p-12 flex flex-col items-center gap-6 shadow-[0_0_100px_rgba(234,88,12,0.2)]">
+                <div className="absolute inset-0 animate-celebrate bg-orange-500/20 rounded-[3rem]"></div>
+                <div className="h-24 w-24 bg-orange-500/10 rounded-full flex items-center justify-center text-orange-500 border border-orange-500/20 shadow-inner mb-2">
+                    <PartyPopper size={48} strokeWidth={1.5} />
+                </div>
+                <div className="text-center space-y-2">
+                    <h2 className="text-3xl font-cinzel text-white uppercase tracking-widest">Registry Updated</h2>
+                    <p className="text-[10px] font-black uppercase tracking-[0.5em] text-orange-500">Node Deployment Complete</p>
+                </div>
+            </div>
+        </div>
+      )}
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Modify Organization Parameters">
           {editingOrg && (

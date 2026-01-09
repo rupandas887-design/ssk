@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import Header from './Header';
+import ScrollingStrip from '../ui/ScrollingStrip';
 import { useAuth } from '../../context/AuthContext';
 import { Role } from '../../types';
 import { 
@@ -81,6 +82,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
     return (
         <div className="min-h-screen bg-black flex flex-col">
             <Header />
+            <ScrollingStrip />
             
             <div className="md:hidden flex items-center justify-between p-4 bg-[#0a0c14] border-b border-white/5">
                 <button 
