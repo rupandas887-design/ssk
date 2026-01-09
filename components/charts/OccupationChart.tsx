@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Occupation, Member } from '../../types';
 
 interface OccupationChartProps {
@@ -8,48 +7,45 @@ interface OccupationChartProps {
 }
 
 const OccupationChart: React.FC<OccupationChartProps> = ({ members }) => {
-    // Initialize all categories
     const occupationCounts = Object.values(Occupation).reduce((acc, occ) => {
         acc[occ] = 0;
         return acc;
     }, {} as Record<string, number>);
 
     members.forEach(member => {
-        const occ = member.occupation || (member as any).occupation;
-        if (occ && occupationCounts[occ] !== undefined) {
-            occupationCounts[occ]++;
-        }
+        const occ = member.occupation;
+        if (occ && occupationCounts[occ] !== undefined) occupationCounts[occ]++;
     });
 
     const data = Object.entries(occupationCounts).map(([name, value]) => ({ name, value }));
-    const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A28CFE', '#FE8C8C', '#8CFE8C'];
+    
+    // Multi-color palette
+    const COLORS = ['#008CFF', '#00C9A7', '#FFCC00', '#FF7E00', '#9D70FF', '#FF7070', '#50E3C2'];
+
+    const isMobile = window.innerWidth < 768;
 
     return (
-        <div style={{ width: '100%', height: 300 }}>
+        <div style={{ width: '100%', height: isMobile ? 240 : 280 }}>
             <ResponsiveContainer>
-                <BarChart data={data} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" horizontal={false} />
-                    <XAxis type="number" stroke="#4b5563" fontSize={10} hide />
+                <BarChart data={data} layout="vertical" margin={{ left: isMobile ? 0 : 10, right: 30 }}>
+                    <XAxis type="number" hide />
                     <YAxis 
                         dataKey="name" 
                         type="category" 
-                        stroke="#9ca3af" 
-                        fontSize={10} 
-                        width={80}
+                        stroke="#4b5563" 
+                        fontSize={isMobile ? 8 : 10} 
+                        width={isMobile ? 70 : 85}
                         tick={{ fill: '#9ca3af', fontWeight: 'bold' }}
+                        axisLine={false}
+                        tickLine={false}
                     />
                     <Tooltip 
-                        cursor={{ fill: 'rgba(255,255,255,0.05)' }} 
-                        contentStyle={{ 
-                            backgroundColor: '#0a0a0a', 
-                            border: '1px solid #333', 
-                            borderRadius: '8px',
-                            color: '#fff'
-                        }}
+                        cursor={{ fill: 'rgba(255,255,255,0.03)' }} 
+                        contentStyle={{ backgroundColor: '#000', border: '1px solid #333', color: '#fff' }}
                         itemStyle={{ color: '#fff' }}
                         labelStyle={{ color: '#fff' }}
                     />
-                    <Bar dataKey="value" name="Members" radius={[0, 4, 4, 0]}>
+                    <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={isMobile ? 12 : 18}>
                         {data.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}

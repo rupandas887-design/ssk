@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { SupportNeed, Member } from '../../types';
 
 interface SupportChartProps {
@@ -8,61 +7,53 @@ interface SupportChartProps {
 }
 
 const SupportChart: React.FC<SupportChartProps> = ({ members }) => {
-    // Robust categorization: Initialize counts for all defined support needs
     const supportCounts = Object.values(SupportNeed).reduce((acc, need) => {
         acc[need] = 0;
         return acc;
     }, {} as Record<string, number>);
 
-    // Aggregate member data safely
     members.forEach(member => {
-        const need = member.support_need || (member as any).supportNeed;
-        if (need && supportCounts[need] !== undefined) {
-            supportCounts[need]++;
-        }
+        const need = member.support_need;
+        if (need && supportCounts[need] !== undefined) supportCounts[need]++;
     });
 
     const data = Object.entries(supportCounts).map(([name, value]) => ({ name, value }));
 
+    // Palette: Primary Orange to White
     const COLORS = ['#FF6600', '#FF8533', '#FFA366', '#FFC299', '#FFD1B3', '#FFE0CC', '#FFF0E6', '#FFFFFF'];
 
+    const isMobile = window.innerWidth < 768;
+
     return (
-        <div style={{ width: '100%', height: 350 }} className="mt-4">
+        <div style={{ width: '100%', height: isMobile ? 280 : 340 }}>
             <ResponsiveContainer>
-                <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 40 }}>
+                <BarChart data={data} margin={{ bottom: isMobile ? 30 : 50 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" vertical={false} />
                     <XAxis 
                         dataKey="name" 
                         stroke="#4b5563" 
                         angle={-45} 
                         textAnchor="end" 
-                        height={80} 
                         interval={0}
-                        fontSize={10}
+                        fontSize={isMobile ? 8 : 10}
                         tick={{ fill: '#9ca3af', fontWeight: 'bold' }}
+                        axisLine={false}
+                        tickLine={false}
                     />
                     <YAxis 
                         stroke="#4b5563" 
-                        fontSize={10}
+                        fontSize={isMobile ? 8 : 10}
                         tick={{ fill: '#9ca3af' }}
                         allowDecimals={false}
+                        axisLine={false}
+                        tickLine={false}
                     />
                     <Tooltip 
-                        cursor={{ fill: 'rgba(255, 102, 0, 0.05)' }} 
-                        contentStyle={{ 
-                            backgroundColor: '#0a0a0a', 
-                            border: '1px solid #333',
-                            borderRadius: '12px',
-                            fontSize: '12px',
-                            color: '#fff'
-                        }} 
+                        contentStyle={{ backgroundColor: '#000', border: '1px solid #333', color: '#fff', borderRadius: '12px' }}
                         itemStyle={{ color: '#fff' }}
                         labelStyle={{ color: '#fff' }}
                     />
-                    <Legend 
-                        wrapperStyle={{ paddingTop: '20px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em' }}
-                    />
-                    <Bar dataKey="value" name="Support Requests" radius={[4, 4, 0, 0]}>
+                    <Bar dataKey="value" barSize={isMobile ? 25 : 55} radius={[4, 4, 0, 0]}>
                         {data.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}

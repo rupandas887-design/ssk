@@ -1,8 +1,6 @@
-
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import Header from './Header';
-import ScrollingStrip from '../ui/ScrollingStrip';
 import { useAuth } from '../../context/AuthContext';
 import { Role } from '../../types';
 import { 
@@ -20,7 +18,8 @@ import {
   Database,
   ShieldCheck,
   Zap,
-  LayoutGrid
+  LayoutGrid,
+  Activity
 } from 'lucide-react';
 
 interface NavItem {
@@ -30,20 +29,20 @@ interface NavItem {
 }
 
 const adminNavItems: NavItem[] = [
-  { path: '/admin', label: 'Network Overview', icon: <LayoutGrid size={20} /> },
-  { path: '/admin/organisations', label: 'Organizations', icon: <Map size={20} /> },
-  { path: '/admin/reports', label: 'Master Registry', icon: <FileDown size={20} /> },
+  { path: '/admin', label: 'Network Control', icon: <LayoutGrid size={18} /> },
+  { path: '/admin/organisations', label: 'Nodes / Bases', icon: <Map size={18} /> },
+  { path: '/admin/reports', label: 'Master Registry', icon: <FileDown size={18} /> },
 ];
 
 const organisationNavItems: NavItem[] = [
-  { path: '/organisation', label: 'Command Hub', icon: <LayoutDashboard size={20} /> },
-  { path: '/organisation/volunteers', label: 'Field Agents', icon: <Users size={20} /> },
-  { path: '/organisation/reports', label: 'Organization Ledger', icon: <Database size={20} /> },
+  { path: '/organisation', label: 'Command Terminal', icon: <LayoutDashboard size={18} /> },
+  { path: '/organisation/volunteers', label: 'Field Agents', icon: <Users size={18} /> },
+  { path: '/organisation/reports', label: 'Identity Ledger', icon: <Database size={18} /> },
 ];
 
 const volunteerNavItems: NavItem[] = [
-  { path: '/volunteer', label: 'Agent Terminal', icon: <Zap size={20} /> },
-  { path: '/volunteer/new-member', label: 'Enrollment', icon: <UserPlus size={20} /> },
+  { path: '/volunteer', label: 'Agent Terminal', icon: <Zap size={18} /> },
+  { path: '/volunteer/new-member', label: 'Enrollment Hub', icon: <UserPlus size={18} /> },
 ];
 
 const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> = ({ children, title }) => {
@@ -66,13 +65,13 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
     const getRoleConfig = () => {
         switch (user?.role) {
             case Role.MasterAdmin:
-                return { label: 'MASTER ADMIN', color: 'text-orange-500', bg: 'bg-orange-500/10', border: 'border-orange-500/30' };
+                return { label: 'MASTER ADMIN', color: 'text-orange-500', bg: 'bg-orange-500/10', border: 'border-orange-500/20' };
             case Role.Organisation:
-                return { label: 'ORGANIZATION LEAD', color: 'text-blue-500', bg: 'bg-blue-500/10', border: 'border-blue-500/30' };
+                return { label: 'ORG LEAD', color: 'text-blue-500', bg: 'bg-blue-500/10', border: 'border-blue-500/20' };
             case Role.Volunteer:
-                return { label: 'FIELD AGENT', color: 'text-green-500', bg: 'bg-green-500/10', border: 'border-green-500/30' };
+                return { label: 'FIELD AGENT', color: 'text-green-500', bg: 'bg-green-500/10', border: 'border-green-500/20' };
             default:
-                return { label: 'GUEST', color: 'text-white', bg: 'bg-gray-500/10', border: 'border-gray-500/30' };
+                return { label: 'GUEST', color: 'text-white', bg: 'bg-white/5', border: 'border-white/10' };
         }
     };
 
@@ -80,68 +79,68 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
     const { label: roleLabel, color: roleColor, bg: roleBg, border: roleBorder } = getRoleConfig();
 
     return (
-        <div className="min-h-screen bg-black flex flex-col">
+        <div className="min-h-screen bg-black flex flex-col text-white selection:bg-orange-500/40">
             <Header />
-            <ScrollingStrip />
             
-            <div className="md:hidden flex items-center justify-between p-4 bg-[#0a0c14] border-b border-white/5">
+            {/* Mobile Navigation Header */}
+            <div className="md:hidden flex items-center justify-between p-4 bg-[#050505] border-b border-white/5">
                 <button 
                   onClick={() => setIsMobileMenuOpen(true)}
-                  className="p-2 text-white hover:text-white"
+                  className="p-2 bg-white/5 rounded-xl text-white hover:bg-orange-600/10 transition-colors"
                 >
-                    <Menu size={24} />
+                    <Menu size={20} />
                 </button>
-                <div className={`px-4 py-1 rounded-full border ${roleBg} ${roleColor} ${roleBorder} text-[9px] font-black tracking-[0.2em]`}>
+                <div className={`px-4 py-1.5 rounded-full border ${roleBg} ${roleColor} ${roleBorder} text-[8px] font-black tracking-widest`}>
                     {roleLabel}
                 </div>
             </div>
 
             <div className="flex flex-1 overflow-hidden relative">
                 {/* Desktop Sidebar */}
-                <aside className="w-64 bg-[#0a0c14] border-r border-white/5 hidden md:flex flex-col">
-                    <div className="p-6 flex-1">
-                        <div className="mb-10 px-2">
-                            <div className={`inline-block px-4 py-1.5 rounded-full border ${roleBg} ${roleColor} ${roleBorder} text-[10px] font-black tracking-[0.25em] mb-8 shadow-lg shadow-black/40`}>
+                <aside className="w-72 bg-[#050505] border-r border-white/5 hidden md:flex flex-col shadow-2xl relative z-30">
+                    <div className="p-8 flex-1 overflow-y-auto custom-scrollbar">
+                        <div className="mb-14">
+                            <div className={`inline-block px-5 py-2 rounded-full border ${roleBg} ${roleColor} ${roleBorder} text-[9px] font-black tracking-[0.3em] mb-12 shadow-xl shadow-black/50`}>
                                 {roleLabel}
                             </div>
-                            <p className="text-[10px] uppercase tracking-[0.3em] text-white font-black mb-6 border-b border-white/5 pb-2">Network Navigation</p>
-                            <nav className="space-y-2">
+                            
+                            <p className="text-[10px] uppercase tracking-[0.5em] text-gray-600 font-black mb-6 border-b border-white/5 pb-4">Terminal Navigation</p>
+                            
+                            <nav className="space-y-4">
                                 {navItems.map(item => (
                                     <NavLink
                                         key={item.path}
                                         to={item.path}
                                         end={item.path === '/admin' || item.path === '/organisation' || item.path === '/volunteer'}
                                         className={({ isActive }) =>
-                                            `flex items-center space-x-4 px-4 py-3.5 rounded-xl transition-all duration-300 ${
+                                            `flex items-center gap-4 px-5 py-4.5 rounded-[1.25rem] transition-all duration-500 ${
                                             isActive
-                                                ? 'bg-orange-600 text-white shadow-xl shadow-orange-900/30 font-bold'
-                                                : 'text-white hover:bg-white/5 hover:text-white'
+                                                ? 'bg-orange-600 text-white shadow-[0_15px_30px_-10px_rgba(234,102,12,0.4)] font-bold translate-x-2'
+                                                : 'text-gray-500 hover:bg-white/5 hover:text-white'
                                             }`
                                         }
                                     >
                                         <span className="shrink-0">{item.icon}</span>
-                                        <span className="text-sm tracking-wide">{item.label}</span>
+                                        <span className="text-[11px] uppercase tracking-widest font-black whitespace-nowrap">{item.label}</span>
                                     </NavLink>
                                 ))}
                             </nav>
                         </div>
                     </div>
 
-                    <div className="p-6 border-t border-white/5 bg-black/20">
-                        <div className="flex flex-col gap-4 mb-6 px-2">
-                            <div className="flex items-center gap-4">
-                                <div className="h-12 w-12 flex-shrink-0 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-orange-500 shadow-inner">
-                                    <UserIcon size={24} strokeWidth={1.5} />
-                                </div>
-                                <div className="overflow-hidden">
-                                    <p className="text-sm font-bold text-white truncate leading-tight">{user?.name}</p>
-                                    <p className={`text-[10px] font-black uppercase tracking-[0.2em] mt-1 ${roleColor}`}>{roleLabel}</p>
-                                </div>
+                    <div className="p-8 border-t border-white/5 bg-black/40">
+                        <div className="flex items-center gap-4 mb-8">
+                            <div className="h-12 w-12 flex-shrink-0 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-orange-500 shadow-inner group">
+                                <UserIcon size={20} strokeWidth={1.5} className="group-hover:scale-110 transition-transform" />
+                            </div>
+                            <div className="overflow-hidden">
+                                <p className="text-xs font-bold text-white truncate leading-tight">{user?.name}</p>
+                                <p className={`text-[9px] font-black uppercase tracking-[0.2em] mt-1.5 opacity-60 ${roleColor}`}>{user?.organisationName || 'Remote Link'}</p>
                             </div>
                         </div>
                         <button 
                             onClick={handleLogout}
-                            className="w-full flex items-center justify-center gap-3 p-4 rounded-2xl bg-red-900/10 hover:bg-red-900/20 text-red-400 transition-all text-[11px] font-black tracking-[0.2em] border border-red-900/20 uppercase"
+                            className="w-full flex items-center justify-center gap-3 p-4.5 rounded-2xl bg-red-600/10 hover:bg-red-600 hover:text-white text-red-500 transition-all text-[10px] font-black tracking-[0.4em] border border-red-600/20 uppercase"
                         >
                             <LogOut size={16} />
                             <span>Sign Out</span>
@@ -149,72 +148,81 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
                     </div>
                 </aside>
 
-                {/* Mobile Menu Overlay */}
-                {isMobileMenuOpen && (
-                    <>
-                        <div 
-                          className="fixed inset-0 bg-black/90 backdrop-blur-md z-40 md:hidden"
-                          onClick={() => setIsMobileMenuOpen(false)}
-                        ></div>
-                        <aside className="fixed inset-y-0 left-0 w-80 bg-[#0a0c14] z-50 flex flex-col shadow-2xl animate-in slide-in-from-left duration-300 md:hidden border-r border-white/10">
-                            <div className="p-8 flex items-center justify-between border-b border-white/5">
-                                <span className="text-2xl font-bold font-cinzel text-white">SSK<span className="text-orange-500">PEOPLE</span></span>
-                                <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-white hover:text-white bg-white/5 rounded-xl">
-                                    <X size={24} />
-                                </button>
+                {/* Main Dynamic Viewport */}
+                <main className="flex-1 p-4 sm:p-8 md:p-14 overflow-y-auto bg-[#020202] custom-scrollbar">
+                    <div className="mb-10 md:mb-16 max-w-7xl mx-auto flex flex-col lg:flex-row lg:items-end justify-between gap-6 md:gap-8 border-b border-white/5 pb-10 md:pb-14">
+                        <div className="space-y-3 md:space-y-5">
+                            <div className="flex items-center gap-2 md:gap-3">
+                                <div className="h-1.5 w-1.5 rounded-full bg-orange-600 animate-pulse"></div>
+                                <span className="text-[8px] md:text-[11px] uppercase tracking-[0.4em] md:tracking-[0.6em] font-black text-gray-600">Secure Environment Access</span>
                             </div>
-                            <div className="p-8 flex-1 overflow-y-auto">
-                                <div className={`inline-block px-4 py-2 rounded-full border ${roleBg} ${roleColor} ${roleBorder} text-[10px] font-black tracking-[0.25em] mb-10`}>
-                                    {roleLabel}
-                                </div>
-                                <nav className="space-y-3">
-                                    {navItems.map(item => (
-                                        <NavLink
-                                            key={item.path}
-                                            to={item.path}
-                                            onClick={() => setIsMobileMenuOpen(false)}
-                                            className={({ isActive }) =>
-                                                `flex items-center space-x-5 p-5 rounded-2xl transition-all ${
-                                                isActive
-                                                    ? 'bg-orange-600 text-white shadow-2xl'
-                                                    : 'text-white hover:bg-white/5'
-                                                }`
-                                            }
-                                        >
-                                            {item.icon}
-                                            <span className="font-bold text-base tracking-wide">{item.label}</span>
-                                        </NavLink>
-                                    ))}
-                                </nav>
-                            </div>
-                            <div className="p-8 border-t border-white/5 bg-black/40">
-                                <button 
-                                    onClick={handleLogout}
-                                    className="w-full flex items-center justify-center gap-4 p-5 rounded-2xl bg-red-600 hover:bg-red-700 text-white transition-all text-xs font-black tracking-[0.3em]"
-                                >
-                                    <LogOut size={20} />
-                                    <span>TERMINATE SESSION</span>
-                                </button>
-                            </div>
-                        </aside>
-                    </>
-                )}
-
-                <main className="flex-1 p-6 md:p-12 overflow-y-auto bg-black custom-scrollbar">
-                    <div className="mb-12 flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-                        <div>
-                            <div className="flex items-center gap-3 text-orange-500 mb-2">
-                                <div className="h-1.5 w-8 bg-orange-600 rounded-full"></div>
-                                <span className="text-[10px] md:text-[11px] uppercase tracking-[0.4em] font-black">{roleLabel} TERMINAL</span>
-                            </div>
-                            <h1 className="font-cinzel text-3xl md:text-5xl text-white tracking-tighter leading-tight">{title}</h1>
+                            <h1 className="font-cinzel text-3xl md:text-6xl lg:text-7xl text-white tracking-tighter leading-none">{title}</h1>
+                        </div>
+                        <div className="flex items-center gap-4 md:gap-5 px-5 md:px-7 py-3 md:py-4 bg-white/[0.02] rounded-2xl md:rounded-3xl border border-white/10 backdrop-blur-3xl shadow-xl self-start lg:self-auto">
+                           <Activity size={16} className="text-green-500 animate-pulse" />
+                           <div className="flex flex-col">
+                               <span className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.4em] text-gray-500">Registry Sync</span>
+                               <span className="text-[8px] md:text-[9px] font-mono text-green-500/80 uppercase">Handshake Nominal</span>
+                           </div>
                         </div>
                     </div>
-                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+
+                    <div className="max-w-7xl mx-auto animate-in">
                         {children}
                     </div>
                 </main>
             </div>
+
+            {/* Mobile Drawer */}
+            {isMobileMenuOpen && (
+              <>
+                <div 
+                  className="fixed inset-0 bg-black/95 z-[110] backdrop-blur-xl animate-fade-in"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                ></div>
+                <div className="fixed inset-y-0 left-0 w-[80%] max-w-[320px] bg-[#050505] z-[120] flex flex-col shadow-[20px_0_60px_rgba(0,0,0,1)] animate-in slide-in-from-left duration-500">
+                    <div className="p-6 border-b border-white/5 flex items-center justify-between">
+                        <span className="text-xl font-cinzel font-bold text-white">SSK<span className="text-orange-500">P</span></span>
+                        <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 bg-white/5 rounded-xl">
+                            <X size={20} />
+                        </button>
+                    </div>
+                    <div className="p-6 flex-1 overflow-y-auto">
+                        <nav className="space-y-3">
+                            {navItems.map(item => (
+                                <NavLink
+                                    key={item.path}
+                                    to={item.path}
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                    className={({ isActive }) =>
+                                        `flex items-center gap-4 p-4 rounded-xl transition-all ${
+                                        isActive ? 'bg-orange-600 text-white shadow-2xl font-bold' : 'text-gray-400 hover:bg-white/5'
+                                        }`
+                                    }
+                                >
+                                    {item.icon}
+                                    <span className="uppercase tracking-widest text-[10px] font-black">{item.label}</span>
+                                </NavLink>
+                            ))}
+                        </nav>
+                    </div>
+                    <div className="p-6 border-t border-white/5">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="h-10 w-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-orange-500">
+                                <UserIcon size={18} />
+                            </div>
+                            <div className="overflow-hidden">
+                                <p className="text-[10px] font-bold text-white truncate leading-tight">{user?.name}</p>
+                                <p className={`text-[8px] font-black uppercase tracking-widest opacity-60 ${roleColor}`}>{roleLabel}</p>
+                            </div>
+                        </div>
+                        <button onClick={handleLogout} className="w-full p-4 bg-red-600/10 text-red-500 border border-red-600/20 rounded-xl font-black uppercase tracking-widest text-[10px]">
+                            Terminate Session
+                        </button>
+                    </div>
+                </div>
+              </>
+            )}
         </div>
     );
 };

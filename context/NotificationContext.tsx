@@ -1,11 +1,13 @@
 
 import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
-import Notification, { NotificationProps } from '../components/ui/Notification';
 import { v4 as uuidv4 } from 'uuid';
 
 export type NotificationType = 'success' | 'error' | 'info' | 'registry-success';
 
-interface ExtendedNotificationProps extends Omit<NotificationProps, 'onDismiss'> {
+interface ExtendedNotificationProps {
+    id: string;
+    message: string;
+    type: NotificationType;
     imageUrl?: string;
     title?: string;
 }
@@ -21,23 +23,22 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   const addNotification = useCallback((message: string, type: NotificationType, imageUrl?: string, title?: string) => {
     const id = uuidv4();
+    // We still maintain the state and auto-dismissal logic to prevent memory leaks 
+    // and keep the context functional for any code that relies on it.
     setNotifications(prev => [...prev, { id, message, type, imageUrl, title }]);
-  }, []);
-
-  const dismissNotification = useCallback((id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
+    
+    setTimeout(() => {
+        setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 5000);
   }, []);
 
   return (
     <NotificationContext.Provider value={{ addNotification }}>
       {children}
-      <div className="fixed top-5 right-5 z-[100] space-y-3 w-full max-w-sm pointer-events-none">
-        {notifications.map((notification) => (
-          <div key={notification.id} className="pointer-events-auto">
-            <Notification {...notification} onDismiss={dismissNotification} />
-          </div>
-        ))}
-      </div>
+      {/* 
+          Visual notification section removed as requested. 
+          Toasts will no longer appear in the UI. 
+      */}
     </NotificationContext.Provider>
   );
 };

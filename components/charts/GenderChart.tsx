@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Gender, Member } from '../../types';
@@ -14,32 +13,29 @@ const GenderChart: React.FC<GenderChartProps> = ({ members }) => {
     }, {} as Record<string, number>);
     
     members.forEach(member => {
-        const g = member.gender || (member as any).gender;
-        if (g && genderCounts[g] !== undefined) {
-            genderCounts[g]++;
-        }
+        const g = member.gender;
+        if (g && genderCounts[g] !== undefined) genderCounts[g]++;
     });
     
-    const data = Object.entries(genderCounts)
-        .filter(([_, value]) => value >= 0) // Keep all for consistent UI
-        .map(([name, value]) => ({ name, value }));
+    const data = Object.entries(genderCounts).map(([name, value]) => ({ name, value }));
 
-    const COLORS = ['#FF6600', '#0088FE', '#FFBB28'];
+    // Precise colors: Orange (Male), Blue (Female), Yellow (Other)
+    const COLORS = ['#FF6600', '#0095FF', '#FFCC00'];
+
+    const isMobile = window.innerWidth < 768;
 
     return (
-        <div style={{ width: '100%', height: 300 }}>
+        <div style={{ width: '100%', height: isMobile ? 240 : 280 }}>
             <ResponsiveContainer>
                 <PieChart>
                     <Pie
                         data={data}
                         cx="50%"
-                        cy="45%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={5}
-                        fill="#8884d8"
+                        cy="50%"
+                        innerRadius={isMobile ? 55 : 75}
+                        outerRadius={isMobile ? 85 : 110}
+                        paddingAngle={4}
                         dataKey="value"
-                        nameKey="name"
                         stroke="none"
                     >
                         {data.map((entry, index) => (
@@ -47,17 +43,17 @@ const GenderChart: React.FC<GenderChartProps> = ({ members }) => {
                         ))}
                     </Pie>
                     <Tooltip 
-                        contentStyle={{ 
-                            backgroundColor: '#0a0a0a', 
-                            border: '1px solid #333', 
-                            borderRadius: '8px', 
-                            fontSize: '12px',
-                            color: '#fff'
-                        }}
+                        contentStyle={{ backgroundColor: '#000', border: '1px solid #333', color: '#fff' }}
                         itemStyle={{ color: '#fff' }}
                         labelStyle={{ color: '#fff' }}
                     />
-                    <Legend verticalAlign="bottom" height={36}/>
+                    <Legend 
+                      verticalAlign="bottom" 
+                      align="center" 
+                      iconType="rect"
+                      iconSize={10}
+                      formatter={(value) => <span className="text-[10px] md:text-[12px] font-bold text-gray-500 uppercase tracking-[0.2em] ml-2">{value}</span>}
+                    />
                 </PieChart>
             </ResponsiveContainer>
         </div>
