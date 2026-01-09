@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
@@ -11,7 +10,7 @@ const Select: React.FC<SelectProps> = ({ label, id, children, description, ...pr
   return (
     <div className="w-full">
       {label && (
-        <label htmlFor={id} className="block text-[12px] font-black uppercase tracking-[0.25em] text-white mb-3">
+        <label htmlFor={id} className="block text-xs font-black uppercase tracking-[0.15em] text-white/90 mb-2.5">
           {label}
         </label>
       )}

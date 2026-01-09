@@ -28,7 +28,6 @@ import {
   Lock,
   Phone,
   User,
-  Trash2,
   AlertTriangle,
   Map,
   Edit,
@@ -56,8 +55,6 @@ const ManageOrganisations: React.FC = () => {
   
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [orgToDelete, setOrgToDelete] = useState<Organisation | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOrg, setEditingOrg] = useState<(Organisation & { email?: string, newPassword?: string }) | null>(null);
@@ -225,21 +222,6 @@ const ManageOrganisations: React.FC = () => {
     }
   };
 
-  const handleDeleteOrganisation = async () => {
-    if (!orgToDelete) return;
-    setIsDeleting(true);
-    try {
-      await supabase.from('organisations').delete().eq('id', orgToDelete.id);
-      addNotification(`${orgToDelete.name} purged from registry.`, 'success');
-      setOrgToDelete(null);
-      fetchOrganisations();
-    } catch (err: any) {
-      addNotification(`Purge failed.`, 'error');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
   return (
     <DashboardLayout title="Organization Management">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
@@ -261,6 +243,7 @@ const ManageOrganisations: React.FC = () => {
                       <img src={previewUrl} alt="Preview" className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex flex-col items-center gap-1 text-gray-600 group-hover:text-orange-500/70 transition-colors">
+                        {/* Fix: use the Camera component directly from lucide-react instead of icon.Camera */}
                         <Camera size={28} strokeWidth={1.5} />
                         <span className="text-[8px] font-black uppercase tracking-widest">Add Logo</span>
                       </div>
@@ -365,9 +348,6 @@ const ManageOrganisations: React.FC = () => {
                                     <button onClick={() => handleEditClick(org)} className="p-2.5 bg-white/5 rounded-xl border border-white/10 hover:border-orange-500/50 text-white hover:text-white transition-all" title="Edit Parameters">
                                         <Edit size={18} />
                                     </button>
-                                    <button onClick={() => setOrgToDelete(org)} className="p-2.5 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-xl border border-transparent hover:border-red-500/20 transition-all" title="Purge Node">
-                                        <Trash2 size={18} />
-                                    </button>
                                 </div>
                             </td>
                         </tr>
@@ -398,41 +378,37 @@ const ManageOrganisations: React.FC = () => {
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Modify Organization Parameters">
           {editingOrg && (
-            <div className="space-y-6">
-                <Input label="Organization Name" name="name" value={editingOrg.name} onChange={(e) => setEditingOrg({...editingOrg, name: e.target.value})} icon={<Building2 size={16} />} />
-                <Input label="Administrative Lead" name="secretary_name" value={editingOrg.secretary_name} onChange={(e) => setEditingOrg({...editingOrg, secretary_name: e.target.value})} icon={<User size={16} />} />
-                <Input label="Primary Mobile" name="mobile" value={editingOrg.mobile} onChange={(e) => setEditingOrg({...editingOrg, mobile: e.target.value})} icon={<Phone size={16} />} />
-                <Select label="Operational Status" name="status" value={editingOrg.status} onChange={(e) => setEditingOrg({...editingOrg, status: e.target.value as any})}>
-                    <option value="Active">Active</option>
-                    <option value="Deactivated">Deactivated</option>
-                </Select>
+            <div className="space-y-8">
+                {/* Profile Photo Display in Modal */}
+                <div className="flex flex-col items-center justify-center pb-2">
+                    <div className="h-24 w-24 rounded-2xl overflow-hidden border border-orange-500/30 bg-black shadow-[0_0_20px_rgba(234,88,12,0.1)]">
+                        {editingOrg.profile_photo_url ? (
+                          <img src={editingOrg.profile_photo_url} alt={editingOrg.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center text-orange-500/30 bg-orange-500/5">
+                            <Building2 size={32} />
+                          </div>
+                        )}
+                    </div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500 mt-3">Current Identity Profile</p>
+                </div>
+
+                <div className="space-y-6">
+                    <Input label="Organization Name" name="name" value={editingOrg.name} onChange={(e) => setEditingOrg({...editingOrg, name: e.target.value})} icon={<Building2 size={16} />} />
+                    <Input label="Administrative Lead" name="secretary_name" value={editingOrg.secretary_name} onChange={(e) => setEditingOrg({...editingOrg, secretary_name: e.target.value})} icon={<User size={16} />} />
+                    <Input label="Primary Mobile" name="mobile" value={editingOrg.mobile} onChange={(e) => setEditingOrg({...editingOrg, mobile: e.target.value})} icon={<Phone size={16} />} />
+                    <Select label="Operational Status" name="status" value={editingOrg.status} onChange={(e) => setEditingOrg({...editingOrg, status: e.target.value as any})}>
+                        <option value="Active">Active</option>
+                        <option value="Deactivated">Deactivated</option>
+                    </Select>
+                </div>
+
                 <div className="flex justify-end gap-4 pt-6 border-t border-white/5">
                     <Button variant="secondary" onClick={() => setIsModalOpen(false)} className="text-[10px] font-black tracking-widest">Abort</Button>
                     <Button onClick={handleUpdateOrganisation} disabled={isSubmitting} className="text-[10px] font-black tracking-widest">{isSubmitting ? "Syncing..." : "Apply Changes"}</Button>
                 </div>
             </div>
           )}
-      </Modal>
-
-      <Modal isOpen={!!orgToDelete} onClose={() => setOrgToDelete(null)} title="Security Protocol: Purge Node">
-        <div className="p-6 text-center space-y-8">
-            <div className="p-6 bg-red-500/10 rounded-full w-24 h-24 mx-auto flex items-center justify-center text-red-500 border border-red-500/20">
-                <AlertTriangle size={48} />
-            </div>
-            <div>
-                <h4 className="text-2xl font-cinzel text-white mb-3 tracking-wide">Confirm Purge</h4>
-                <p className="text-sm text-white leading-relaxed uppercase tracking-[0.2em] font-black">
-                    Purge <span className="text-red-500">"{orgToDelete?.name}"</span>? 
-                    This action is irreversible.
-                </p>
-            </div>
-            <div className="flex gap-4">
-                <Button variant="secondary" onClick={() => setOrgToDelete(null)} className="flex-1 text-[11px] font-black tracking-widest uppercase py-4">Abort</Button>
-                <Button onClick={handleDeleteOrganisation} disabled={isDeleting} className="flex-1 bg-red-600 hover:bg-red-700 text-[11px] font-black tracking-widest uppercase py-4">
-                    {isDeleting ? 'PURGING...' : 'Confirm Purge'}
-                </Button>
-            </div>
-        </div>
       </Modal>
     </DashboardLayout>
   );

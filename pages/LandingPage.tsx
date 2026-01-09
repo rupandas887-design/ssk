@@ -63,7 +63,7 @@ const LandingPage: React.FC = () => {
     <div className="bg-black text-white min-h-screen selection:bg-[#FF6600]/30 overflow-x-hidden font-jost">
       <Header isLandingPage />
 
-      {/* Hero Section - Refined for mobile balance */}
+      {/* Hero Section - Optimized for clarity and color */}
       <section className="pt-16 md:pt-24 pb-20 md:pb-32 px-4 md:px-6">
         <div className="max-w-[1200px] mx-auto text-center">
           <h1 className="font-cinzel font-bold uppercase tracking-tight leading-tight mb-12 md:mb-16">
@@ -89,7 +89,7 @@ const LandingPage: React.FC = () => {
               <img 
                 src="https://i.pinimg.com/736x/68/ac/f6/68acf6f32a216959c497c7a232b35551.jpg" 
                 alt="Sahasrarjuna Illustration" 
-                className="w-full h-auto grayscale rounded-2xl border border-white/5 shadow-2xl"
+                className="w-full h-auto rounded-2xl border border-white/5 shadow-2xl"
               />
             </div>
           </div>

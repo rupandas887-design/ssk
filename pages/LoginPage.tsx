@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -90,9 +89,6 @@ const LoginPage: React.FC = () => {
                                     className="bg-black/40 border-gray-800 text-sm font-medium py-4 px-6 rounded-2xl focus:border-orange-500/50"
                                     required
                                 />
-                                <div className="flex justify-end px-2">
-                                    <button type="button" className="text-[9px] font-black uppercase tracking-widest text-gray-600 hover:text-orange-500 transition-colors">Key Recovery Protocol</button>
-                                </div>
                             </div>
                         </div>
                         

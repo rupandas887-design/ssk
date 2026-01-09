@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -11,7 +10,7 @@ const Input: React.FC<InputProps> = ({ label, id, icon, description, className =
   return (
     <div className="w-full">
       {label && (
-        <label htmlFor={id} className="block text-[10px] font-black uppercase tracking-[0.2em] text-white mb-2 group-focus-within:text-orange-400 transition-colors">
+        <label htmlFor={id} className="block text-xs font-black uppercase tracking-[0.15em] text-white/90 mb-2.5 group-focus-within:text-orange-400 transition-colors">
           {label}
         </label>
       )}

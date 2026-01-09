@@ -30,7 +30,7 @@ interface NavItem {
 
 const adminNavItems: NavItem[] = [
   { path: '/admin', label: 'Network Control', icon: <LayoutGrid size={18} /> },
-  { path: '/admin/organisations', label: 'Nodes / Bases', icon: <Map size={18} /> },
+  { path: '/admin/organisations', label: 'Organization Management', icon: <Map size={18} /> },
   { path: '/admin/reports', label: 'Master Registry', icon: <FileDown size={18} /> },
 ];
 
@@ -113,7 +113,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
                                         to={item.path}
                                         end={item.path === '/admin' || item.path === '/organisation' || item.path === '/volunteer'}
                                         className={({ isActive }) =>
-                                            `flex items-center gap-4 px-5 py-4.5 rounded-[1.25rem] transition-all duration-500 ${
+                                            `flex items-center gap-3 px-4 py-4 rounded-[1.25rem] transition-all duration-500 ${
                                             isActive
                                                 ? 'bg-orange-600 text-white shadow-[0_15px_30px_-10px_rgba(234,102,12,0.4)] font-bold translate-x-2'
                                                 : 'text-gray-500 hover:bg-white/5 hover:text-white'
@@ -121,7 +121,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
                                         }
                                     >
                                         <span className="shrink-0">{item.icon}</span>
-                                        <span className="text-[11px] uppercase tracking-widest font-black whitespace-nowrap">{item.label}</span>
+                                        <span className="text-[10px] uppercase tracking-wider font-black leading-tight">{item.label}</span>
                                     </NavLink>
                                 ))}
                             </nav>
@@ -151,18 +151,19 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
                 {/* Main Dynamic Viewport */}
                 <main className="flex-1 p-4 sm:p-8 md:p-14 overflow-y-auto bg-[#020202] custom-scrollbar">
                     <div className="mb-10 md:mb-16 max-w-7xl mx-auto flex flex-col lg:flex-row lg:items-end justify-between gap-6 md:gap-8 border-b border-white/5 pb-10 md:pb-14">
-                        <div className="space-y-3 md:space-y-5">
+                        <div className="space-y-2 md:space-y-4">
                             <div className="flex items-center gap-2 md:gap-3">
                                 <div className="h-1.5 w-1.5 rounded-full bg-orange-600 animate-pulse"></div>
-                                <span className="text-[8px] md:text-[11px] uppercase tracking-[0.4em] md:tracking-[0.6em] font-black text-gray-600">Secure Environment Access</span>
+                                <span className="text-[7px] md:text-[9px] uppercase tracking-[0.6em] md:tracking-[1em] font-black text-gray-700">Secure Environment Access</span>
                             </div>
-                            <h1 className="font-cinzel text-3xl md:text-6xl lg:text-7xl text-white tracking-tighter leading-none">{title}</h1>
+                            {/* Adjusted font sizes here to make title more manageable and visible */}
+                            <h1 className="font-cinzel text-2xl md:text-4xl lg:text-5xl text-white tracking-tighter leading-none uppercase">{title}</h1>
                         </div>
                         <div className="flex items-center gap-4 md:gap-5 px-5 md:px-7 py-3 md:py-4 bg-white/[0.02] rounded-2xl md:rounded-3xl border border-white/10 backdrop-blur-3xl shadow-xl self-start lg:self-auto">
                            <Activity size={16} className="text-green-500 animate-pulse" />
                            <div className="flex flex-col">
-                               <span className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.4em] text-gray-500">Registry Sync</span>
-                               <span className="text-[8px] md:text-[9px] font-mono text-green-500/80 uppercase">Handshake Nominal</span>
+                               <span className="text-[7px] md:text-[8px] font-black uppercase tracking-[0.4em] text-gray-600">Registry Sync</span>
+                               <span className="text-[7px] md:text-[8px] font-mono text-green-500/80 uppercase">Handshake Nominal</span>
                            </div>
                         </div>
                     </div>
