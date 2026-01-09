@@ -209,10 +209,20 @@ const AdminDashboard: React.FC = () => {
                                     <tr key={org.id} className="group hover:bg-white/[0.02] transition-colors">
                                         <td className="p-5">
                                             <div className="flex items-center gap-4">
-                                                <div className="p-3 bg-orange-500/10 rounded-xl text-orange-500 border border-orange-500/10">
-                                                    <Building2 size={20} />
+                                                <div className="h-10 w-10 flex-shrink-0 rounded-xl overflow-hidden border border-white/10 group-hover:border-orange-500/50 transition-all shadow-lg bg-black/40">
+                                                    {org.profile_photo_url ? (
+                                                      <img 
+                                                        src={org.profile_photo_url} 
+                                                        alt={org.name} 
+                                                        className="h-full w-full object-cover"
+                                                      />
+                                                    ) : (
+                                                      <div className="h-full w-full flex items-center justify-center text-orange-500/50">
+                                                          <Building2 size={20} />
+                                                      </div>
+                                                    )}
                                                 </div>
-                                                <span className="font-bold text-white text-base group-hover:text-orange-500 transition-colors">{org.name}</span>
+                                                <span className="font-bold text-white text-base group-hover:text-orange-500 transition-colors truncate">{org.name}</span>
                                             </div>
                                         </td>
                                         <td className="p-5 text-center">

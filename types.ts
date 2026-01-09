@@ -23,6 +23,7 @@ export interface Organisation {
   secretary_name: string;
   mobile: string;
   status: 'Active' | 'Deactivated';
+  profile_photo_url?: string;
 }
 
 export interface Volunteer extends User {

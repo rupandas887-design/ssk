@@ -76,9 +76,21 @@ const OrganisationDashboard: React.FC = () => {
                     <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-orange-500/[0.03] blur-[100px] rounded-full -mr-20 -mt-20 pointer-events-none transition-all duration-1000 group-hover:bg-orange-500/[0.06]"></div>
                     
                     <div className="relative z-10 flex flex-col xl:flex-row gap-6 lg:gap-10 items-start xl:items-center">
-                        <div className="flex-1 flex flex-col sm:flex-row gap-5 sm:gap-8 items-start">
-                            <div className="p-4 sm:p-6 bg-gradient-to-br from-orange-600/10 to-orange-950/30 rounded-2xl sm:rounded-[2rem] border border-orange-500/10 text-orange-500 shadow-xl overflow-hidden flex-shrink-0">
-                                <Building2 className="w-8 h-8 sm:w-14 sm:h-14" strokeWidth={1.5} />
+                        <div className="flex-1 flex flex-col sm:flex-row gap-5 sm:gap-8 items-start w-full">
+                            <div className="flex-shrink-0">
+                                {orgDetails?.profile_photo_url ? (
+                                    <div className="h-20 w-20 sm:h-28 sm:w-28 rounded-2xl sm:rounded-[2rem] border border-orange-500/20 shadow-xl overflow-hidden group-hover:border-orange-500/50 transition-all duration-500">
+                                        <img 
+                                            src={orgDetails.profile_photo_url} 
+                                            alt={orgDetails.name} 
+                                            className="h-full w-full object-cover"
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="p-4 sm:p-6 bg-gradient-to-br from-orange-600/10 to-orange-950/30 rounded-2xl sm:rounded-[2rem] border border-orange-500/10 text-orange-500 shadow-xl overflow-hidden flex-shrink-0">
+                                        <Building2 className="w-8 h-8 sm:w-14 sm:h-14" strokeWidth={1.5} />
+                                    </div>
+                                )}
                             </div>
                             <div className="space-y-3 sm:space-y-4 overflow-hidden w-full">
                                 <div>

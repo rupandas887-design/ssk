@@ -9,23 +9,24 @@ This is a full-stack application designed to manage the membership drive for the
 
 ## 🚨 Critical: Database Schema Updates
 
-If you are experiencing issues with identity uploads or security resets, you must run these commands in your **Supabase SQL Editor**.
+If you are experiencing issues with identity uploads, organisation profile photos, or security resets, you must run these commands in your **Supabase SQL Editor**.
 
-### 1. Identity Document Columns
+### 1. Database Schema Fixes
 ```sql
+-- Identity Document Columns for Members
 ALTER TABLE members 
 ADD COLUMN IF NOT EXISTS aadhaar_front_url TEXT,
 ADD COLUMN IF NOT EXISTS aadhaar_back_url TEXT;
-```
 
-### 2. Security Reset Column
-```sql
+-- Profile Photo Column for Organisations
+ALTER TABLE organisations 
+ADD COLUMN IF NOT EXISTS profile_photo_url TEXT;
+
+-- Security Reset Column for User Profiles
 ALTER TABLE profiles 
 ADD COLUMN IF NOT EXISTS password_reset_pending BOOLEAN DEFAULT FALSE;
-```
 
-### 3. Refresh Cache
-```sql
+-- Refresh Cache (Essential to see changes)
 NOTIFY pgrst, 'reload schema';
 ```
 

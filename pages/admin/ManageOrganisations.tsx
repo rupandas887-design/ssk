@@ -1,6 +1,7 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { v4 as uuidv4 } from 'uuid';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
@@ -30,7 +31,10 @@ import {
   Trash2,
   AlertTriangle,
   Map,
-  Edit
+  Edit,
+  Camera,
+  XCircle,
+  Image as ImageIcon
 } from 'lucide-react';
 
 const supabaseUrl = "https://baetdjjzfqupdzsoecph.supabase.co";
@@ -38,7 +42,17 @@ const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 const ManageOrganisations: React.FC = () => {
   const [organisations, setOrganisations] = useState<Organisation[]>([]);
-  const [newOrg, setNewOrg] = useState({ name: '', mobile: '', secretaryName: '', email: '', password: '' });
+  const [newOrg, setNewOrg] = useState({ 
+    name: '', 
+    mobile: '', 
+    secretaryName: '', 
+    email: '', 
+    password: '',
+    profilePhoto: null as File | null
+  });
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -68,6 +82,29 @@ const ManageOrganisations: React.FC = () => {
     setNewOrg(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setNewOrg(prev => ({ ...prev, profilePhoto: file }));
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setNewOrg(prev => ({ ...prev, profilePhoto: null }));
+    setPreviewUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const uploadProfilePhoto = async (file: File) => {
+    const fileName = `org_profile_${uuidv4()}.jpg`;
+    const { data, error } = await supabase.storage.from('member-images').upload(fileName, file);
+    if (error) throw new Error(`Storage Error: ${error.message}`);
+    return supabase.storage.from('member-images').getPublicUrl(data.path).data.publicUrl;
+  };
+
   const handleAddOrganisation = async () => {
     const email = newOrg.email.trim().toLowerCase();
     const password = newOrg.password;
@@ -82,9 +119,20 @@ const ManageOrganisations: React.FC = () => {
     
     setIsSubmitting(true);
     try {
+        let photoUrl = '';
+        if (newOrg.profilePhoto) {
+          photoUrl = await uploadProfilePhoto(newOrg.profilePhoto);
+        }
+
         const { data: orgData, error: orgError } = await supabase
           .from('organisations')
-          .insert({ name, mobile, secretary_name: secName, status: 'Active' })
+          .insert({ 
+            name, 
+            mobile, 
+            secretary_name: secName, 
+            status: 'Active',
+            profile_photo_url: photoUrl || undefined
+          })
           .select().single();
 
         if (orgError) throw orgError;
@@ -119,7 +167,8 @@ const ManageOrganisations: React.FC = () => {
           registration_date: new Date().toLocaleDateString()
         });
 
-        setNewOrg({ name: '', mobile: '', secretaryName: '', email: '', password: '' });
+        setNewOrg({ name: '', mobile: '', secretaryName: '', email: '', password: '', profilePhoto: null });
+        setPreviewUrl(null);
         fetchOrganisations();
         addNotification('Organization authorized successfully.', 'success');
     } catch (err: any) {
@@ -188,21 +237,62 @@ const ManageOrganisations: React.FC = () => {
             <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
                 <Map size={100} />
             </div>
-            <div className="space-y-6 relative z-10">
-              <Input label="Organization Name" name="name" value={newOrg.name} onChange={handleInputChange} placeholder="Ex: SSK Bangalore North" icon={<Building2 size={16} />} />
-              <Input label="Primary Mobile" name="mobile" value={newOrg.mobile} onChange={handleInputChange} placeholder="91XXXXXXXX" icon={<Phone size={16} />} />
-              <Input label="Administrative Lead" name="secretaryName" value={newOrg.secretaryName} onChange={handleInputChange} placeholder="Lead Name" icon={<User size={16} />} />
-              <Input label="Lead Access Email" name="email" type="email" value={newOrg.email} onChange={handleInputChange} placeholder="lead@org.com" icon={<Mail size={16} />} />
-              <div className="relative">
-                <Input label="Predefined Access Key" name="password" type={showPassword ? "text" : "password"} value={newOrg.password} onChange={handleInputChange} placeholder="Min 6 characters" icon={<Lock size={16} />} />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-[34px] text-gray-500 hover:text-white transition-colors">
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+            
+            <div className="space-y-8 relative z-10">
+              {/* Profile Photo Section */}
+              <div className="flex flex-col items-center gap-4">
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="relative group cursor-pointer"
+                >
+                  <div className="h-28 w-28 rounded-full border-2 border-dashed border-gray-800 bg-black/40 flex items-center justify-center overflow-hidden group-hover:border-orange-500/50 transition-all duration-300">
+                    {previewUrl ? (
+                      <img src={previewUrl} alt="Preview" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex flex-col items-center gap-1 text-gray-600 group-hover:text-orange-500/70 transition-colors">
+                        <Camera size={28} strokeWidth={1.5} />
+                        <span className="text-[8px] font-black uppercase tracking-widest">Add Logo</span>
+                      </div>
+                    )}
+                  </div>
+                  {previewUrl && (
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemovePhoto();
+                      }}
+                      className="absolute -top-1 -right-1 p-1.5 bg-red-600 text-white rounded-full shadow-lg hover:bg-red-700 transition-all"
+                    >
+                      <XCircle size={14} />
+                    </button>
+                  )}
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    accept="image/*" 
+                    onChange={handleFileChange} 
+                  />
+                </div>
+                <p className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-700">Optional Identity Logo</p>
               </div>
-              <Button type="button" onClick={handleAddOrganisation} disabled={isSubmitting} className="w-full py-5 flex items-center justify-center gap-3 text-[11px] font-black uppercase tracking-[0.3em] shadow-xl">
-                {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <UserPlus size={18} />}
-                {isSubmitting ? 'Establishing Node...' : 'Deploy Organization'}
-              </Button>
+
+              <div className="space-y-6">
+                <Input label="Organization Name" name="name" value={newOrg.name} onChange={handleInputChange} placeholder="Ex: SSK Bangalore North" icon={<Building2 size={16} />} />
+                <Input label="Primary Mobile" name="mobile" value={newOrg.mobile} onChange={handleInputChange} placeholder="91XXXXXXXX" icon={<Phone size={16} />} />
+                <Input label="Administrative Lead" name="secretaryName" value={newOrg.secretaryName} onChange={handleInputChange} placeholder="Lead Name" icon={<User size={16} />} />
+                <Input label="Lead Access Email" name="email" type="email" value={newOrg.email} onChange={handleInputChange} placeholder="lead@org.com" icon={<Mail size={16} />} />
+                <div className="relative">
+                  <Input label="Predefined Access Key" name="password" type={showPassword ? "text" : "password"} value={newOrg.password} onChange={handleInputChange} placeholder="Min 6 characters" icon={<Lock size={16} />} />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-[34px] text-gray-500 hover:text-white transition-colors">
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+                <Button type="button" onClick={handleAddOrganisation} disabled={isSubmitting} className="w-full py-5 flex items-center justify-center gap-3 text-[11px] font-black uppercase tracking-[0.3em] shadow-xl">
+                  {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <UserPlus size={18} />}
+                  {isSubmitting ? 'Establishing Node...' : 'Deploy Organization'}
+                </Button>
+              </div>
             </div>
           </Card>
         </div>
@@ -235,12 +325,21 @@ const ManageOrganisations: React.FC = () => {
                         ) : organisations.map(org => (
                         <tr key={org.id} className="group border-b border-gray-900/50 hover:bg-white/[0.02] transition-all">
                             <td className="p-6">
-                                <div className="flex flex-col gap-1">
-                                    <div className="flex items-center gap-3">
-                                        <span className="font-bold text-white text-lg group-hover:text-orange-500 transition-colors">{org.name}</span>
-                                        {org.status === 'Active' && <CheckCircle2 size={14} className="text-green-500/50" />}
+                                <div className="flex items-center gap-4">
+                                    {org.profile_photo_url ? (
+                                      <img src={org.profile_photo_url} alt={org.name} className="h-12 w-12 rounded-xl object-cover border border-white/10 group-hover:border-orange-500/50 transition-all" />
+                                    ) : (
+                                      <div className="h-12 w-12 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500 border border-orange-500/10">
+                                        <Building2 size={24} />
+                                      </div>
+                                    )}
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center gap-3">
+                                            <span className="font-bold text-white text-lg group-hover:text-orange-500 transition-colors">{org.name}</span>
+                                            {org.status === 'Active' && <CheckCircle2 size={14} className="text-green-500/50" />}
+                                        </div>
+                                        <span className="text-[11px] text-white uppercase font-mono tracking-tighter">{org.secretary_name} • {org.mobile}</span>
                                     </div>
-                                    <span className="text-[11px] text-white uppercase font-mono tracking-tighter">{org.secretary_name} • {org.mobile}</span>
                                 </div>
                             </td>
                             <td className="p-6 text-right">

@@ -36,7 +36,10 @@ type MemberWithAgent = Member & {
     agent_profile?: { 
         name: string, 
         mobile: string,
-        organisations?: { name: string }
+        organisations?: { 
+          name: string,
+          profile_photo_url?: string
+        }
     }
 };
 
@@ -73,7 +76,7 @@ const AdminReports: React.FC = () => {
                         agent_profile:profiles!volunteer_id(
                             name, 
                             mobile,
-                            organisations (name)
+                            organisations (name, profile_photo_url)
                         )
                     `)
                     .order('submission_date', { ascending: false }),
@@ -81,7 +84,6 @@ const AdminReports: React.FC = () => {
             ]);
             
             if (membersRes.data) setMembers(membersRes.data as MemberWithAgent[]);
-            // Fix: Use 'orgsRes' as destructured from Promise.all above instead of 'organisationsRes'
             if (orgsRes.data) setOrganisations(orgsRes.data || []);
         } catch (err) {
             addNotification("Master registry uplink failed.", "error");
@@ -264,15 +266,24 @@ const AdminReports: React.FC = () => {
                                         </td>
                                         <td className="p-6">
                                             <div className="flex items-center gap-4">
-                                                <div className="h-10 w-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500 shrink-0">
-                                                    <UserCircle size={20} />
+                                                <div className="h-10 w-10 flex-shrink-0 rounded-xl overflow-hidden border border-white/10 group-hover:border-orange-500/50 transition-all shadow-lg bg-black/40">
+                                                  {m.agent_profile?.organisations?.profile_photo_url ? (
+                                                    <img 
+                                                      src={m.agent_profile.organisations.profile_photo_url} 
+                                                      className="h-full w-full object-cover" 
+                                                      alt="Org logo" 
+                                                    />
+                                                  ) : (
+                                                    <div className="h-full w-full flex items-center justify-center text-orange-500/50">
+                                                        <Building2 size={18} />
+                                                    </div>
+                                                  )}
                                                 </div>
                                                 <div className="flex flex-col overflow-hidden">
                                                     <span className="text-[11px] font-black text-white uppercase tracking-widest truncate">
                                                         {m.agent_profile?.name || 'Unknown'}
                                                     </span>
                                                     <div className="flex items-center gap-2 mt-0.5">
-                                                        <Building2 size={10} className="text-orange-500/80" />
                                                         <span className="text-[9px] text-orange-500/80 font-black uppercase tracking-widest truncate">
                                                             {m.agent_profile?.organisations?.name || 'Independent'}
                                                         </span>
