@@ -47,7 +47,15 @@ const GenderChart: React.FC<GenderChartProps> = ({ members }) => {
                         ))}
                     </Pie>
                     <Tooltip 
-                        contentStyle={{ backgroundColor: '#0a0a0a', border: '1px solid #333', borderRadius: '8px', fontSize: '12px' }}
+                        contentStyle={{ 
+                            backgroundColor: '#0a0a0a', 
+                            border: '1px solid #333', 
+                            borderRadius: '8px', 
+                            fontSize: '12px',
+                            color: '#fff'
+                        }}
+                        itemStyle={{ color: '#fff' }}
+                        labelStyle={{ color: '#fff' }}
                     />
                     <Legend verticalAlign="bottom" height={36}/>
                 </PieChart>

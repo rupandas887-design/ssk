@@ -114,7 +114,7 @@ const LandingPage: React.FC = () => {
             </h1>
           </div>
           
-          <div className="space-y-6 md:space-y-8 text-gray-300 text-sm sm:text-base md:text-lg leading-relaxed text-left max-w-4xl mx-auto font-light">
+          <div className="space-y-6 md:space-y-8 text-white text-sm sm:text-base md:text-lg leading-relaxed text-left max-w-4xl mx-auto font-light">
             <p>
               The Somavamsha Sahasrarjuna Kshatriya (SSK) community belongs to the Somavamsha or Chandravamsha (Lunar Dynasty), one of the three main Kshatriya lineages in India. Descended from Soma (the Moon), they are known as warriors of the Moon Dynasty.
             </p>
@@ -151,7 +151,7 @@ const LandingPage: React.FC = () => {
                 Live <span className="text-orange-500">Analytics</span>
               </h2>
             </div>
-            <p className="text-[9px] md:text-[10px] font-black text-gray-600 uppercase tracking-[0.4em] mt-4">
+            <p className="text-[9px] md:text-[10px] font-black text-white uppercase tracking-[0.4em] mt-4">
               Real-time Uplink: {lastSync.toLocaleTimeString()}
             </p>
           </div>
@@ -164,8 +164,8 @@ const LandingPage: React.FC = () => {
                       <Globe size={120} />
                   </div>
                   <Users className="text-orange-500/20 group-hover:text-orange-500 transition-colors mb-4 md:mb-6" size={48} strokeWidth={1} />
-                  <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.5em] text-gray-500 mb-2 text-center">Total Verified Members</p>
-                  <p className="text-6xl md:text-8xl font-black text-white tracking-tighter leading-none font-cinzel">{totalMembers}</p>
+                  <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.5em] text-white mb-2 text-center">Total Verified Members</p>
+                  <p className="text-6xl md:text-8xl font-black text-orange-500 tracking-tighter leading-none font-cinzel">{totalMembers}</p>
                 </Card>
                 
                 <Card title="Gender Distribution" className="bg-[#050505] border-white/5 overflow-hidden">
@@ -186,12 +186,12 @@ const LandingPage: React.FC = () => {
                       <div className="p-4 md:p-6 bg-orange-500/10 rounded-full text-orange-500 mb-4 md:mb-6">
                           <Activity size={32} />
                       </div>
-                      <p className="text-3xl md:text-4xl font-black text-white mb-1 md:mb-2">{volunteers.length}</p>
-                      <p className="text-[9px] md:text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Volunteers</p>
+                      <p className="text-3xl md:text-4xl font-black text-orange-500 mb-1 md:mb-2">{volunteers.length}</p>
+                      <p className="text-[9px] md:text-[10px] font-black text-white uppercase tracking-widest text-center">Volunteers</p>
                       
                       <div className="mt-6 md:mt-8 pt-6 md:pt-8 border-t border-white/5 w-full">
-                          <p className="text-3xl md:text-4xl font-black text-white mb-1 md:mb-2">{organisations.length}</p>
-                          <p className="text-[9px] md:text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">ORGANIZATIONS</p>
+                          <p className="text-3xl md:text-4xl font-black text-orange-500 mb-1 md:mb-2">{organisations.length}</p>
+                          <p className="text-[9px] md:text-[10px] font-black text-white uppercase tracking-widest text-center">ORGANIZATIONS</p>
                       </div>
                   </Card>
               </div>
@@ -199,7 +199,7 @@ const LandingPage: React.FC = () => {
           ) : (
             <div className="flex flex-col items-center justify-center p-20 md:p-32 gap-6">
               <RefreshCw className="animate-spin text-orange-500" size={40} />
-              <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.5em] text-gray-600">Syncing Master Node...</p>
+              <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.5em] text-white">Syncing Master Node...</p>
             </div>
           )}
         </section>
@@ -214,7 +214,7 @@ const LandingPage: React.FC = () => {
           {!loading ? (
             <Leaderboard members={members} organisations={organisations} volunteers={volunteers} />
           ) : (
-            <p className="text-center text-gray-700 animate-pulse font-black text-[9px] md:text-[10px] uppercase tracking-widest">Calculating Performance...</p>
+            <p className="text-center text-white animate-pulse font-black text-[9px] md:text-[10px] uppercase tracking-widest">Calculating Performance...</p>
           )}
         </section>
 
@@ -229,7 +229,7 @@ const LandingPage: React.FC = () => {
         <section className="text-center pb-12 md:pb-20">
           <div className="max-w-4xl mx-auto p-8 md:p-16 bg-gradient-to-br from-[#080808] to-black rounded-[2rem] md:rounded-[3rem] border border-orange-500/10 relative overflow-hidden group">
             <h2 className="text-2xl md:text-4xl font-cinzel text-white uppercase tracking-widest mb-6 md:mb-8">Join the Registry</h2>
-            <p className="text-gray-400 font-light text-base md:text-lg mb-8 md:mb-12 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-white font-light text-base md:text-lg mb-8 md:mb-12 max-w-2xl mx-auto leading-relaxed">
               Become a verified contributor to the global SSK database.
             </p>
             <div className="inline-block px-8 md:px-12 py-4 md:py-6 bg-orange-600 hover:bg-orange-500 rounded-full shadow-[0_20px_50px_-10px_rgba(255,100,0,0.2)] transition-all duration-500 active:scale-95">

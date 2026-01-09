@@ -71,7 +71,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
             case Role.Volunteer:
                 return { label: 'FIELD AGENT', color: 'text-green-500', bg: 'bg-green-500/10', border: 'border-green-500/30' };
             default:
-                return { label: 'GUEST', color: 'text-gray-500', bg: 'bg-gray-500/10', border: 'border-gray-500/30' };
+                return { label: 'GUEST', color: 'text-white', bg: 'bg-gray-500/10', border: 'border-gray-500/30' };
         }
     };
 
@@ -85,7 +85,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
             <div className="md:hidden flex items-center justify-between p-4 bg-[#0a0c14] border-b border-white/5">
                 <button 
                   onClick={() => setIsMobileMenuOpen(true)}
-                  className="p-2 text-gray-400 hover:text-white"
+                  className="p-2 text-white hover:text-white"
                 >
                     <Menu size={24} />
                 </button>
@@ -102,7 +102,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
                             <div className={`inline-block px-4 py-1.5 rounded-full border ${roleBg} ${roleColor} ${roleBorder} text-[10px] font-black tracking-[0.25em] mb-8 shadow-lg shadow-black/40`}>
                                 {roleLabel}
                             </div>
-                            <p className="text-[10px] uppercase tracking-[0.3em] text-gray-600 font-black mb-6 border-b border-white/5 pb-2">Network Navigation</p>
+                            <p className="text-[10px] uppercase tracking-[0.3em] text-white font-black mb-6 border-b border-white/5 pb-2">Network Navigation</p>
                             <nav className="space-y-2">
                                 {navItems.map(item => (
                                     <NavLink
@@ -113,7 +113,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
                                             `flex items-center space-x-4 px-4 py-3.5 rounded-xl transition-all duration-300 ${
                                             isActive
                                                 ? 'bg-orange-600 text-white shadow-xl shadow-orange-900/30 font-bold'
-                                                : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                                                : 'text-white hover:bg-white/5 hover:text-white'
                                             }`
                                         }
                                     >
@@ -157,7 +157,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
                         <aside className="fixed inset-y-0 left-0 w-80 bg-[#0a0c14] z-50 flex flex-col shadow-2xl animate-in slide-in-from-left duration-300 md:hidden border-r border-white/10">
                             <div className="p-8 flex items-center justify-between border-b border-white/5">
                                 <span className="text-2xl font-bold font-cinzel text-white">SSK<span className="text-orange-500">PEOPLE</span></span>
-                                <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-gray-500 hover:text-white bg-white/5 rounded-xl">
+                                <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-white hover:text-white bg-white/5 rounded-xl">
                                     <X size={24} />
                                 </button>
                             </div>
@@ -175,7 +175,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
                                                 `flex items-center space-x-5 p-5 rounded-2xl transition-all ${
                                                 isActive
                                                     ? 'bg-orange-600 text-white shadow-2xl'
-                                                    : 'text-gray-400 hover:bg-white/5'
+                                                    : 'text-white hover:bg-white/5'
                                                 }`
                                             }
                                         >

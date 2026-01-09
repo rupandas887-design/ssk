@@ -74,6 +74,7 @@ const VolunteerDashboard: React.FC = () => {
             const { success, error } = await updatePassword(newPass);
             if (success) {
                 addNotification("Security Key updated successfully. Network access restored.", "success");
+                setNewPass('');
             } else {
                 addNotification(error || "Update failed.", "error");
             }
@@ -83,8 +84,10 @@ const VolunteerDashboard: React.FC = () => {
     };
 
     useEffect(() => {
-        fetchSubmissions();
-    }, [user, addNotification]);
+        if (user?.id) {
+            fetchSubmissions();
+        }
+    }, [user?.id]);
     
     const [filters, setFilters] = useState({
         startDate: '',
@@ -113,11 +116,11 @@ const VolunteerDashboard: React.FC = () => {
         });
     }, [mySubmissions, filters]);
 
-    const isLocked = user?.passwordResetPending;
+    const isLocked = !!user?.passwordResetPending;
 
     return (
         <DashboardLayout title="Agent Terminal">
-            <div className={`space-y-4 md:space-y-6 pb-6 transition-all duration-700 ${isLocked ? 'blur-xl grayscale pointer-events-none opacity-40' : ''}`}>
+            <div className={`space-y-4 md:space-y-6 pb-6 transition-all duration-700 ${isLocked ? 'blur-2xl grayscale pointer-events-none opacity-40 select-none' : ''}`}>
                 <div className="flex flex-col md:flex-row justify-between items-center gap-6 p-6 md:p-8 bg-blue-900/10 border border-blue-900/20 rounded-2xl md:rounded-[2rem] shadow-xl relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-6 opacity-[0.02] group-hover:rotate-6 transition-transform duration-700 pointer-events-none">
                         <User size={100} className="md:size-[120px]" />
@@ -240,14 +243,14 @@ const VolunteerDashboard: React.FC = () => {
             </div>
 
             {/* MANDATORY SECURITY UPDATE MODAL */}
-            <Modal isOpen={!!isLocked} onClose={() => {}} title="Critical Security Update Required">
+            <Modal isOpen={isLocked} onClose={() => {}} title="Critical Security Update Required">
                 <div className="space-y-8 p-4">
                     <div className="p-6 bg-red-600/10 border border-red-500/20 rounded-3xl flex items-center gap-4">
                         <ShieldAlert className="text-red-500 shrink-0" size={32} />
                         <div className="space-y-1">
-                            <p className="text-xs font-black uppercase tracking-widest text-red-500">Node Compromised / Flagged</p>
+                            <p className="text-xs font-black uppercase tracking-widest text-red-500">Security Override Engaged</p>
                             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider leading-relaxed">
-                                Your organization has initiated a mandatory security key update for your agent profile. Access to the Field Terminal is suspended until a new key is established.
+                                Your access key has been flagged for mandatory renewal. You must establish a new security key to restore terminal connectivity.
                             </p>
                         </div>
                     </div>
@@ -255,7 +258,7 @@ const VolunteerDashboard: React.FC = () => {
                     <div className="space-y-6">
                         <div className="relative">
                             <Input 
-                                label="NEW SECURITY KEY" 
+                                label="ESTABLISH NEW SECURITY KEY" 
                                 type={showPass ? "text" : "password"} 
                                 value={newPass} 
                                 onChange={(e) => setNewPass(e.target.value)}
@@ -275,11 +278,11 @@ const VolunteerDashboard: React.FC = () => {
                     <div className="pt-4">
                         <Button 
                             onClick={handleForcePasswordChange} 
-                            disabled={isUpdatingPass || !newPass} 
-                            className="w-full py-5 text-[11px] font-black uppercase tracking-[0.4em] bg-red-600 hover:bg-red-500 flex items-center justify-center gap-3"
+                            disabled={isUpdatingPass || !newPass || newPass.length < 6} 
+                            className="w-full py-5 text-[11px] font-black uppercase tracking-[0.4em] bg-orange-600 hover:bg-orange-500 flex items-center justify-center gap-3"
                         >
                             {isUpdatingPass ? <Loader2 className="animate-spin" size={20} /> : <KeyRound size={20} />}
-                            {isUpdatingPass ? 'SYNCHRONIZING...' : 'Establish New Security Key'}
+                            {isUpdatingPass ? 'SYNCHRONIZING...' : 'Apply Security Update'}
                         </Button>
                     </div>
                 </div>

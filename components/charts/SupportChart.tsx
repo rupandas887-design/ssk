@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { SupportNeed, Member } from '../../types';
@@ -55,7 +56,8 @@ const SupportChart: React.FC<SupportChartProps> = ({ members }) => {
                             fontSize: '12px',
                             color: '#fff'
                         }} 
-                        itemStyle={{ color: '#FF6600' }}
+                        itemStyle={{ color: '#fff' }}
+                        labelStyle={{ color: '#fff' }}
                     />
                     <Legend 
                         wrapperStyle={{ paddingTop: '20px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em' }}

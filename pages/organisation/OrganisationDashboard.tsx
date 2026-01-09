@@ -129,7 +129,7 @@ const OrganisationDashboard: React.FC = () => {
                             <div>
                                 <p className="text-gray-600 text-[8px] lg:text-[10px] font-black uppercase tracking-[0.3em] mb-1">Personnel</p>
                                 <div className="flex items-baseline gap-2">
-                                    <p className="text-3xl lg:text-4xl font-black text-white leading-none tracking-tighter">{myVolunteers.length}</p>
+                                    <p className="text-3xl lg:text-4xl font-black text-orange-500 leading-none tracking-tighter">{myVolunteers.length}</p>
                                     <span className="text-[8px] font-black text-blue-500/50 uppercase tracking-widest">Active</span>
                                 </div>
                             </div>
@@ -147,7 +147,7 @@ const OrganisationDashboard: React.FC = () => {
                             <div>
                                 <p className="text-gray-600 text-[8px] lg:text-[10px] font-black uppercase tracking-[0.3em] mb-1">Total Identity</p>
                                 <div className="flex items-baseline gap-2">
-                                    <p className="text-3xl lg:text-4xl font-black text-white leading-none tracking-tighter">{myMembers.length}</p>
+                                    <p className="text-3xl lg:text-4xl font-black text-orange-500 leading-none tracking-tighter">{myMembers.length}</p>
                                     <span className="text-[8px] font-black text-orange-500/50 uppercase tracking-widest">Enrolled</span>
                                 </div>
                             </div>

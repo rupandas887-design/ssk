@@ -153,7 +153,7 @@ const AdminDashboard: React.FC = () => {
                     </div>
                     <div>
                         <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Active Organizations</p>
-                        <p className="text-5xl font-black text-white">{loading ? '...' : organisations.length}</p>
+                        <p className="text-5xl font-black text-orange-500">{loading ? '...' : organisations.length}</p>
                     </div>
                 </Card>
                 
@@ -171,7 +171,7 @@ const AdminDashboard: React.FC = () => {
                         </div>
                         <div>
                             <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Field Agents</p>
-                            <p className="text-5xl font-black text-white">{loading ? '...' : volunteersWithOrg.length}</p>
+                            <p className="text-5xl font-black text-orange-500">{loading ? '...' : volunteersWithOrg.length}</p>
                             <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest mt-4 opacity-60 group-hover:opacity-100 transition-opacity">Access Personnel File →</p>
                         </div>
                     </Card>
@@ -187,7 +187,7 @@ const AdminDashboard: React.FC = () => {
                     </div>
                     <div>
                         <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Total Enrolled Members</p>
-                        <p className="text-5xl font-black text-white">{loading ? '...' : members.length}</p>
+                        <p className="text-5xl font-black text-orange-500">{loading ? '...' : members.length}</p>
                     </div>
                 </Card>
             </div>

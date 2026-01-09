@@ -91,6 +91,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return null;
   }, []);
 
+  const refreshProfile = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+        const updatedUser = await fetchProfile(session.user.id, session.user);
+        setUser(updatedUser);
+    }
+  }, [fetchProfile]);
+
   const login = async (email: string, password: string): Promise<{ user: User | null; error?: string; code?: string }> => {
     try {
         const { data, error: authError } = await supabase.auth.signInWithPassword({ 
@@ -119,43 +127,75 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser(null);
   };
 
-  const refreshProfile = useCallback(async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-          const updatedUser = await fetchProfile(session.user.id, session.user);
-          setUser(updatedUser);
-      }
-  }, [fetchProfile]);
-
   const updatePassword = async (newPassword: string) => {
+      // 1. Update the password in Supabase Auth (this affects the actual login credentials)
       const { error: authError } = await supabase.auth.updateUser({ password: newPassword });
       if (authError) return { success: false, error: authError.message };
       
-      // If we successfully updated auth password, clear the flag in profiles
+      // 2. Clear the mandatory reset flag in the profiles table to unlock the UI
       if (user?.id) {
-          await supabase.from('profiles').update({ password_reset_pending: false }).eq('id', user.id);
-          // Refresh local user state
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .update({ password_reset_pending: false })
+            .eq('id', user.id);
+          
+          if (profileError) {
+              console.error("Failed to clear security flag:", profileError);
+              return { success: false, error: "Password changed but security flag remains. Please contact support." };
+          }
+          
+          // 3. Immediately refresh local state
           await refreshProfile();
       }
       
       return { success: true };
   }
 
+  // Effect for Auth State and Real-Time Security Monitoring
   useEffect(() => {
+    let profileSubscription: any = null;
+
     const init = async () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
             try {
                 const mapped = await fetchProfile(session.user.id, session.user);
                 setUser(mapped);
+
+                // Set up real-time monitoring for THIS user's profile
+                // This ensures if an admin flips 'password_reset_pending', this session reacts immediately
+                profileSubscription = supabase
+                    .channel(`profile-security-${session.user.id}`)
+                    .on(
+                        'postgres_changes',
+                        { 
+                            event: 'UPDATE', 
+                            schema: 'public', 
+                            table: 'profiles', 
+                            filter: `id=eq.${session.user.id}` 
+                        },
+                        () => {
+                            console.debug("Security profile update detected. Synchronizing...");
+                            refreshProfile();
+                        }
+                    )
+                    .subscribe();
+
             } catch (e) {
                 console.error("Auth init error:", e);
             }
         }
         setLoading(false);
     };
+
     init();
-  }, [fetchProfile]);
+
+    return () => {
+        if (profileSubscription) {
+            supabase.removeChannel(profileSubscription);
+        }
+    };
+  }, [fetchProfile, refreshProfile]);
 
   return (
     <AuthContext.Provider value={{ user, loading, login, logout, refreshProfile, updatePassword }}>

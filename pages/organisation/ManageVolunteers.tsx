@@ -26,14 +26,14 @@ import {
   Search,
   Filter,
   Eye,
-  EyeOff,
   KeyRound,
   ShieldAlert,
   Fingerprint,
   Mail,
   Phone,
   Building2,
-  Lock
+  Lock,
+  ShieldQuestion
 } from 'lucide-react';
 
 type VolunteerWithEnrollments = Volunteer & { enrollments: number };
@@ -52,8 +52,6 @@ const ManageVolunteers: React.FC = () => {
   const [selectedVol, setSelectedVol] = useState<VolunteerWithEnrollments | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
-  const [newResetPassword, setNewResetPassword] = useState('');
-  const [showResetPass, setShowResetPass] = useState(false);
 
   const { addNotification } = useNotification();
 
@@ -153,23 +151,14 @@ const ManageVolunteers: React.FC = () => {
 
   const handleResetPasswordClick = (vol: VolunteerWithEnrollments) => {
     setSelectedVol(vol);
-    setNewResetPassword('');
-    setShowResetPass(false);
     setIsResetModalOpen(true);
   };
 
   const handleResetPassword = async () => {
     if (!selectedVol) return;
-    if (!newResetPassword || newResetPassword.length < 6) {
-        addNotification("New key must be at least 6 characters.", "error");
-        return;
-    }
-
+    
     setIsSubmitting(true);
     try {
-        // Flag the account for mandatory reset. 
-        // Note: Client-side Supabase cannot change another user's auth password directly without Admin rights,
-        // so we use the 'password_reset_pending' flag to force the user to set their own on login.
         const { error } = await supabase
             .from('profiles')
             .update({ password_reset_pending: true })
@@ -177,7 +166,7 @@ const ManageVolunteers: React.FC = () => {
 
         if (error) throw error;
 
-        addNotification(`Security override engaged for ${selectedVol.name}. They will be forced to establish a new key on login.`, 'success');
+        addNotification(`Mandatory reset flag deployed for ${selectedVol.name}.`, 'success');
         setIsResetModalOpen(false);
     } catch (err: any) {
         addNotification(`Override failed: ${err.message}`, 'error');
@@ -300,7 +289,7 @@ const ManageVolunteers: React.FC = () => {
                       <h3 className="font-cinzel text-3xl text-white tracking-tight">Active Agent Registry</h3>
                       <div className="flex items-center gap-2 mt-1">
                           <Activity size={12} className="text-green-500 animate-pulse" />
-                          <span className="text-[9px] text-gray-600 font-black uppercase tracking-widest">Network Node Active</span>
+                          <span className="text-[9px] text-white font-black uppercase tracking-widest">Network Node Active</span>
                       </div>
                     </div>
                 </div>
@@ -309,14 +298,14 @@ const ManageVolunteers: React.FC = () => {
                         <FileSpreadsheet size={20} />
                         <span className="hidden sm:inline">Export CSV</span>
                     </button>
-                    <button onClick={fetchVolunteers} className="p-4 bg-white/5 rounded-2xl border border-white/5 hover:border-orange-500/40 text-gray-500 hover:text-white transition-all shadow-xl">
+                    <button onClick={fetchVolunteers} className="p-4 bg-white/5 rounded-2xl border border-white/5 hover:border-orange-500/40 text-white hover:text-white transition-all shadow-xl">
                         <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
                     </button>
                 </div>
             </div>
 
             <div className="mb-8 p-6 bg-black/40 border border-white/5 rounded-[2rem] shadow-inner relative overflow-hidden group">
-                <div className="flex items-center gap-3 mb-4 text-gray-500">
+                <div className="flex items-center gap-3 mb-4 text-white">
                     <Filter size={14} />
                     <span className="text-[10px] font-black uppercase tracking-[0.3em]">Query Parameters</span>
                 </div>
@@ -329,7 +318,7 @@ const ManageVolunteers: React.FC = () => {
                         placeholder="Search Identity by Name or Mobile..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full bg-black/60 border border-gray-800 rounded-2xl py-4 pl-12 pr-4 text-white placeholder-gray-700 focus:outline-none focus:ring-1 focus:ring-orange-500/40 focus:border-orange-500 transition-all font-medium"
+                        className="w-full bg-black/60 border border-gray-800 rounded-2xl py-4 pl-12 pr-4 text-white placeholder-white focus:outline-none focus:ring-1 focus:ring-orange-500/40 focus:border-orange-500 transition-all font-medium"
                     />
                 </div>
             </div>
@@ -338,19 +327,19 @@ const ManageVolunteers: React.FC = () => {
               <table className="w-full text-left">
                 <thead className="border-b border-gray-800">
                   <tr>
-                    <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-gray-500 font-black">Personnel Node</th>
-                    <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-gray-500 font-black text-center">Enrollments</th>
-                    <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-gray-500 font-black text-right">Actions</th>
+                    <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-white font-black">Personnel Node</th>
+                    <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-white font-black text-center">Enrollments</th>
+                    <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-white font-black text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={3} className="p-20 text-center text-[10px] font-black uppercase tracking-[0.5em] text-gray-600 animate-pulse">Syncing...</td>
+                      <td colSpan={3} className="p-20 text-center text-[10px] font-black uppercase tracking-[0.5em] text-white animate-pulse">Syncing...</td>
                     </tr>
                   ) : filteredVolunteers.length === 0 ? (
                     <tr>
-                      <td colSpan={3} className="p-20 text-center text-[10px] font-black uppercase tracking-[0.5em] text-gray-700 italic">No matching personnel records detected.</td>
+                      <td colSpan={3} className="p-20 text-center text-[10px] font-black uppercase tracking-[0.5em] text-white italic">No matching personnel records detected.</td>
                     </tr>
                   ) : filteredVolunteers.map(vol => (
                     <tr key={vol.id} className="group border-b border-gray-900/50 hover:bg-white/[0.015] transition-all">
@@ -358,9 +347,9 @@ const ManageVolunteers: React.FC = () => {
                         <div className="flex flex-col gap-2">
                             <span className="font-bold text-white text-lg group-hover:text-orange-500 transition-colors">{vol.name}</span>
                             <div className="flex items-center gap-3">
-                                <span className="text-[10px] text-gray-600 font-mono tracking-tight">{vol.email}</span>
+                                <span className="text-[10px] text-white font-mono tracking-tight">{vol.email}</span>
                                 <span className="h-1 w-1 rounded-full bg-gray-700"></span>
-                                <span className="text-[10px] text-gray-600 font-mono tracking-tight">{vol.mobile}</span>
+                                <span className="text-[10px] text-white font-mono tracking-tight">{vol.mobile}</span>
                             </div>
                         </div>
                       </td>
@@ -372,13 +361,13 @@ const ManageVolunteers: React.FC = () => {
                       </td>
                       <td className="p-6 text-right">
                         <div className="flex justify-end gap-2 transition-all duration-500">
-                            <button onClick={() => handleViewProfile(vol)} className="p-3 bg-white/5 border border-white/10 text-gray-500 hover:text-blue-400 rounded-xl transition-all" title="View Profile">
+                            <button onClick={() => handleViewProfile(vol)} className="p-3 bg-white/5 border border-white/10 text-white hover:text-blue-400 rounded-xl transition-all" title="View Profile">
                                 <Eye size={16} />
                             </button>
-                            <button onClick={() => handleResetPasswordClick(vol)} className="p-3 bg-white/5 border border-white/10 text-gray-500 hover:text-orange-400 rounded-xl transition-all" title="Reset Access Key">
+                            <button onClick={() => handleResetPasswordClick(vol)} className="p-3 bg-white/5 border border-white/10 text-white hover:text-orange-400 rounded-xl transition-all" title="Trigger Reset flag">
                                 <KeyRound size={16} />
                             </button>
-                            <button onClick={() => copyVolunteerCreds(vol)} className="p-3 bg-white/5 border border-white/10 text-gray-500 hover:text-white rounded-xl transition-all" title="Copy Details">
+                            <button onClick={() => copyVolunteerCreds(vol)} className="p-3 bg-white/5 border border-white/10 text-white hover:text-white rounded-xl transition-all" title="Copy Details">
                                 <Copy size={16} />
                             </button>
                             <button 
@@ -423,21 +412,21 @@ const ManageVolunteers: React.FC = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="p-5 bg-white/[0.02] border border-white/5 rounded-2xl space-y-2">
-                        <div className="flex items-center gap-2 text-gray-500">
+                        <div className="flex items-center gap-2 text-white">
                             <Mail size={14} />
                             <span className="text-[9px] font-black uppercase tracking-widest">Access Email</span>
                         </div>
                         <p className="text-sm font-bold text-white font-mono truncate">{selectedVol.email}</p>
                     </div>
                     <div className="p-5 bg-white/[0.02] border border-white/5 rounded-2xl space-y-2">
-                        <div className="flex items-center gap-2 text-gray-500">
+                        <div className="flex items-center gap-2 text-white">
                             <Phone size={14} />
                             <span className="text-[9px] font-black uppercase tracking-widest">Mobile Identity</span>
                         </div>
                         <p className="text-sm font-bold text-white font-mono">{selectedVol.mobile}</p>
                     </div>
                     <div className="p-5 bg-white/[0.02] border border-white/5 rounded-2xl space-y-2">
-                        <div className="flex items-center gap-2 text-gray-500">
+                        <div className="flex items-center gap-2 text-white">
                             <Building2 size={14} />
                             <span className="text-[9px] font-black uppercase tracking-widest">Parent Node</span>
                         </div>
@@ -459,49 +448,30 @@ const ManageVolunteers: React.FC = () => {
           )}
       </Modal>
 
-      <Modal isOpen={isResetModalOpen} onClose={() => setIsResetModalOpen(false)} title="Security Override: Engagement">
+      <Modal isOpen={isResetModalOpen} onClose={() => setIsResetModalOpen(false)} title="Security Protocol: Engagement">
           {selectedVol && (
             <div className="space-y-8 p-2">
                 <div className="p-6 bg-orange-600/10 border border-orange-500/20 rounded-2xl flex items-center gap-4">
-                    <ShieldAlert className="text-orange-500" size={24} />
-                    <p className="text-xs text-orange-200/80 leading-relaxed font-bold uppercase tracking-wider">
-                        Engaging a Security Override for <span className="text-orange-500">{selectedVol.name}</span>. 
-                        This will force the agent to establish a new security key upon their next authentication.
-                    </p>
-                </div>
-
-                <div className="space-y-4">
-                    <div className="relative">
-                        <Input 
-                            label="TEMPORARY SECURITY KEY" 
-                            type={showResetPass ? "text" : "password"} 
-                            value={newResetPassword} 
-                            onChange={(e) => setNewResetPassword(e.target.value)}
-                            placeholder="Min 6 characters"
-                            icon={<Lock size={16} />}
-                        />
-                        <button 
-                            type="button" 
-                            onClick={() => setShowResetPass(!showResetPass)}
-                            className="absolute right-4 top-[38px] text-gray-500 hover:text-white transition-colors"
-                        >
-                            {showResetPass ? <EyeOff size={16} /> : <Eye size={16} />}
-                        </button>
+                    <ShieldQuestion className="text-orange-500 shrink-0" size={32} />
+                    <div className="space-y-1">
+                        <p className="text-xs text-orange-200/80 leading-relaxed font-bold uppercase tracking-wider">
+                            Engage mandatory password reset for <span className="text-orange-500">{selectedVol.name}</span>?
+                        </p>
+                        <p className="text-[9px] text-white uppercase tracking-widest leading-relaxed">
+                            Agent will log in with current key and be forced to establish a new one before terminal access is granted.
+                        </p>
                     </div>
-                    <p className="text-[9px] font-bold text-gray-600 uppercase tracking-widest px-1">
-                        * Provide this key to the agent. They will be prompted to change it immediately after login.
-                    </p>
                 </div>
 
                 <div className="flex justify-end gap-4 pt-6 border-t border-white/5">
                     <Button variant="secondary" onClick={() => setIsResetModalOpen(false)} className="px-8 py-4 text-[10px] font-black tracking-widest">Abort</Button>
                     <Button 
                         onClick={handleResetPassword} 
-                        disabled={isSubmitting || !newResetPassword} 
-                        className="px-12 py-4 text-[10px] font-black uppercase tracking-widest bg-orange-600 hover:bg-orange-500 flex items-center gap-2 disabled:opacity-50"
+                        disabled={isSubmitting} 
+                        className="px-12 py-4 text-[10px] font-black uppercase tracking-widest bg-orange-600 hover:bg-orange-500 flex items-center gap-2"
                     >
-                        {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <KeyRound size={16} />}
-                        {isSubmitting ? 'ENGAGING...' : 'Force Key Update'}
+                        {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <ShieldAlert size={16} />}
+                        {isSubmitting ? 'DEPLOYING...' : 'Deploy Reset Flag'}
                     </Button>
                 </div>
             </div>

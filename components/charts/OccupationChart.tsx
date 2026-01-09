@@ -40,7 +40,14 @@ const OccupationChart: React.FC<OccupationChartProps> = ({ members }) => {
                     />
                     <Tooltip 
                         cursor={{ fill: 'rgba(255,255,255,0.05)' }} 
-                        contentStyle={{ backgroundColor: '#0a0a0a', border: '1px solid #333', borderRadius: '8px' }}
+                        contentStyle={{ 
+                            backgroundColor: '#0a0a0a', 
+                            border: '1px solid #333', 
+                            borderRadius: '8px',
+                            color: '#fff'
+                        }}
+                        itemStyle={{ color: '#fff' }}
+                        labelStyle={{ color: '#fff' }}
                     />
                     <Bar dataKey="value" name="Members" radius={[0, 4, 4, 0]}>
                         {data.map((entry, index) => (
