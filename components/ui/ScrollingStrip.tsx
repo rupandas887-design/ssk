@@ -55,7 +55,7 @@ const ScrollingStrip: React.FC = () => {
 
   return (
     <div className="w-full bg-[#050505] border-b border-white/5 overflow-hidden relative h-16 flex items-center shadow-2xl z-20">
-      {/* Sidebar Label - Width 72 to match dashboard layout exactly */}
+      {/* Sidebar Label */}
       <div className="absolute left-0 top-0 bottom-0 z-30 bg-[#050505] w-72 flex items-center gap-4 px-8 border-r border-orange-500/20 shadow-[10px_0_30px_rgba(0,0,0,1)]">
         <div className="relative flex-shrink-0">
           <Globe size={18} className="text-orange-500 animate-[spin_15s_linear_infinite]" />
@@ -64,41 +64,43 @@ const ScrollingStrip: React.FC = () => {
         <span className="text-[11px] font-black uppercase tracking-[0.3em] text-white whitespace-nowrap">Registry Live</span>
       </div>
 
-      {/* Marquee with matching 72 margin-left */}
-      <div className="animate-marquee ml-72 flex items-center group">
-        <div className="flex items-center group-hover:[animation-play-state:paused]">
-          {displayOrgs.map((org, idx) => (
-            <div 
-              key={`${org.id}-${idx}`}
-              className={`
-                  flex items-center gap-4 px-12 h-16 border-r border-white/5 transition-all duration-1000
-                  ${newOrgIds.has(org.id) ? 'registry-node-glow bg-orange-500/[0.04]' : 'hover:bg-white/[0.02]'}
-              `}
-            >
-              <div className={`
-                  h-10 w-10 rounded-xl overflow-hidden border bg-black/60 flex-shrink-0 flex items-center justify-center transition-all duration-500
-                  ${newOrgIds.has(org.id) ? 'border-orange-500/50 scale-105 shadow-lg shadow-orange-500/10' : 'border-white/10'}
-              `}>
-                {org.profile_photo_url ? (
-                  <img src={org.profile_photo_url} alt={org.name} className="h-full w-full object-contain p-1.5" />
-                ) : (
-                  <Building2 size={18} className={newOrgIds.has(org.id) ? 'text-orange-500' : 'text-gray-700'} />
-                )}
+      {/* Marquee Container with fixed offset */}
+      <div className="pl-72 w-full">
+        <div className="animate-marquee flex items-center group">
+          <div className="flex items-center group-hover:[animation-play-state:paused]">
+            {displayOrgs.map((org, idx) => (
+              <div 
+                key={`${org.id}-${idx}`}
+                className={`
+                    flex items-center gap-4 px-12 h-16 border-r border-white/5 transition-all duration-1000
+                    ${newOrgIds.has(org.id) ? 'registry-node-glow bg-orange-500/[0.04]' : 'hover:bg-white/[0.02]'}
+                `}
+              >
+                <div className={`
+                    h-10 w-10 rounded-xl overflow-hidden border bg-black/60 flex-shrink-0 flex items-center justify-center transition-all duration-500
+                    ${newOrgIds.has(org.id) ? 'border-orange-500/50 scale-105 shadow-lg shadow-orange-500/10' : 'border-white/10'}
+                `}>
+                  {org.profile_photo_url ? (
+                    <img src={org.profile_photo_url} alt={org.name} className="h-full w-full object-contain p-1.5" />
+                  ) : (
+                    <Building2 size={18} className={newOrgIds.has(org.id) ? 'text-orange-500' : 'text-gray-700'} />
+                  )}
+                </div>
+                
+                <div className="flex flex-col">
+                  <span className={`text-[12px] font-black uppercase tracking-wider whitespace-nowrap transition-colors duration-500 ${newOrgIds.has(org.id) ? 'text-white' : 'text-gray-400 group-hover:text-white'}`}>
+                    {org.name}
+                  </span>
+                  {newOrgIds.has(org.id) && (
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="h-1 w-1 rounded-full bg-orange-500 animate-pulse"></span>
+                      <span className="text-[8px] font-black text-orange-500 uppercase tracking-widest">Authorized Node</span>
+                    </div>
+                  )}
+                </div>
               </div>
-              
-              <div className="flex flex-col">
-                <span className={`text-[12px] font-black uppercase tracking-wider whitespace-nowrap transition-colors duration-500 ${newOrgIds.has(org.id) ? 'text-white' : 'text-gray-400 group-hover:text-white'}`}>
-                  {org.name}
-                </span>
-                {newOrgIds.has(org.id) && (
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="h-1 w-1 rounded-full bg-orange-500 animate-pulse"></span>
-                    <span className="text-[8px] font-black text-orange-500 uppercase tracking-widest">Authorized Node</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
 

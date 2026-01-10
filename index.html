@@ -25,7 +25,32 @@
         min-height: 100vh;
       }
       
-      /* Custom scrollbar for a premium dark UI feel */
+      /* Marquee Animations - Fixed for Production */
+      @keyframes marquee {
+        0% { transform: translate3d(0, 0, 0); }
+        100% { transform: translate3d(-50%, 0, 0); }
+      }
+
+      @keyframes marquee-slow {
+        0% { transform: translate3d(0, 0, 0); }
+        100% { transform: translate3d(-50%, 0, 0); }
+      }
+
+      .animate-marquee {
+        display: flex !important;
+        width: max-content !important;
+        animation: marquee 30s linear infinite !important;
+        will-change: transform;
+      }
+
+      .animate-marquee-slow {
+        display: flex !important;
+        width: max-content !important;
+        animation: marquee-slow 60s linear infinite !important;
+        will-change: transform;
+      }
+
+      /* Custom scrollbar */
       .custom-scrollbar::-webkit-scrollbar {
         width: 6px;
         height: 6px;
