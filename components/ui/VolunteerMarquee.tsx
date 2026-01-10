@@ -36,7 +36,7 @@ const VolunteerMarquee: React.FC<VolunteerMarqueeProps> = ({ volunteers }) => {
                   <img 
                     src={vol.profile_photo_url} 
                     alt={vol.name} 
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover/card:scale-110"
+                    className="h-full w-full object-cover transition-transform duration-700 group-hover/card:scale-110"
                     loading="lazy"
                   />
                 ) : (
@@ -57,7 +57,7 @@ const VolunteerMarquee: React.FC<VolunteerMarqueeProps> = ({ volunteers }) => {
                   {vol.name}
                 </h4>
                 <p className="text-[8px] md:text-[9px] font-bold text-gray-500 uppercase tracking-widest opacity-60 group-hover/card:opacity-100 transition-opacity">
-                  {vol.organisationName || 'Field Agent'}
+                  {vol.organisationName || 'Volunteer'}
                 </p>
               </div>
 

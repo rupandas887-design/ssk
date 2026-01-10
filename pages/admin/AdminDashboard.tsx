@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
@@ -170,7 +169,7 @@ const AdminDashboard: React.FC = () => {
                             <span className="text-[9px] font-black text-blue-600/50 uppercase tracking-[0.2em]">Personnel</span>
                         </div>
                         <div>
-                            <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Field Agents</p>
+                            <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold mb-1">Volunteers</p>
                             <p className="text-5xl font-black text-orange-500">{loading ? '...' : volunteersWithOrg.length}</p>
                             <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest mt-4 opacity-60 group-hover:opacity-100 transition-opacity">Access Personnel File →</p>
                         </div>
@@ -199,7 +198,7 @@ const AdminDashboard: React.FC = () => {
                             <thead className="border-b border-gray-800">
                                 <tr className="text-gray-500 uppercase tracking-wider text-[10px] font-black">
                                     <th className="p-5">Organization Node</th>
-                                    <th className="p-5 text-center">Active Agents</th>
+                                    <th className="p-5 text-center">Active Volunteers</th>
                                     <th className="p-5 text-center">Verified Enrollments</th>
                                     <th className="p-5 text-right">Status</th>
                                 </tr>
@@ -248,7 +247,7 @@ const AdminDashboard: React.FC = () => {
             <Modal 
                 isOpen={isVolunteersModalOpen} 
                 onClose={() => setIsVolunteersModalOpen(false)} 
-                title="Field Agent Personnel File"
+                title="Volunteer Personnel File"
             >
                 <div className="space-y-6 max-h-[75vh] overflow-y-auto pr-2 custom-scrollbar">
                     <div className="flex flex-col sm:flex-row gap-4">
@@ -256,7 +255,7 @@ const AdminDashboard: React.FC = () => {
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
                             <input 
                                 type="text"
-                                placeholder="Filter Agents or Organizations..."
+                                placeholder="Filter Volunteers or Organizations..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 pl-10 pr-4 text-white text-xs font-mono focus:outline-none focus:border-orange-500 transition-all"
