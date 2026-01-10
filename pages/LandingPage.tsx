@@ -6,6 +6,8 @@ import OccupationChart from '../components/charts/OccupationChart';
 import SupportChart from '../components/charts/SupportChart';
 import Leaderboard from '../components/Leaderboard';
 import Rewards from '../components/Rewards';
+import OrgMarquee from '../components/ui/OrgMarquee';
+import VolunteerMarquee from '../components/ui/VolunteerMarquee';
 import { supabase } from '../supabase/client';
 import { Member, Organisation, Role } from '../types';
 import { Users, Globe, HeartPulse } from 'lucide-react';
@@ -22,7 +24,7 @@ const LandingPage: React.FC = () => {
       const [mRes, oRes, pRes] = await Promise.all([
         supabase.from('members').select('*'),
         supabase.from('organisations').select('*'),
-        supabase.from('profiles').select('*')
+        supabase.from('profiles').select('*, organisations(name)')
       ]);
       if (mRes.data) setMembers(mRes.data);
       if (oRes.data) setOrganisations(oRes.data);
@@ -54,8 +56,10 @@ const LandingPage: React.FC = () => {
       email: v.email,
       role: Role.Volunteer,
       organisationId: v.organisation_id,
+      organisationName: v.organisations?.name || 'Independent',
       mobile: v.mobile,
       enrollments: enrollmentMap[v.id] || 0,
+      profile_photo_url: v.profile_photo_url, 
     }));
   }, [volsData, members]);
 
@@ -63,8 +67,8 @@ const LandingPage: React.FC = () => {
     <div className="bg-black text-white min-h-screen selection:bg-[#FF6600]/30 overflow-x-hidden font-jost">
       <Header isLandingPage />
 
-      {/* Hero Section - Optimized for clarity and color */}
-      <section className="pt-16 md:pt-24 pb-20 md:pb-32 px-4 md:px-6">
+      {/* Hero Section */}
+      <section className="pt-16 md:pt-24 pb-12 md:pb-20 px-4 md:px-6">
         <div className="max-w-[1200px] mx-auto text-center">
           <h1 className="font-cinzel font-bold uppercase tracking-tight leading-tight mb-12 md:mb-16">
             <span className="text-xl sm:text-2xl md:text-4xl lg:text-5xl text-white block truncate">
@@ -96,7 +100,19 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Analytics Section - Optimized Grid for Mobile Stacking */}
+      {/* Modern Registry Marquees - The "Announcement Slider" */}
+      <section className="mt-12 md:mt-24 border-t border-white/5 pt-12">
+        <div className="container mx-auto px-4 md:px-6 mb-8">
+           <div className="flex flex-col items-center">
+              <span className="text-[10px] font-black uppercase tracking-[0.6em] text-orange-500/60 mb-2">Network Nodes</span>
+              <h2 className="text-xl md:text-3xl font-cinzel uppercase tracking-[0.2em] text-white">Registry Activity</h2>
+           </div>
+        </div>
+        
+        <OrgMarquee organisations={organisations} />
+      </section>
+
+      {/* Analytics Section */}
       <main className="container mx-auto px-4 md:px-6 py-16 md:py-24 border-t border-white/5">
         <section id="analytics" className="space-y-8 md:space-y-10">
           <div className="text-center mb-16 md:mb-20">
@@ -108,7 +124,6 @@ const LandingPage: React.FC = () => {
             </p>
           </div>
 
-          {/* Grid Layout - Mobile Single Column, Desktop Multi-Column */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-8">
             <div className="md:col-span-4 analytics-card p-8 md:p-12 flex flex-col items-center justify-center min-h-[360px] md:min-h-[420px]">
               <Globe className="globe-watermark" size={140} />
@@ -165,8 +180,8 @@ const LandingPage: React.FC = () => {
            <Leaderboard members={members} organisations={organisations} volunteers={volunteers} />
         </section>
 
-        {/* Join Registry CTA - Refined for mobile balance */}
-        <section className="text-center pt-24 md:pt-32 pb-16 md:pb-24 px-2 md:px-4">
+        {/* Join Registry CTA */}
+        <section className="text-center pt-24 md:pt-32 pb-8 md:pb-12 px-2 md:px-4">
           <div className="max-w-4xl mx-auto py-10 md:py-12 px-4 md:px-12 bg-[#000000] border border-white/5 rounded-[1.5rem] md:rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
             <div className="relative z-10">
               <h2 className="text-xl md:text-3xl lg:text-4xl font-cinzel text-white uppercase tracking-[0.2em] mb-6">
@@ -186,6 +201,17 @@ const LandingPage: React.FC = () => {
             </div>
             <div className="absolute inset-0 bg-gradient-to-b from-transparent to-orange-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-1000"></div>
           </div>
+        </section>
+
+        {/* Volunteer Announcement Bar - Positioned directly below Join Registry */}
+        <section className="pb-16 md:pb-24">
+          <div className="container mx-auto px-4 md:px-6 mb-4 mt-8">
+             <div className="flex flex-col items-center">
+                <span className="text-[9px] font-black uppercase tracking-[0.5em] text-blue-500/60 mb-1">Our Dedicated Personnel</span>
+                <h2 className="text-lg md:text-2xl font-cinzel uppercase tracking-[0.2em] text-white">Active Field Agents</h2>
+             </div>
+          </div>
+          <VolunteerMarquee volunteers={volunteers} />
         </section>
       </main>
 

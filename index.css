@@ -68,16 +68,28 @@ select {
   animation: pulse-soft 2.5s infinite ease-in-out;
 }
 
-/* Marquee Animation */
+/* Marquee Animation - Standard Speed */
 @keyframes marquee {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
 
+/* Marquee Animation - Slow/Premium Speed for High-End UX */
+@keyframes marquee-slow {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-25%); }
+}
+
 .animate-marquee {
   display: flex;
   width: max-content;
-  animation: marquee 80s linear infinite;
+  animation: marquee 40s linear infinite;
+}
+
+.animate-marquee-slow {
+  display: flex;
+  width: max-content;
+  animation: marquee-slow 50s linear infinite;
 }
 
 /* Scrollbar */
