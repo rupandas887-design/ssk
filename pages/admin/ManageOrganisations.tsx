@@ -1,5 +1,5 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
@@ -7,19 +7,15 @@ import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import Select from '../../components/ui/Select';
 import Modal from '../../components/ui/Modal';
-import { Organisation } from '../../types';
+import { Organisation, Role } from '../../types';
 import { supabase } from '../../supabase/client';
 import { useNotification } from '../../context/NotificationContext';
 import { syncToSheets, SheetType } from '../../services/googleSheets';
 import { 
-  ShieldCheck, 
-  UserPlus, 
   Building2, 
   Loader2, 
   RefreshCw,
   CheckCircle2,
-  Settings,
-  Zap,
   Activity,
   Eye,
   EyeOff,
@@ -27,22 +23,18 @@ import {
   Lock,
   Phone,
   User,
-  AlertTriangle,
+  UserPlus,
   Map,
   Edit,
   Camera,
   XCircle,
-  Image as ImageIcon,
   PartyPopper,
   KeyRound,
   ShieldAlert
 } from 'lucide-react';
 
-const supabaseUrl = "https://baetdjjzfqupdzsoecph.supabase.co";
-const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJhZXRkamp6ZnF1cGR6c29lY3BoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0NzEwMTYsImV4cCI6MjA4MjA0NzAxNn0.MYrwQ7E4HVq7TwXpxum9ZukIz4ZAwyunlhpkwkpZ-bo";
-
 // Extended type for internal state
-type OrganisationWithEmail = Organisation & { email?: string };
+type OrganisationWithEmail = Organisation & { email?: string, authUserId?: string };
 
 const ManageOrganisations: React.FC = () => {
   const [organisations, setOrganisations] = useState<OrganisationWithEmail[]>([]);
@@ -65,8 +57,8 @@ const ManageOrganisations: React.FC = () => {
   const [resetPassword, setResetPassword] = useState('');
   const [showResetPassword, setShowResetPassword] = useState(false);
   
-  const [editingOrg, setEditingOrg] = useState<(Organisation & { email?: string, newPassword?: string }) | null>(null);
-  const [selectedOrgForReset, setSelectedOrgForReset] = useState<Organisation | null>(null);
+  const [editingOrg, setEditingOrg] = useState<(Organisation & { email?: string }) | null>(null);
+  const [selectedOrgForReset, setSelectedOrgForReset] = useState<OrganisationWithEmail | null>(null);
   
   const [showSuccessSplash, setShowSuccessSplash] = useState(false);
   const { addNotification } = useNotification();
@@ -74,23 +66,24 @@ const ManageOrganisations: React.FC = () => {
   const fetchOrganisations = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch organizations
       const { data: orgs, error: orgError } = await supabase.from('organisations').select('*').order('name');
       if (orgError) throw orgError;
 
-      // Fetch corresponding admin profiles to get emails
       const { data: profiles, error: profileError } = await supabase
         .from('profiles')
-        .select('email, organisation_id')
+        .select('id, email, organisation_id')
         .eq('role', 'Organisation');
       
       if (profileError) throw profileError;
 
-      // Merge data
-      const merged = (orgs || []).map(org => ({
-        ...org,
-        email: profiles?.find(p => p.organisation_id === org.id)?.email || 'No access email linked'
-      }));
+      const merged = (orgs || []).map(org => {
+        const profile = profiles?.find(p => p.organisation_id === org.id);
+        return {
+          ...org,
+          authUserId: profile?.id,
+          email: profile?.email || 'No access email linked'
+        };
+      });
 
       setOrganisations(merged);
     } catch (err: any) {
@@ -164,11 +157,7 @@ const ManageOrganisations: React.FC = () => {
 
         if (orgError) throw orgError;
 
-        const authClient = createClient(supabaseUrl, supabaseAnonKey, {
-          auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
-        });
-
-        const { data: authData, error: authError } = await authClient.auth.signUp({
+        const { data: authData, error: authError } = await supabase.auth.signUp({
           email, password,
           options: {
             data: { name: secName, role: 'Organisation', organisation_id: orgData.id, mobile }
@@ -194,15 +183,10 @@ const ManageOrganisations: React.FC = () => {
           registration_date: new Date().toLocaleDateString()
         });
 
-        const createdOrgName = name;
-        const createdOrgPhoto = photoUrl;
-
         setNewOrg({ name: '', mobile: '', secretaryName: '', email: '', password: '', profilePhoto: null });
         setPreviewUrl(null);
         fetchOrganisations();
-        
-        addNotification(createdOrgName, 'registry-success', createdOrgPhoto || undefined);
-        
+        addNotification(name, 'registry-success', photoUrl || undefined);
         setShowSuccessSplash(true);
         setTimeout(() => setShowSuccessSplash(false), 3000);
     } catch (err: any) {
@@ -226,32 +210,36 @@ const ManageOrganisations: React.FC = () => {
     }
   };
 
-  const handleResetClick = (org: Organisation) => {
+  const handleResetClick = (org: OrganisationWithEmail) => {
     setSelectedOrgForReset(org);
     setResetPassword('');
     setIsResetModalOpen(true);
   };
 
+  /**
+   * SECURITY OVERRIDE: Uses the admin_reset_password RPC function.
+   * This bypasses limited Auth permissions on the client and updates the password 
+   * directly in the auth.users table via a SECURITY DEFINER function.
+   */
   const handleExecuteReset = async () => {
-    if (!selectedOrgForReset || resetPassword.length < 6) {
-      addNotification("Access key must be at least 6 characters.", 'error');
+    if (!selectedOrgForReset?.authUserId || resetPassword.length < 6) {
+      addNotification("Valid identity and 6-character key required.", 'error');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ password_reset_pending: true })
-        .eq('organisation_id', selectedOrgForReset.id)
-        .eq('role', 'Organisation');
+      const { error: rpcError } = await supabase.rpc('admin_reset_password', {
+        target_user_id: selectedOrgForReset.authUserId,
+        new_password: resetPassword
+      });
 
-      if (profileError) throw profileError;
+      if (rpcError) throw rpcError;
 
-      addNotification(`Access key synchronized for ${selectedOrgForReset.name}`, 'success');
+      addNotification(`Network access key synchronized for ${selectedOrgForReset.name}. Login enabled.`, 'success');
       setIsResetModalOpen(false);
     } catch (err: any) {
-      addNotification(`Reset failed: ${err.message}`, 'error');
+      addNotification(`Synchronization failed: ${err.message}`, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -480,8 +468,8 @@ const ManageOrganisations: React.FC = () => {
                     <div className="space-y-2">
                         <p className="text-xs font-black uppercase tracking-widest text-orange-500">Mandatory Synchronization</p>
                         <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider leading-relaxed">
-                            Resetting network access key for <span className="text-white">"{selectedOrgForReset.name}"</span>. 
-                            The new key will be effective immediately. Administrative leads will be required to re-authenticate.
+                            Resetting access key for <span className="text-white">"{selectedOrgForReset.email}"</span>. 
+                            The update will be pushed directly to the authentication registry. No OTP required.
                         </p>
                     </div>
                 </div>
@@ -515,7 +503,7 @@ const ManageOrganisations: React.FC = () => {
                         className="bg-orange-600 hover:bg-orange-500 text-[10px] font-black tracking-widest uppercase flex items-center gap-2"
                     >
                         {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : <KeyRound size={16} />}
-                        {isSubmitting ? "Synchronizing..." : "Commit Access Key"}
+                        {isSubmitting ? "Synchronizing..." : "Force Commit Key"}
                     </Button>
                 </div>
             </div>
