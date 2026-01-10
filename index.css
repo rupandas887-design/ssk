@@ -22,7 +22,7 @@ select {
   color: white;
 }
 
-/* Exact Chart Card Styling from Screenshot */
+/* Exact Chart Card Styling */
 .analytics-card {
   background: #050505;
   border: 1px solid rgba(255, 255, 255, 0.05);
@@ -69,13 +69,22 @@ select {
 }
 
 /* Marquee Animation - Standard Speed */
+@-webkit-keyframes marquee {
+  0% { -webkit-transform: translateX(0); transform: translateX(0); }
+  100% { -webkit-transform: translateX(-50%); transform: translateX(-50%); }
+}
+
 @keyframes marquee {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
 
-/* Marquee Animation - Slow/Premium Speed for High-End UX */
-/* Fixed to -50% to ensure seamless looping with duplicated content */
+/* Marquee Animation - Slow/Premium Speed */
+@-webkit-keyframes marquee-slow {
+  0% { -webkit-transform: translateX(0); transform: translateX(0); }
+  100% { -webkit-transform: translateX(-50%); transform: translateX(-50%); }
+}
+
 @keyframes marquee-slow {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
@@ -84,13 +93,17 @@ select {
 .animate-marquee {
   display: flex;
   width: max-content;
+  -webkit-animation: marquee 30s linear infinite;
   animation: marquee 30s linear infinite;
+  will-change: transform;
 }
 
 .animate-marquee-slow {
   display: flex;
   width: max-content;
+  -webkit-animation: marquee-slow 60s linear infinite;
   animation: marquee-slow 60s linear infinite;
+  will-change: transform;
 }
 
 /* Scrollbar */
