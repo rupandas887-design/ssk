@@ -50,6 +50,7 @@ const ScrollingStrip: React.FC = () => {
 
   if (orgs.length === 0) return null;
 
+  // Duplicate for seamless loop
   const displayOrgs = [...orgs, ...orgs];
 
   return (
@@ -64,39 +65,41 @@ const ScrollingStrip: React.FC = () => {
       </div>
 
       {/* Marquee with matching 72 margin-left */}
-      <div className="animate-marquee ml-72 flex items-center">
-        {displayOrgs.map((org, idx) => (
-          <div 
-            key={`${org.id}-${idx}`}
-            className={`
-                flex items-center gap-4 px-12 h-16 border-r border-white/5 transition-all duration-1000
-                ${newOrgIds.has(org.id) ? 'registry-node-glow bg-orange-500/[0.04]' : 'hover:bg-white/[0.02]'}
-            `}
-          >
-            <div className={`
-                h-10 w-10 rounded-xl overflow-hidden border bg-black/60 flex-shrink-0 flex items-center justify-center transition-all duration-500
-                ${newOrgIds.has(org.id) ? 'border-orange-500/50 scale-105 shadow-lg shadow-orange-500/10' : 'border-white/10'}
-            `}>
-              {org.profile_photo_url ? (
-                <img src={org.profile_photo_url} alt={org.name} className="h-full w-full object-contain p-1.5" />
-              ) : (
-                <Building2 size={18} className={newOrgIds.has(org.id) ? 'text-orange-500' : 'text-gray-700'} />
-              )}
+      <div className="animate-marquee ml-72 flex items-center group">
+        <div className="flex items-center group-hover:[animation-play-state:paused]">
+          {displayOrgs.map((org, idx) => (
+            <div 
+              key={`${org.id}-${idx}`}
+              className={`
+                  flex items-center gap-4 px-12 h-16 border-r border-white/5 transition-all duration-1000
+                  ${newOrgIds.has(org.id) ? 'registry-node-glow bg-orange-500/[0.04]' : 'hover:bg-white/[0.02]'}
+              `}
+            >
+              <div className={`
+                  h-10 w-10 rounded-xl overflow-hidden border bg-black/60 flex-shrink-0 flex items-center justify-center transition-all duration-500
+                  ${newOrgIds.has(org.id) ? 'border-orange-500/50 scale-105 shadow-lg shadow-orange-500/10' : 'border-white/10'}
+              `}>
+                {org.profile_photo_url ? (
+                  <img src={org.profile_photo_url} alt={org.name} className="h-full w-full object-contain p-1.5" />
+                ) : (
+                  <Building2 size={18} className={newOrgIds.has(org.id) ? 'text-orange-500' : 'text-gray-700'} />
+                )}
+              </div>
+              
+              <div className="flex flex-col">
+                <span className={`text-[12px] font-black uppercase tracking-wider whitespace-nowrap transition-colors duration-500 ${newOrgIds.has(org.id) ? 'text-white' : 'text-gray-400 group-hover:text-white'}`}>
+                  {org.name}
+                </span>
+                {newOrgIds.has(org.id) && (
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="h-1 w-1 rounded-full bg-orange-500 animate-pulse"></span>
+                    <span className="text-[8px] font-black text-orange-500 uppercase tracking-widest">Authorized Node</span>
+                  </div>
+                )}
+              </div>
             </div>
-            
-            <div className="flex flex-col">
-              <span className={`text-[12px] font-black uppercase tracking-wider whitespace-nowrap transition-colors duration-500 ${newOrgIds.has(org.id) ? 'text-white' : 'text-gray-400 group-hover:text-white'}`}>
-                {org.name}
-              </span>
-              {newOrgIds.has(org.id) && (
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="h-1 w-1 rounded-full bg-orange-500 animate-pulse"></span>
-                  <span className="text-[8px] font-black text-orange-500 uppercase tracking-widest">Authorized Node</span>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
       <div className="absolute right-0 top-0 bottom-0 w-40 bg-gradient-to-l from-[#050505] to-transparent z-10 pointer-events-none"></div>

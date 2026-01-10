@@ -75,21 +75,22 @@ select {
 }
 
 /* Marquee Animation - Slow/Premium Speed for High-End UX */
+/* Fixed to -50% to ensure seamless looping with duplicated content */
 @keyframes marquee-slow {
   0% { transform: translateX(0); }
-  100% { transform: translateX(-25%); }
+  100% { transform: translateX(-50%); }
 }
 
 .animate-marquee {
   display: flex;
   width: max-content;
-  animation: marquee 40s linear infinite;
+  animation: marquee 30s linear infinite;
 }
 
 .animate-marquee-slow {
   display: flex;
   width: max-content;
-  animation: marquee-slow 50s linear infinite;
+  animation: marquee-slow 60s linear infinite;
 }
 
 /* Scrollbar */
