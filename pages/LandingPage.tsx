@@ -105,7 +105,7 @@ const LandingPage: React.FC = () => {
         <div className="container mx-auto px-4 md:px-6 mb-8">
            <div className="flex flex-col items-center">
               <span className="text-[10px] font-black uppercase tracking-[0.6em] text-orange-500/60 mb-2">Network Nodes</span>
-              <h2 className="text-xl md:text-3xl font-cinzel uppercase tracking-[0.2em] text-white">Registry Activity</h2>
+              <h2 className="text-xl md:text-3xl font-cinzel uppercase tracking-[0.2em] text-white">In Association With</h2>
            </div>
         </div>
         
@@ -208,7 +208,7 @@ const LandingPage: React.FC = () => {
           <div className="container mx-auto px-4 md:px-6 mb-4 mt-8">
              <div className="flex flex-col items-center">
                 <span className="text-[9px] font-black uppercase tracking-[0.5em] text-blue-500/60 mb-1">Our Dedicated Personnel</span>
-                <h2 className="text-lg md:text-2xl font-cinzel uppercase tracking-[0.2em] text-white">Active Field Agents</h2>
+                <h2 className="text-lg md:text-2xl font-cinzel uppercase tracking-[0.2em] text-white">Volunteers</h2>
              </div>
           </div>
           <VolunteerMarquee volunteers={volunteers} />

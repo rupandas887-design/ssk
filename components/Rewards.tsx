@@ -12,9 +12,20 @@ interface RewardsProps {
 const Rewards: React.FC<RewardsProps> = ({ members, volunteers, organisations }) => {
   const { weeklyWinners, dateRange } = useMemo(() => {
     const now = new Date();
+    const currentDay = now.getDay(); // 0 (Sun) to 6 (Sat)
+    
+    // Calculate Monday of the current cycle
+    // If it's Sunday (0), we show the performance of the week that just ended (last Monday)
+    // If it's Monday-Saturday, we show the current week's Monday.
+    const diffToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+    
     const startOfWindow = new Date(now);
-    startOfWindow.setDate(now.getDate() - 6);
+    startOfWindow.setDate(now.getDate() + diffToMonday);
     startOfWindow.setHours(0, 0, 0, 0);
+
+    const endOfWindow = new Date(startOfWindow);
+    endOfWindow.setDate(startOfWindow.getDate() + 5); // Saturday
+    endOfWindow.setHours(23, 59, 59, 999);
 
     const formatDate = (date: Date) => {
         return date.toLocaleDateString('en-GB', { 
@@ -22,13 +33,16 @@ const Rewards: React.FC<RewardsProps> = ({ members, volunteers, organisations })
             month: 'short' 
         }).toUpperCase();
     };
-    const dateRangeStr = `${formatDate(startOfWindow)} — ${formatDate(now)}`;
+    
+    const dateRangeStr = `${formatDate(startOfWindow)} — ${formatDate(endOfWindow)}`;
 
+    // Filter members based on the Monday -> Saturday window
     const weeklyMembers = members.filter(m => {
         const submissionDate = new Date(m.submission_date);
-        return submissionDate >= startOfWindow && submissionDate <= now;
+        return submissionDate >= startOfWindow && submissionDate <= endOfWindow;
     });
 
+    // Calculate Top Volunteer
     const volCounts: Record<string, number> = {};
     weeklyMembers.forEach(m => {
       if (m.volunteer_id) volCounts[m.volunteer_id] = (volCounts[m.volunteer_id] || 0) + 1;
@@ -45,6 +59,7 @@ const Rewards: React.FC<RewardsProps> = ({ members, volunteers, organisations })
 
     const topVol = volunteers.find(v => v.id === topVolId);
 
+    // Calculate Top Organization
     const orgCounts: Record<string, number> = {};
     weeklyMembers.forEach(m => {
       if (m.organisation_id) orgCounts[m.organisation_id] = (orgCounts[m.organisation_id] || 0) + 1;
@@ -64,14 +79,14 @@ const Rewards: React.FC<RewardsProps> = ({ members, volunteers, organisations })
     const winners = [
       {
         title: 'Top Enroller of the Week',
-        winner: topVol ? topVol.name : 'Awaiting Data',
+        winner: topVol ? topVol.name : (weeklyMembers.length > 0 ? 'Evaluating...' : 'No data available'),
         achievement: topVolCount > 0 ? `${topVolCount} Enrollments` : 'N/A',
         icon: <Trophy className="text-yellow-400" size={32} md:size={40} />,
         label: 'Individual Merit'
       },
       {
         title: 'Organization of the Week',
-        winner: topOrg ? topOrg.name : 'Awaiting Data',
+        winner: topOrg ? topOrg.name : (weeklyMembers.length > 0 ? 'Evaluating...' : 'No data available'),
         achievement: topOrgCount > 0 ? `${topOrgCount} Enrollments` : 'N/A',
         icon: <Shield className="text-orange-500" size={32} md:size={40} />,
         label: 'Institutional Excellence'
@@ -95,7 +110,7 @@ const Rewards: React.FC<RewardsProps> = ({ members, volunteers, organisations })
                     Window: {dateRange}
                 </span>
             </div>
-            <p className="text-[8px] font-black text-gray-700 uppercase tracking-widest md:tracking-[0.4em] mt-1 text-center">Recognition of Contribution</p>
+            <p className="text-[8px] font-black text-gray-700 uppercase tracking-widest md:tracking-[0.4em] mt-1 text-center">Auto-Cycling Registry (MON-SAT)</p>
         </div>
       </div>
 
