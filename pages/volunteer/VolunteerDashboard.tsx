@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
@@ -119,7 +118,7 @@ const VolunteerDashboard: React.FC = () => {
     const isLocked = !!user?.passwordResetPending;
 
     return (
-        <DashboardLayout title="Agent Terminal">
+        <DashboardLayout title="Volunteers management">
             <div className={`space-y-4 md:space-y-6 pb-6 transition-all duration-700 ${isLocked ? 'blur-2xl grayscale pointer-events-none opacity-40 select-none' : ''}`}>
                 <div className="flex flex-col md:flex-row justify-between items-center gap-6 p-6 md:p-8 bg-blue-900/10 border border-blue-900/20 rounded-2xl md:rounded-[2rem] shadow-xl relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-6 opacity-[0.02] group-hover:rotate-6 transition-transform duration-700 pointer-events-none">
@@ -131,7 +130,7 @@ const VolunteerDashboard: React.FC = () => {
                             <User size={28} className="md:size-8" strokeWidth={1.5} />
                         </div>
                         <div>
-                            <p className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.4em] text-blue-400/50 mb-1">Authenticated Field Agent</p>
+                            <p className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.4em] text-blue-400/50 mb-1">Authenticated Volunteer</p>
                             <h2 className="font-cinzel text-2xl md:text-3xl lg:text-4xl text-white tracking-tight leading-none truncate max-w-[280px] md:max-w-none">
                                 {user?.name}
                             </h2>
@@ -181,7 +180,7 @@ const VolunteerDashboard: React.FC = () => {
                         <thead className="border-b border-white/5">
                           <tr className="text-gray-600 text-[8px] sm:text-[9px] uppercase tracking-widest font-black">
                             <th className="pb-4 pl-2">Member Node</th>
-                            <th className="pb-4 text-blue-500">Agent Attribution</th>
+                            <th className="pb-4 text-blue-500">Volunteer Attribution</th>
                             <th className="pb-4 text-center pr-2">Verification Status</th>
                           </tr>
                         </thead>

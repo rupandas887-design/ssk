@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
@@ -139,7 +138,7 @@ const OrganisationDashboard: React.FC = () => {
                                 <Activity size={24} className="sm:size-8" />
                             </div>
                             <div>
-                                <p className="text-gray-600 text-[8px] lg:text-[10px] font-black uppercase tracking-[0.3em] mb-1">Personnel</p>
+                                <p className="text-gray-600 text-[8px] lg:text-[10px] font-black uppercase tracking-[0.3em] mb-1">Volunteers</p>
                                 <div className="flex items-baseline gap-2">
                                     <p className="text-3xl lg:text-4xl font-black text-orange-500 leading-none tracking-tighter">{myVolunteers.length}</p>
                                     <span className="text-[8px] font-black text-blue-500/50 uppercase tracking-widest">Active</span>
@@ -184,8 +183,8 @@ const OrganisationDashboard: React.FC = () => {
                         <table className="w-full text-left min-w-[450px]">
                             <thead className="border-b border-gray-800">
                                 <tr className="text-gray-600 text-[8px] sm:text-[9px] uppercase tracking-widest font-black">
-                                    <th className="pb-4 pl-2">Enrolled Member</th>
-                                    <th className="pb-4">Field Agent</th>
+                                    <th className="pb-4 pl-2">Registered Member</th>
+                                    <th className="pb-4">Volunteer</th>
                                     <th className="pb-4 text-right pr-2">Date</th>
                                 </tr>
                             </thead>
@@ -209,7 +208,7 @@ const OrganisationDashboard: React.FC = () => {
                                                 <div className="h-6 w-6 rounded-lg bg-gray-950 flex items-center justify-center text-gray-600">
                                                     <UserCircle size={14} />
                                                 </div>
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest truncate">{m.agent_profile?.name || 'Agent'}</span>
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest truncate">{m.agent_profile?.name || 'Volunteer'}</span>
                                             </div>
                                         </td>
                                         <td className="py-3 text-right pr-2">

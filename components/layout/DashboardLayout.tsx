@@ -31,17 +31,17 @@ interface NavItem {
 const adminNavItems: NavItem[] = [
   { path: '/admin', label: 'Network Control', icon: <LayoutGrid size={18} /> },
   { path: '/admin/organisations', label: 'Organization Management', icon: <Map size={18} /> },
-  { path: '/admin/reports', label: 'Master Registry', icon: <FileDown size={18} /> },
+  { path: '/admin/reports', label: 'Global Members Registry', icon: <FileDown size={18} /> },
 ];
 
 const organisationNavItems: NavItem[] = [
   { path: '/organisation', label: 'Command Terminal', icon: <LayoutDashboard size={18} /> },
-  { path: '/organisation/volunteers', label: 'Field Agents', icon: <Users size={18} /> },
-  { path: '/organisation/reports', label: 'Identity Ledger', icon: <Database size={18} /> },
+  { path: '/organisation/volunteers', label: 'Volunteers management', icon: <Users size={18} /> },
+  { path: '/organisation/reports', label: 'Our Members’ Data Registry', icon: <Database size={18} /> },
 ];
 
 const volunteerNavItems: NavItem[] = [
-  { path: '/volunteer', label: 'Agent Terminal', icon: <Zap size={18} /> },
+  { path: '/volunteer', label: 'Volunteers management', icon: <Zap size={18} /> },
   { path: '/volunteer/new-member', label: 'Enrollment Hub', icon: <UserPlus size={18} /> },
 ];
 
@@ -69,7 +69,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
             case Role.Organisation:
                 return { label: 'ORG LEAD', color: 'text-blue-500', bg: 'bg-blue-500/10', border: 'border-blue-500/20' };
             case Role.Volunteer:
-                return { label: 'FIELD AGENT', color: 'text-green-500', bg: 'bg-green-500/10', border: 'border-green-500/20' };
+                return { label: 'VOLUNTEER', color: 'text-green-500', bg: 'bg-green-500/10', border: 'border-green-500/20' };
             default:
                 return { label: 'GUEST', color: 'text-white', bg: 'bg-white/5', border: 'border-white/10' };
         }
@@ -156,7 +156,6 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; }> =
                                 <div className="h-1.5 w-1.5 rounded-full bg-orange-600 animate-pulse"></div>
                                 <span className="text-[7px] md:text-[9px] uppercase tracking-[0.6em] md:tracking-[1em] font-black text-gray-700">Secure Environment Access</span>
                             </div>
-                            {/* Adjusted font sizes here to make title more manageable and visible */}
                             <h1 className="font-cinzel text-2xl md:text-4xl lg:text-5xl text-white tracking-tighter leading-none uppercase">{title}</h1>
                         </div>
                         <div className="flex items-center gap-4 md:gap-5 px-5 md:px-7 py-3 md:py-4 bg-white/[0.02] rounded-2xl md:rounded-3xl border border-white/10 backdrop-blur-3xl shadow-xl self-start lg:self-auto">

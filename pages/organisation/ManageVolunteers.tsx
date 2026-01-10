@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
@@ -27,6 +26,7 @@ import {
   Search,
   Filter,
   Eye,
+  EyeOff,
   KeyRound,
   ShieldAlert,
   Fingerprint,
@@ -58,6 +58,8 @@ const ManageVolunteers: React.FC = () => {
   const [selectedVol, setSelectedVol] = useState<VolunteerWithEnrollments | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [resetPassword, setResetPassword] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
 
   const { addNotification } = useNotification();
 
@@ -135,28 +137,28 @@ const ManageVolunteers: React.FC = () => {
   };
 
   const handleExport = () => {
-    const headers = ['Agent Name', 'Email', 'Mobile', 'Enrollments', 'Status'];
+    const headers = ['Volunteer Name', 'Email', 'Mobile', 'Enrollments', 'Status'];
     const rows = filteredVolunteers.map(v => [v.name, v.email, v.mobile, v.enrollments, v.status]);
     const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `Agent_Registry_${user?.organisationName || 'Organization'}.csv`;
+    link.download = `Volunteer_Registry_${user?.organisationName || 'Organization'}.csv`;
     link.click();
   };
 
   const copyVolunteerCreds = (vol: VolunteerWithEnrollments) => {
     const creds = `Login Email: ${vol.email}\nStatus: ${vol.status}`;
     navigator.clipboard.writeText(creds).then(() => {
-      addNotification('Agent credentials copied to clipboard.', 'info');
+      addNotification('Volunteer credentials copied to clipboard.', 'info');
     });
   };
 
   const handleToggleStatus = async (vol: VolunteerWithEnrollments) => {
     const newStatus = vol.status === 'Active' ? 'Deactivated' : 'Active';
     const confirmMsg = newStatus === 'Deactivated' 
-        ? `Are you sure you wish to Deactivate Agent "${vol.name}"? This will suspend their field access.`
-        : `Activate Agent "${vol.name}"?`;
+        ? `Are you sure you wish to Deactivate Volunteer "${vol.name}"? This will suspend their field access.`
+        : `Activate Volunteer "${vol.name}"?`;
         
     if (!window.confirm(confirmMsg)) return;
 
@@ -167,7 +169,7 @@ const ManageVolunteers: React.FC = () => {
         .eq('id', vol.id);
 
       if (error) throw error;
-      addNotification(`Agent status updated to ${newStatus}.`, 'success');
+      addNotification(`Volunteer status updated to ${newStatus}.`, 'success');
       fetchVolunteers();
     } catch (e: any) {
       addNotification(`Status update failed: ${e.message}`, 'error');
@@ -181,22 +183,27 @@ const ManageVolunteers: React.FC = () => {
 
   const handleResetPasswordClick = (vol: VolunteerWithEnrollments) => {
     setSelectedVol(vol);
+    setResetPassword('');
+    setShowResetPassword(false);
     setIsResetModalOpen(true);
   };
 
   const handleResetPassword = async () => {
-    if (!selectedVol) return;
+    if (!selectedVol || resetPassword.length < 6) {
+        addNotification("Valid 6-character access key required.", 'error');
+        return;
+    }
     
     setIsSubmitting(true);
     try {
-        const { error } = await supabase
-            .from('profiles')
-            .update({ password_reset_pending: true })
-            .eq('id', selectedVol.id);
+        const { error: rpcError } = await supabase.rpc('admin_reset_password', {
+            target_user_id: selectedVol.id,
+            new_password: resetPassword
+        });
 
-        if (error) throw error;
+        if (rpcError) throw rpcError;
 
-        addNotification(`Mandatory reset flag deployed for ${selectedVol.name}.`, 'success');
+        addNotification(`Network access key synchronized for ${selectedVol.name}.`, 'success');
         setIsResetModalOpen(false);
     } catch (err: any) {
         addNotification(`Override failed: ${err.message}`, 'error');
@@ -268,7 +275,7 @@ const ManageVolunteers: React.FC = () => {
               authorized_date: new Date().toLocaleDateString()
             });
 
-            addNotification('Agent authorized successfully.', 'success');
+            addNotification('Volunteer authorized successfully.', 'success');
             setNewVol({ name: '', mobile: '', email: '', password: '', profilePhoto: null });
             setPreviewUrl(null);
             fetchVolunteers(); 
@@ -281,10 +288,10 @@ const ManageVolunteers: React.FC = () => {
   };
 
   return (
-    <DashboardLayout title="Agent Authorization Hub">
+    <DashboardLayout title="Volunteers management">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
         <div className="lg:col-span-1 space-y-8">
-          <Card title="Authorize New Agent" className="relative overflow-hidden border-blue-900/30 bg-[#020202]/80">
+          <Card title="Authorize New Volunteer" className="relative overflow-hidden border-blue-900/30 bg-[#020202]/80">
             <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
               <Zap size={100} />
             </div>
@@ -293,7 +300,7 @@ const ManageVolunteers: React.FC = () => {
                  <ShieldCheck className="text-blue-500" size={24} />
                  <div className="flex flex-col">
                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400/80 leading-tight">Identity Tier</span>
-                    <span className="text-xs font-bold text-white uppercase">Field Operator</span>
+                    <span className="text-xs font-bold text-white uppercase">Volunteer</span>
                  </div>
               </div>
 
@@ -337,7 +344,7 @@ const ManageVolunteers: React.FC = () => {
               
               <Input label="FULL NAME" name="name" value={newVol.name} onChange={handleInputChange} placeholder="Ex: Rahul S" />
               <Input label="MOBILE IDENTITY" name="mobile" type="tel" value={newVol.mobile} onChange={handleInputChange} placeholder="91XXXXXXXX" />
-              <Input label="ACCESS EMAIL" name="email" type="email" value={newVol.email} onChange={handleInputChange} placeholder="agent@org.com" />
+              <Input label="ACCESS EMAIL" name="email" type="email" value={newVol.email} onChange={handleInputChange} placeholder="volunteer@org.com" />
               <Input label="SECURITY KEY" name="password" type="password" value={newVol.password} onChange={handleInputChange} placeholder="Min 6 characters" />
               
               <Button 
@@ -347,7 +354,7 @@ const ManageVolunteers: React.FC = () => {
                 className="w-full py-5 flex items-center justify-center gap-3 text-[11px] font-black uppercase tracking-[0.4em]"
               >
                 {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <UserPlus size={20} />}
-                {isSubmitting ? 'AUTHORIZING...' : 'Authorize Agent'}
+                {isSubmitting ? 'AUTHORIZING...' : 'Authorize Volunteer'}
               </Button>
             </div>
           </Card>
@@ -361,7 +368,7 @@ const ManageVolunteers: React.FC = () => {
                         <UserCircle size={28} />
                     </div>
                     <div>
-                      <h3 className="font-cinzel text-3xl text-white tracking-tight">Active Agent Registry</h3>
+                      <h3 className="font-cinzel text-3xl text-white tracking-tight">Active Volunteers Registry</h3>
                       <div className="flex items-center gap-2 mt-1">
                           <Activity size={12} className="text-green-500 animate-pulse" />
                           <span className="text-[9px] text-white font-black uppercase tracking-widest">Network Node Active</span>
@@ -402,7 +409,7 @@ const ManageVolunteers: React.FC = () => {
               <table className="w-full text-left">
                 <thead className="border-b border-gray-800">
                   <tr>
-                    <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-white font-black">Personnel Node</th>
+                    <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-white font-black">Volunteer Node</th>
                     <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-white font-black text-center">Enrollments</th>
                     <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-white font-black text-right">Actions</th>
                   </tr>
@@ -454,7 +461,7 @@ const ManageVolunteers: React.FC = () => {
                             <button onClick={() => handleViewProfile(vol)} className="p-3 bg-white/5 border border-white/10 text-white hover:text-blue-400 rounded-xl transition-all" title="View Profile">
                                 <Eye size={16} />
                             </button>
-                            <button onClick={() => handleResetPasswordClick(vol)} className="p-3 bg-white/5 border border-white/10 text-white hover:text-orange-400 rounded-xl transition-all" title="Trigger Reset flag">
+                            <button onClick={() => handleResetPasswordClick(vol)} className="p-3 bg-white/5 border border-white/10 text-white hover:text-orange-400 rounded-xl transition-all" title="Security Override">
                                 <KeyRound size={16} />
                             </button>
                             <button onClick={() => copyVolunteerCreds(vol)} className="p-3 bg-white/5 border border-white/10 text-white hover:text-white rounded-xl transition-all" title="Copy Details">
@@ -478,7 +485,7 @@ const ManageVolunteers: React.FC = () => {
         </div>
       </div>
 
-      <Modal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} title="Agent Intelligence Profile">
+      <Modal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} title="Volunteer Intelligence Profile">
           {selectedVol && (
             <div className="space-y-8 p-2">
                 <div className="flex items-center gap-6 p-8 bg-blue-500/5 border border-blue-500/10 rounded-[2.5rem] relative overflow-hidden group">
@@ -495,7 +502,7 @@ const ManageVolunteers: React.FC = () => {
                     <div className="relative z-10 flex-1 overflow-hidden">
                         <div className="flex items-center gap-2 mb-1">
                             <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse"></span>
-                            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500/70">Verified Field Operative</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500/70">Verified Volunteer</p>
                         </div>
                         <h4 className="text-3xl font-cinzel text-white leading-tight truncate">{selectedVol.name}</h4>
                         <span className={`mt-2 inline-block px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${selectedVol.status === 'Active' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
@@ -542,18 +549,38 @@ const ManageVolunteers: React.FC = () => {
           )}
       </Modal>
 
-      <Modal isOpen={isResetModalOpen} onClose={() => setIsResetModalOpen(false)} title="Security Protocol: Engagement">
+      <Modal isOpen={isResetModalOpen} onClose={() => setIsResetModalOpen(false)} title="Security Override: Access Key Reset">
           {selectedVol && (
             <div className="space-y-8 p-2">
-                <div className="p-6 bg-orange-600/10 border border-orange-500/20 rounded-2xl flex items-center gap-4">
-                    <ShieldQuestion className="text-orange-500 shrink-0" size={32} />
-                    <div className="space-y-1">
-                        <p className="text-xs text-orange-200/80 leading-relaxed font-bold uppercase tracking-wider">
-                            Engage mandatory password reset for <span className="text-orange-500">{selectedVol.name}</span>?
+                <div className="p-6 bg-orange-600/10 border border-orange-500/20 rounded-2xl flex items-start gap-4">
+                    <ShieldAlert className="text-orange-500 shrink-0 mt-1" size={24} />
+                    <div className="space-y-2">
+                        <p className="text-xs font-black uppercase tracking-widest text-orange-500">Network Sync Override</p>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider leading-relaxed">
+                            Resetting access key for Volunteer <span className="text-white">"{selectedVol.name}"</span>. 
+                            The update will be pushed directly to the authentication registry. No OTP required.
                         </p>
-                        <p className="text-[9px] text-white uppercase tracking-widest leading-relaxed">
-                            Agent will log in with current key and be forced to establish a new one before terminal access is granted.
-                        </p>
+                    </div>
+                </div>
+
+                <div className="space-y-6">
+                    <div className="relative">
+                        <Input 
+                            label="New Network Access Key" 
+                            name="resetPassword" 
+                            type={showResetPassword ? "text" : "password"} 
+                            value={resetPassword} 
+                            onChange={(e) => setResetPassword(e.target.value)} 
+                            placeholder="Min 6 characters" 
+                            icon={<Lock size={16} />} 
+                        />
+                        <button 
+                            type="button" 
+                            onClick={() => setShowResetPassword(!showResetPassword)} 
+                            className="absolute right-3 top-[34px] text-gray-500 hover:text-white transition-colors"
+                        >
+                            {showResetPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
                     </div>
                 </div>
 
@@ -561,11 +588,11 @@ const ManageVolunteers: React.FC = () => {
                     <Button variant="secondary" onClick={() => setIsResetModalOpen(false)} className="px-8 py-4 text-[10px] font-black tracking-widest">Abort</Button>
                     <Button 
                         onClick={handleResetPassword} 
-                        disabled={isSubmitting} 
+                        disabled={isSubmitting || resetPassword.length < 6} 
                         className="px-12 py-4 text-[10px] font-black uppercase tracking-widest bg-orange-600 hover:bg-orange-500 flex items-center gap-2"
                     >
-                        {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <ShieldAlert size={16} />}
-                        {isSubmitting ? 'DEPLOYING...' : 'Deploy Reset Flag'}
+                        {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <KeyRound size={16} />}
+                        {isSubmitting ? 'SYNCHRONIZING...' : 'Force Commit Key'}
                     </Button>
                 </div>
             </div>

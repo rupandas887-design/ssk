@@ -164,7 +164,7 @@ const OrganisationReports: React.FC = () => {
     };
 
     const handleExport = () => {
-        const headers = ['Aadhaar', 'Identity Name', 'Father Name', 'Mobile', 'DOB', 'Pincode', 'Address', 'Agent', 'Date', 'Status'];
+        const headers = ['Aadhaar', 'Identity Name', 'Father Name', 'Mobile', 'DOB', 'Pincode', 'Address', 'Volunteer', 'Date', 'Status'];
         const rows = filteredMembers.map(m => [
             m.aadhaar, 
             formatDisplayName(m.name, m.surname), 
@@ -181,14 +181,14 @@ const OrganisationReports: React.FC = () => {
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = `Org_Registry_${new Date().toISOString().split('T')[0]}.csv`;
+        link.download = `Registry_Export_${new Date().toISOString().split('T')[0]}.csv`;
         link.click();
     };
 
     const isVerified = editingMember?.status === MemberStatus.Accepted;
 
     return (
-        <DashboardLayout title="Organization Ledger">
+        <DashboardLayout title="Our Members’ Data Registry">
             <div className="space-y-8">
                 <Card className="bg-gray-950 border-white/5 p-8 rounded-[2rem] shadow-2xl relative overflow-hidden">
                     <div className="flex items-center gap-2 mb-8 text-blue-500 relative z-10">
@@ -196,8 +196,8 @@ const OrganisationReports: React.FC = () => {
                         <h3 className="text-[10px] font-black uppercase tracking-[0.4em]">Registry Query Node</h3>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 relative z-10">
-                        <Select label="FIELD AGENT" name="agentId" value={filters.agentId} onChange={handleFilterChange}>
-                            <option value="">All Agents</option>
+                        <Select label="VOLUNTEER" name="agentId" value={filters.agentId} onChange={handleFilterChange}>
+                            <option value="">All Volunteers</option>
                             {allOrgProfiles.filter(p => p.role === Role.Volunteer).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </Select>
                         <Select label="VERIFICATION" name="status" value={filters.status} onChange={handleFilterChange}>
@@ -214,13 +214,13 @@ const OrganisationReports: React.FC = () => {
                     </div>
                 </Card>
 
-                <Card title="Organization Identity Records">
+                <Card title="Our Members’ Data Registry">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead className="border-b border-gray-800">
                                 <tr className="text-gray-500 text-[10px] uppercase font-black tracking-widest">
                                     <th className="p-6">Identity Node</th>
-                                    <th className="p-6">Agent</th>
+                                    <th className="p-6">Volunteer</th>
                                     <th className="p-6 text-center">Status</th>
                                     <th className="p-6 text-right">Actions</th>
                                 </tr>
@@ -249,7 +249,7 @@ const OrganisationReports: React.FC = () => {
                                                     <img 
                                                       src={member.agent_profile.profile_photo_url} 
                                                       className="h-full w-full object-cover" 
-                                                      alt="Agent profile" 
+                                                      alt="Volunteer profile" 
                                                     />
                                                   ) : (
                                                     <div className="h-full w-full flex items-center justify-center text-blue-500/30">
@@ -257,7 +257,7 @@ const OrganisationReports: React.FC = () => {
                                                     </div>
                                                   )}
                                                 </div>
-                                                <span className="text-[11px] font-black text-white uppercase tracking-widest">{member.agent_profile?.name || 'Agent'}</span>
+                                                <span className="text-[11px] font-black text-white uppercase tracking-widest">{member.agent_profile?.name || 'Volunteer'}</span>
                                             </div>
                                         </td>
                                         <td className="p-6 text-center">
