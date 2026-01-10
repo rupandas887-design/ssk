@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
@@ -34,14 +33,19 @@ import {
   Camera,
   XCircle,
   Image as ImageIcon,
-  PartyPopper
+  PartyPopper,
+  KeyRound,
+  ShieldAlert
 } from 'lucide-react';
 
 const supabaseUrl = "https://baetdjjzfqupdzsoecph.supabase.co";
 const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJhZXRkamp6ZnF1cGR6c29lY3BoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0NzEwMTYsImV4cCI6MjA4MjA0NzAxNn0.MYrwQ7E4HVq7TwXpxum9ZukIz4ZAwyunlhpkwkpZ-bo";
 
+// Extended type for internal state
+type OrganisationWithEmail = Organisation & { email?: string };
+
 const ManageOrganisations: React.FC = () => {
-  const [organisations, setOrganisations] = useState<Organisation[]>([]);
+  const [organisations, setOrganisations] = useState<OrganisationWithEmail[]>([]);
   const [newOrg, setNewOrg] = useState({ 
     name: '', 
     mobile: '', 
@@ -57,19 +61,43 @@ const ManageOrganisations: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [resetPassword, setResetPassword] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  
   const [editingOrg, setEditingOrg] = useState<(Organisation & { email?: string, newPassword?: string }) | null>(null);
+  const [selectedOrgForReset, setSelectedOrgForReset] = useState<Organisation | null>(null);
+  
   const [showSuccessSplash, setShowSuccessSplash] = useState(false);
   const { addNotification } = useNotification();
 
   const fetchOrganisations = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase.from('organisations').select('*').order('name');
-    if (error) {
-      addNotification(`Registry error: ${error.message}`, 'error');
-    } else {
-      setOrganisations(data || []);
+    try {
+      // Fetch organizations
+      const { data: orgs, error: orgError } = await supabase.from('organisations').select('*').order('name');
+      if (orgError) throw orgError;
+
+      // Fetch corresponding admin profiles to get emails
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('email, organisation_id')
+        .eq('role', 'Organisation');
+      
+      if (profileError) throw profileError;
+
+      // Merge data
+      const merged = (orgs || []).map(org => ({
+        ...org,
+        email: profiles?.find(p => p.organisation_id === org.id)?.email || 'No access email linked'
+      }));
+
+      setOrganisations(merged);
+    } catch (err: any) {
+      addNotification(`Registry sync error: ${err.message}`, 'error');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [addNotification]);
 
   useEffect(() => {
@@ -173,10 +201,8 @@ const ManageOrganisations: React.FC = () => {
         setPreviewUrl(null);
         fetchOrganisations();
         
-        // Trigger high-motion registry success notification
         addNotification(createdOrgName, 'registry-success', createdOrgPhoto || undefined);
         
-        // Secondary splash celebration
         setShowSuccessSplash(true);
         setTimeout(() => setShowSuccessSplash(false), 3000);
     } catch (err: any) {
@@ -197,6 +223,37 @@ const ManageOrganisations: React.FC = () => {
       setIsModalOpen(true);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResetClick = (org: Organisation) => {
+    setSelectedOrgForReset(org);
+    setResetPassword('');
+    setIsResetModalOpen(true);
+  };
+
+  const handleExecuteReset = async () => {
+    if (!selectedOrgForReset || resetPassword.length < 6) {
+      addNotification("Access key must be at least 6 characters.", 'error');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ password_reset_pending: true })
+        .eq('organisation_id', selectedOrgForReset.id)
+        .eq('role', 'Organisation');
+
+      if (profileError) throw profileError;
+
+      addNotification(`Access key synchronized for ${selectedOrgForReset.name}`, 'success');
+      setIsResetModalOpen(false);
+    } catch (err: any) {
+      addNotification(`Reset failed: ${err.message}`, 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -232,7 +289,6 @@ const ManageOrganisations: React.FC = () => {
             </div>
             
             <div className="space-y-8 relative z-10">
-              {/* Profile Photo Section */}
               <div className="flex flex-col items-center gap-4">
                 <div 
                   onClick={() => fileInputRef.current?.click()}
@@ -243,7 +299,6 @@ const ManageOrganisations: React.FC = () => {
                       <img src={previewUrl} alt="Preview" className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex flex-col items-center gap-1 text-gray-600 group-hover:text-orange-500/70 transition-colors">
-                        {/* Fix: use the Camera component directly from lucide-react instead of icon.Camera */}
                         <Camera size={28} strokeWidth={1.5} />
                         <span className="text-[8px] font-black uppercase tracking-widest">Add Logo</span>
                       </div>
@@ -334,7 +389,10 @@ const ManageOrganisations: React.FC = () => {
                                             <span className="font-bold text-white text-lg group-hover:text-orange-500 transition-colors">{org.name}</span>
                                             {org.status === 'Active' && <CheckCircle2 size={14} className="text-green-500/50" />}
                                         </div>
-                                        <span className="text-[11px] text-white uppercase font-mono tracking-tighter">{org.secretary_name} • {org.mobile}</span>
+                                        <div className="flex flex-col">
+                                          <span className="text-[11px] text-white uppercase font-mono tracking-tighter">{org.secretary_name} • {org.mobile}</span>
+                                          <span className="text-[10px] text-orange-500/80 font-mono lowercase tracking-tight mt-0.5">{org.email}</span>
+                                        </div>
                                     </div>
                                 </div>
                             </td>
@@ -345,6 +403,9 @@ const ManageOrganisations: React.FC = () => {
                             </td>
                             <td className="p-6 text-right">
                                 <div className="flex items-center justify-end gap-2">
+                                    <button onClick={() => handleResetClick(org)} className="p-2.5 bg-white/5 rounded-xl border border-white/10 hover:border-orange-500/50 text-gray-500 hover:text-orange-500 transition-all" title="Security Override">
+                                        <KeyRound size={18} />
+                                    </button>
                                     <button onClick={() => handleEditClick(org)} className="p-2.5 bg-white/5 rounded-xl border border-white/10 hover:border-orange-500/50 text-white hover:text-white transition-all" title="Edit Parameters">
                                         <Edit size={18} />
                                     </button>
@@ -359,7 +420,6 @@ const ManageOrganisations: React.FC = () => {
         </div>
       </div>
 
-      {/* SUCCESS CELEBRATION SPLASH */}
       {showSuccessSplash && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in"></div>
@@ -376,10 +436,10 @@ const ManageOrganisations: React.FC = () => {
         </div>
       )}
 
+      {/* EDIT MODAL */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Modify Organization Parameters">
           {editingOrg && (
             <div className="space-y-8">
-                {/* Profile Photo Display in Modal */}
                 <div className="flex flex-col items-center justify-center pb-2">
                     <div className="h-24 w-24 rounded-2xl overflow-hidden border border-orange-500/30 bg-black shadow-[0_0_20px_rgba(234,88,12,0.1)]">
                         {editingOrg.profile_photo_url ? (
@@ -406,6 +466,57 @@ const ManageOrganisations: React.FC = () => {
                 <div className="flex justify-end gap-4 pt-6 border-t border-white/5">
                     <Button variant="secondary" onClick={() => setIsModalOpen(false)} className="text-[10px] font-black tracking-widest">Abort</Button>
                     <Button onClick={handleUpdateOrganisation} disabled={isSubmitting} className="text-[10px] font-black tracking-widest">{isSubmitting ? "Syncing..." : "Apply Changes"}</Button>
+                </div>
+            </div>
+          )}
+      </Modal>
+
+      {/* SECURITY OVERRIDE (PASSWORD RESET) MODAL */}
+      <Modal isOpen={isResetModalOpen} onClose={() => setIsResetModalOpen(false)} title="Security Override: Access Key Reset">
+          {selectedOrgForReset && (
+            <div className="space-y-8">
+                <div className="p-6 bg-orange-600/10 border border-orange-500/20 rounded-2xl flex items-start gap-4">
+                    <ShieldAlert className="text-orange-500 shrink-0 mt-1" size={24} />
+                    <div className="space-y-2">
+                        <p className="text-xs font-black uppercase tracking-widest text-orange-500">Mandatory Synchronization</p>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider leading-relaxed">
+                            Resetting network access key for <span className="text-white">"{selectedOrgForReset.name}"</span>. 
+                            The new key will be effective immediately. Administrative leads will be required to re-authenticate.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="space-y-6">
+                    <div className="relative">
+                        <Input 
+                            label="New Network Access Key" 
+                            name="resetPassword" 
+                            type={showResetPassword ? "text" : "password"} 
+                            value={resetPassword} 
+                            onChange={(e) => setResetPassword(e.target.value)} 
+                            placeholder="Min 6 characters" 
+                            icon={<Lock size={16} />} 
+                        />
+                        <button 
+                            type="button" 
+                            onClick={() => setShowResetPassword(!showResetPassword)} 
+                            className="absolute right-3 top-[34px] text-gray-500 hover:text-white transition-colors"
+                        >
+                            {showResetPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                    </div>
+                </div>
+
+                <div className="flex justify-end gap-4 pt-6 border-t border-white/5">
+                    <Button variant="secondary" onClick={() => setIsResetModalOpen(false)} className="text-[10px] font-black tracking-widest">Abort</Button>
+                    <Button 
+                        onClick={handleExecuteReset} 
+                        disabled={isSubmitting || resetPassword.length < 6} 
+                        className="bg-orange-600 hover:bg-orange-500 text-[10px] font-black tracking-widest uppercase flex items-center gap-2"
+                    >
+                        {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : <KeyRound size={16} />}
+                        {isSubmitting ? "Synchronizing..." : "Commit Access Key"}
+                    </Button>
                 </div>
             </div>
           )}
