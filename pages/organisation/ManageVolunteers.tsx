@@ -226,6 +226,18 @@ const ManageVolunteers: React.FC = () => {
 
     setIsSubmitting(true);
     try {
+        // CROSS-TABLE UNIQUENESS CHECKS (Mobile & Email)
+        const [orgCheck, profileCheck] = await Promise.all([
+          supabase.from('organisations').select('id').eq('mobile', mobile).maybeSingle(),
+          supabase.from('profiles').select('id').or(`mobile.eq.${mobile},email.eq.${email}`).maybeSingle()
+        ]);
+
+        if (orgCheck.data || profileCheck.data) {
+          addNotification("Duplicate email or primary phone number detected. Registration is not allowed for volunteers or organizations with existing details.", 'error');
+          setIsSubmitting(false);
+          return;
+        }
+
         let photoUrl = '';
         if (newVol.profilePhoto) {
           photoUrl = await uploadProfilePhoto(newVol.profilePhoto);
@@ -591,7 +603,7 @@ const ManageVolunteers: React.FC = () => {
                         disabled={isSubmitting || resetPassword.length < 6} 
                         className="px-12 py-4 text-[10px] font-black uppercase tracking-widest bg-orange-600 hover:bg-orange-500 flex items-center gap-2"
                     >
-                        {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <KeyRound size={16} />}
+                        {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : <KeyRound size={16} />}
                         {isSubmitting ? 'SYNCHRONIZING...' : 'Force Commit Key'}
                     </Button>
                 </div>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import DashboardLayout from '../../components/layout/DashboardLayout';
@@ -37,7 +36,7 @@ import {
 type OrganisationWithEmail = Organisation & { email?: string, authUserId?: string };
 
 const ManageOrganisations: React.FC = () => {
-  const [organisations, setOrganisations] = useState<OrganisationWithEmail[]>([]);
+  const [organisations, setOrgs] = useState<OrganisationWithEmail[]>([]);
   const [newOrg, setNewOrg] = useState({ 
     name: '', 
     mobile: '', 
@@ -85,7 +84,7 @@ const ManageOrganisations: React.FC = () => {
         };
       });
 
-      setOrganisations(merged);
+      setOrgs(merged);
     } catch (err: any) {
       addNotification(`Registry sync error: ${err.message}`, 'error');
     } finally {
@@ -139,6 +138,18 @@ const ManageOrganisations: React.FC = () => {
     
     setIsSubmitting(true);
     try {
+        // CROSS-TABLE UNIQUENESS CHECKS (Mobile & Email)
+        const [orgCheck, profileCheck] = await Promise.all([
+          supabase.from('organisations').select('id').eq('mobile', mobile).maybeSingle(),
+          supabase.from('profiles').select('id').or(`mobile.eq.${mobile},email.eq.${email}`).maybeSingle()
+        ]);
+
+        if (orgCheck.data || profileCheck.data) {
+          addNotification("Duplicate email or primary phone number detected. Registration is not allowed for volunteers or organizations with existing details.", 'error');
+          setIsSubmitting(false);
+          return;
+        }
+
         let photoUrl = '';
         if (newOrg.profilePhoto) {
           photoUrl = await uploadProfilePhoto(newOrg.profilePhoto);
@@ -164,7 +175,11 @@ const ManageOrganisations: React.FC = () => {
           }
         });
 
-        if (authError) throw authError;
+        if (authError) {
+          // Cleanup org if auth fails
+          await supabase.from('organisations').delete().eq('id', orgData.id);
+          throw authError;
+        }
 
         if (authData?.user?.id) {
             await supabase.from('profiles').upsert({
@@ -216,11 +231,6 @@ const ManageOrganisations: React.FC = () => {
     setIsResetModalOpen(true);
   };
 
-  /**
-   * SECURITY OVERRIDE: Uses the admin_reset_password RPC function.
-   * This bypasses limited Auth permissions on the client and updates the password 
-   * directly in the auth.users table via a SECURITY DEFINER function.
-   */
   const handleExecuteReset = async () => {
     if (!selectedOrgForReset?.authUserId || resetPassword.length < 6) {
       addNotification("Valid identity and 6-character key required.", 'error');
