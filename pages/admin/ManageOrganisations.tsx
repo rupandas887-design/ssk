@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
@@ -31,6 +32,10 @@ import {
   KeyRound,
   ShieldAlert
 } from 'lucide-react';
+
+// Supabase Credentials for independent auth client
+const supabaseUrl = "https://baetdjjzfqupdzsoecph.supabase.co";
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJhZXRkamp6ZnF1cGR6c29lY3BoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0NzEwMTYsImV4cCI6MjA4MjA0NzAxNn0.MYrwQ7E4HVq7TwXpxum9ZukIz4ZAwyunlhpkwkpZ-bo";
 
 // Extended type for internal state
 type OrganisationWithEmail = Organisation & { email?: string, authUserId?: string };
@@ -132,13 +137,13 @@ const ManageOrganisations: React.FC = () => {
     const secName = newOrg.secretaryName.trim();
 
     if (!email || !password || !name || !mobile || !secName) {
-        addNotification("Incomplete credentials provided.", 'error');
+        addNotification("Required: Please complete all identity fields before deployment.", 'error');
         return;
     }
     
     setIsSubmitting(true);
     try {
-        // CROSS-TABLE UNIQUENESS CHECKS (Mobile & Email)
+        // 1. CROSS-TABLE UNIQUENESS CHECKS (Mobile & Email)
         const [orgCheck, profileCheck] = await Promise.all([
           supabase.from('organisations').select('id').eq('mobile', mobile).maybeSingle(),
           supabase.from('profiles').select('id').or(`mobile.eq.${mobile},email.eq.${email}`).maybeSingle()
@@ -150,11 +155,17 @@ const ManageOrganisations: React.FC = () => {
           return;
         }
 
+        // 2. Profile Photo Process
         let photoUrl = '';
         if (newOrg.profilePhoto) {
-          photoUrl = await uploadProfilePhoto(newOrg.profilePhoto);
+          try {
+            photoUrl = await uploadProfilePhoto(newOrg.profilePhoto);
+          } catch (uploadErr: any) {
+            throw new Error(`Media Uplink Failed: ${uploadErr.message}`);
+          }
         }
 
+        // 3. Organisation Record Creation
         const { data: orgData, error: orgError } = await supabase
           .from('organisations')
           .insert({ 
@@ -166,9 +177,18 @@ const ManageOrganisations: React.FC = () => {
           })
           .select().single();
 
-        if (orgError) throw orgError;
+        if (orgError) throw new Error(`Database Error: ${orgError.message}`);
 
-        const { data: authData, error: authError } = await supabase.auth.signUp({
+        // 4. Authentication Node Deployment - Use independent client to prevent session takeover
+        const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+          auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+            detectSessionInUrl: false
+          }
+        });
+
+        const { data: authData, error: authError } = await authClient.auth.signUp({
           email, password,
           options: {
             data: { name: secName, role: 'Organisation', organisation_id: orgData.id, mobile }
@@ -176,13 +196,14 @@ const ManageOrganisations: React.FC = () => {
         });
 
         if (authError) {
-          // Cleanup org if auth fails
+          // Rollback Organization creation if auth fails
           await supabase.from('organisations').delete().eq('id', orgData.id);
-          throw authError;
+          throw new Error(`Authentication Provisioning Failed: ${authError.message}`);
         }
 
+        // 5. Profile Synchronization (Backup Upsert)
         if (authData?.user?.id) {
-            await supabase.from('profiles').upsert({
+            const { error: profileError } = await supabase.from('profiles').upsert({
                 id: authData.user.id,
                 name: secName,
                 email,
@@ -191,13 +212,18 @@ const ManageOrganisations: React.FC = () => {
                 mobile,
                 status: 'Active'
             });
+            if (profileError) {
+                console.error("Profile Sync Warning:", profileError);
+            }
         }
 
+        // 6. External Registry Sync (Sheets)
         await syncToSheets(SheetType.ORGANISATIONS, {
           name, secretary_name: secName, mobile, email, status: 'Active',
           registration_date: new Date().toLocaleDateString()
         });
 
+        // 7. Success Lifecycle
         setNewOrg({ name: '', mobile: '', secretaryName: '', email: '', password: '', profilePhoto: null });
         setPreviewUrl(null);
         fetchOrganisations();
@@ -205,7 +231,7 @@ const ManageOrganisations: React.FC = () => {
         setShowSuccessSplash(true);
         setTimeout(() => setShowSuccessSplash(false), 3000);
     } catch (err: any) {
-        addNotification(err?.message || 'Handshake failed.', 'error');
+        addNotification(`Registration Failed: ${err.message || 'System handshake failure.'}`, 'error');
     } finally {
         setIsSubmitting(false);
     }
@@ -233,7 +259,7 @@ const ManageOrganisations: React.FC = () => {
 
   const handleExecuteReset = async () => {
     if (!selectedOrgForReset?.authUserId || resetPassword.length < 6) {
-      addNotification("Valid identity and 6-character key required.", 'error');
+      addNotification("Validation Error: Access keys must be at least 6 characters.", 'error');
       return;
     }
 
@@ -246,10 +272,10 @@ const ManageOrganisations: React.FC = () => {
 
       if (rpcError) throw rpcError;
 
-      addNotification(`Network access key synchronized for ${selectedOrgForReset.name}. Login enabled.`, 'success');
+      addNotification(`Network access key synchronized for ${selectedOrgForReset.name}.`, 'success');
       setIsResetModalOpen(false);
     } catch (err: any) {
-      addNotification(`Synchronization failed: ${err.message}`, 'error');
+      addNotification(`Security Override Failed: ${err.message}`, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -259,19 +285,23 @@ const ManageOrganisations: React.FC = () => {
     if (!editingOrg) return;
     setIsSubmitting(true);
     try {
-      await supabase.from('organisations').update({
+      const { error: orgUpdateError } = await supabase.from('organisations').update({
           name: editingOrg.name, mobile: editingOrg.mobile, secretary_name: editingOrg.secretary_name, status: editingOrg.status
       }).eq('id', editingOrg.id);
+      
+      if (orgUpdateError) throw orgUpdateError;
 
-      await supabase.from('profiles').update({
+      const { error: profileUpdateError } = await supabase.from('profiles').update({
           name: editingOrg.secretary_name, mobile: editingOrg.mobile, email: editingOrg.email, status: editingOrg.status
       }).eq('organisation_id', editingOrg.id).eq('role', 'Organisation');
+      
+      if (profileUpdateError) throw profileUpdateError;
 
       addNotification(`Organization parameters updated.`, 'success');
       fetchOrganisations();
       setIsModalOpen(false);
     } catch (err: any) {
-        addNotification(`Update failed: ${err.message}`, 'error');
+        addNotification(`Update Failed: ${err.message}`, 'error');
     } finally {
         setIsSubmitting(false);
     }

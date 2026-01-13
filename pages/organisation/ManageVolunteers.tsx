@@ -220,13 +220,13 @@ const ManageVolunteers: React.FC = () => {
     
     if (!user?.organisationId) return;
     if (!email || !password || !name || !mobile) {
-        addNotification("Incomplete identity data.", 'error');
+        addNotification("Incomplete identity data. Please fill all fields.", 'error');
         return;
     }
 
     setIsSubmitting(true);
     try {
-        // CROSS-TABLE UNIQUENESS CHECKS (Mobile & Email)
+        // 1. CROSS-TABLE UNIQUENESS CHECKS (Mobile & Email)
         const [orgCheck, profileCheck] = await Promise.all([
           supabase.from('organisations').select('id').eq('mobile', mobile).maybeSingle(),
           supabase.from('profiles').select('id').or(`mobile.eq.${mobile},email.eq.${email}`).maybeSingle()
@@ -238,11 +238,17 @@ const ManageVolunteers: React.FC = () => {
           return;
         }
 
+        // 2. Profile Photo Process
         let photoUrl = '';
         if (newVol.profilePhoto) {
-          photoUrl = await uploadProfilePhoto(newVol.profilePhoto);
+          try {
+            photoUrl = await uploadProfilePhoto(newVol.profilePhoto);
+          } catch (uploadErr: any) {
+            throw new Error(`Media Uplink Failed: ${uploadErr.message}`);
+          }
         }
 
+        // 3. Authentication Node Deployment
         const authClient = createClient(supabaseUrl, supabaseAnonKey, {
           auth: {
             persistSession: false,
@@ -264,8 +270,9 @@ const ManageVolunteers: React.FC = () => {
           }
         });
 
-        if (authError) throw authError;
+        if (authError) throw new Error(`Auth Provisioning Failed: ${authError.message}`);
         
+        // 4. Profile Synchronization
         if (authData?.user?.id) {
             const { error: profileError } = await supabase.from('profiles').upsert({
                 id: authData.user.id,
@@ -278,8 +285,9 @@ const ManageVolunteers: React.FC = () => {
                 profile_photo_url: photoUrl || undefined
             });
             
-            if (profileError) throw profileError;
+            if (profileError) throw new Error(`Database Sync Failed: ${profileError.message}`);
 
+            // 5. External Registry Sync
             await syncToSheets(SheetType.VOLUNTEERS, {
               name, email, mobile,
               organisation_name: user.organisationName,
@@ -293,7 +301,7 @@ const ManageVolunteers: React.FC = () => {
             fetchVolunteers(); 
         }
     } catch (err: any) {
-        addNotification(err.message, 'error');
+        addNotification(`Authorization Failed: ${err.message}`, 'error');
     } finally {
         setIsSubmitting(false);
     }

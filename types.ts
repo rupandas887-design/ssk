@@ -1,4 +1,3 @@
-
 export enum Role {
   MasterAdmin = 'MasterAdmin',
   Organisation = 'Organisation',
@@ -38,6 +37,25 @@ export enum Gender {
   Other = 'Other',
 }
 
+export enum MaritalStatus {
+  Single = 'Single',
+  Married = 'Married',
+  Divorced = 'Divorced',
+  Widowed = 'Widowed',
+}
+
+export enum Qualification {
+  Illiterate = 'No Formal Education',
+  Primary = 'Primary School',
+  Secondary = 'High School (10th)',
+  SeniorSecondary = 'Senior Secondary (12th)',
+  Diploma = 'Diploma',
+  Graduate = 'Graduate',
+  PostGraduate = 'Post Graduate',
+  Professional = 'Professional Degree',
+  Other = 'Other',
+}
+
 export enum Occupation {
   Job = 'Job',
   Business = 'Business',
@@ -73,6 +91,8 @@ export interface Member {
   father_name: string;
   dob: string;
   gender: Gender;
+  marital_status: MaritalStatus;
+  qualification: Qualification;
   emergency_contact: string;
   pincode: string;
   address: string;

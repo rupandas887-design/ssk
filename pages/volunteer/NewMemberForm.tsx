@@ -5,7 +5,7 @@ import Card from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Button from '../../components/ui/Button';
-import { Gender, Occupation, SupportNeed } from '../../types';
+import { Gender, Occupation, SupportNeed, MaritalStatus, Qualification } from '../../types';
 import { supabase } from '../../supabase/client';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
@@ -20,6 +20,8 @@ const initialFormData = {
   fatherName: '',
   dob: '',
   gender: Gender.Male,
+  maritalStatus: MaritalStatus.Single,
+  qualification: Qualification.Secondary,
   emergencyContact: '',
   pincode: '',
   address: '',
@@ -170,6 +172,8 @@ const NewMemberForm: React.FC = () => {
         father_name: formatInput(formData.fatherName),
         dob: formData.dob,
         gender: formData.gender,
+        marital_status: formData.maritalStatus,
+        qualification: formData.qualification,
         emergency_contact: formData.emergencyContact,
         pincode: formData.pincode,
         address: formData.address.trim(),
@@ -313,6 +317,12 @@ const NewMemberForm: React.FC = () => {
                 <Select label="BIOLOGICAL GENDER *" name="gender" value={formData.gender} onChange={handleChange}>
                   {Object.values(Gender).map(g => <option key={g} value={g}>{g}</option>)}
                 </Select>
+                <Select label="MARITAL STATUS *" name="maritalStatus" value={formData.maritalStatus} onChange={handleChange}>
+                  {Object.values(MaritalStatus).map(m => <option key={m} value={m}>{m}</option>)}
+                </Select>
+                <Select label="QUALIFICATION *" name="qualification" value={formData.qualification} onChange={handleChange}>
+                  {Object.values(Qualification).map(q => <option key={q} value={q}>{q}</option>)}
+                </Select>
                 <Input label="EMERGENCY CONTACT *" name="emergencyContact" value={formData.emergencyContact} onChange={handleChange} maxLength={10} required />
                 <Input label="PINCODE *" name="pincode" value={formData.pincode} onChange={handleChange} maxLength={6} required />
                 <div className="md:col-span-2">
@@ -365,10 +375,10 @@ const NewMemberForm: React.FC = () => {
             <Card title="Review Node" className="bg-[#0a0c14] border-white/10 rounded-[2.5rem] p-8 md:p-14 shadow-2xl">
               <div className="space-y-12">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                  <Select label="PRIMARY VOCATION *" name="occupation" value={formData.occupation} onChange={handleChange}>
+                  <Select label="What do you do? *" name="occupation" value={formData.occupation} onChange={handleChange}>
                     {Object.values(Occupation).map(o => <option key={o} value={o}>{o}</option>)}
                   </Select>
-                  <Select label="SUPPORT REQUIREMENT *" name="supportNeed" value={formData.supportNeed} onChange={handleChange}>
+                  <Select label="What do you want? *" name="supportNeed" value={formData.supportNeed} onChange={handleChange}>
                     {Object.values(SupportNeed).map(s => <option key={s} value={s}>{s}</option>)}
                   </Select>
                 </div>
