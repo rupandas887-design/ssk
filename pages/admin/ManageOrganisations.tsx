@@ -61,6 +61,9 @@ const ManageOrganisations: React.FC = () => {
   const [resetPassword, setResetPassword] = useState('');
   const [showResetPassword, setShowResetPassword] = useState(false);
   
+  // Localized error state for the form
+  const [formError, setFormError] = useState<string | null>(null);
+  
   const [editingOrg, setEditingOrg] = useState<(Organisation & { email?: string }) | null>(null);
   const [selectedOrgForReset, setSelectedOrgForReset] = useState<OrganisationWithEmail | null>(null);
   
@@ -104,6 +107,7 @@ const ManageOrganisations: React.FC = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setNewOrg(prev => ({ ...prev, [name]: value }));
+    if (formError) setFormError(null); // Clear error on change
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,23 +140,67 @@ const ManageOrganisations: React.FC = () => {
     const mobile = newOrg.mobile.trim();
     const secName = newOrg.secretaryName.trim();
 
+    setFormError(null);
+
     if (!email || !password || !name || !mobile || !secName) {
-        addNotification("Required: Please complete all identity fields before deployment.", 'error');
+        setFormError("Action Required: Please complete all identity fields before deployment.");
+        return;
+    }
+
+    if (!/^\d{10}$/.test(mobile)) {
+        setFormError("Validation Error: Mobile number must be exactly 10 digits.");
         return;
     }
     
     setIsSubmitting(true);
     try {
-        const [orgCheck, profileCheck] = await Promise.all([
-          supabase.from('organisations').select('id').eq('mobile', mobile).maybeSingle(),
-          supabase.from('profiles').select('id').or(`mobile.eq.${mobile},email.eq.${email}`).maybeSingle()
-        ]);
+        // --- 1. Comprehensive Duplicate Checks ---
+        
+        // Name check (Case Insensitive)
+        const { data: nameCheck } = await supabase
+          .from('organisations')
+          .select('id')
+          .ilike('name', name)
+          .maybeSingle();
 
-        if (orgCheck.data || profileCheck.data) {
-          addNotification("Duplicate details detected. Access denied.", 'error');
-          setIsSubmitting(false);
-          return;
+        if (nameCheck) {
+          throw new Error(`The Organization name "${name}" is already registered in the Global Registry.`);
         }
+
+        // Mobile check (Organization Table)
+        const { data: orgMobileCheck } = await supabase
+          .from('organisations')
+          .select('id')
+          .eq('mobile', mobile)
+          .maybeSingle();
+        
+        if (orgMobileCheck) {
+          throw new Error(`The primary mobile number "${mobile}" is already linked to another Organization.`);
+        }
+
+        // Mobile check (Profiles Table - Prevent cross-role duplication)
+        const { data: profileMobileCheck } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('mobile', mobile)
+          .maybeSingle();
+        
+        if (profileMobileCheck) {
+          throw new Error(`The mobile number "${mobile}" is already linked to a specific user profile.`);
+        }
+
+        // Email check
+        const { data: emailCheck } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle();
+
+        if (emailCheck) {
+          throw new Error(`The access email "${email}" is already in use by another entity.`);
+        }
+
+        // --- 2. Deployment Sequence ---
 
         let photoUrl = '';
         if (newOrg.profilePhoto) {
@@ -163,6 +211,7 @@ const ManageOrganisations: React.FC = () => {
           }
         }
 
+        // Insert Organization Record
         const { data: orgData, error: orgError } = await supabase
           .from('organisations')
           .insert({ 
@@ -174,8 +223,9 @@ const ManageOrganisations: React.FC = () => {
           })
           .select().single();
 
-        if (orgError) throw new Error(`Database Error: ${orgError.message}`);
+        if (orgError) throw new Error(`Database registry sync failed: ${orgError.message}`);
 
+        // Provision Auth Account
         const authClient = createClient(supabaseUrl, supabaseAnonKey, {
           auth: {
             persistSession: false,
@@ -192,12 +242,14 @@ const ManageOrganisations: React.FC = () => {
         });
 
         if (authError) {
+          // Rollback organization creation if auth fails
           await supabase.from('organisations').delete().eq('id', orgData.id);
-          throw new Error(`Authentication Provisioning Failed: ${authError.message}`);
+          throw new Error(`Security provisioning failed: ${authError.message}`);
         }
 
+        // Link Profile
         if (authData?.user?.id) {
-            await supabase.from('profiles').upsert({
+            const { error: profileError } = await supabase.from('profiles').upsert({
                 id: authData.user.id,
                 name: secName,
                 email,
@@ -206,21 +258,26 @@ const ManageOrganisations: React.FC = () => {
                 mobile,
                 status: 'Active'
             });
+            if (profileError) throw new Error(`Final handshake failed: ${profileError.message}`);
         }
 
+        // Google Sheets Backup
         await syncToSheets(SheetType.ORGANISATIONS, {
           name, secretary_name: secName, mobile, email, status: 'Active',
           registration_date: new Date().toLocaleDateString()
         });
 
+        // Reset state on success
         setNewOrg({ name: '', mobile: '', secretaryName: '', email: '', password: '', profilePhoto: null });
         setPreviewUrl(null);
         fetchOrganisations();
+        
         addNotification(name, 'registry-success', photoUrl || undefined);
         setShowSuccessSplash(true);
         setTimeout(() => setShowSuccessSplash(false), 3000);
+        
     } catch (err: any) {
-        addNotification(`Registration Failed: ${err.message}`, 'error');
+        setFormError(err.message || "An unknown deployment failure occurred.");
     } finally {
         setIsSubmitting(false);
     }
@@ -345,7 +402,7 @@ const ManageOrganisations: React.FC = () => {
 
               <div className="space-y-6">
                 <Input label="Organization Name" name="name" value={newOrg.name} onChange={handleInputChange} placeholder="Ex: SSK Bangalore North" icon={<Building2 size={16} />} />
-                <Input label="Primary Mobile" name="mobile" value={newOrg.mobile} onChange={handleInputChange} placeholder="91XXXXXXXX" icon={<Phone size={16} />} />
+                <Input label="Primary Mobile" name="mobile" value={newOrg.mobile} onChange={handleInputChange} placeholder="91XXXXXXXX" maxLength={10} icon={<Phone size={16} />} />
                 <Input label="Administrative Lead" name="secretaryName" value={newOrg.secretaryName} onChange={handleInputChange} placeholder="Lead Name" icon={<User size={16} />} />
                 <Input label="Lead Access Email" name="email" type="email" value={newOrg.email} onChange={handleInputChange} placeholder="lead@org.com" icon={<Mail size={16} />} />
                 <div className="relative">
@@ -354,6 +411,17 @@ const ManageOrganisations: React.FC = () => {
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
+
+                {/* Localized Form Error Terminal */}
+                {formError && (
+                    <div className="p-4 bg-red-600/10 border border-red-500/20 rounded-2xl flex items-start gap-3 animate-in fade-in slide-in-from-top-1 duration-300">
+                        <ShieldAlert className="text-red-500 shrink-0 mt-0.5" size={16} />
+                        <p className="text-[11px] text-red-400 font-bold uppercase tracking-tight leading-relaxed">
+                            {formError}
+                        </p>
+                    </div>
+                )}
+
                 <Button type="button" onClick={handleAddOrganisation} disabled={isSubmitting} className="w-full py-5 flex items-center justify-center gap-3 text-[11px] font-black uppercase tracking-[0.3em] shadow-xl">
                   {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <UserPlus size={18} />}
                   {isSubmitting ? 'Establishing Node...' : 'Deploy Organization'}
