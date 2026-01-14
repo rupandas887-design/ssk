@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from '../../supabase/client';
 import { UserCircle, Zap } from 'lucide-react';
 
@@ -83,10 +83,22 @@ const VolunteerScrollingStrip: React.FC = () => {
     };
   }, [fetchInitialVols]);
 
-  if (vols.length === 0) return null;
+  const displayVols = useMemo(() => {
+    if (vols.length === 0) return [];
+    
+    const baseSet = vols;
+    const itemWidth = 300; 
+    const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
+    
+    const minWidthNeeded = screenWidth;
+    const currentWidth = baseSet.length * itemWidth;
+    const repeats = Math.max(1, Math.ceil(minWidthNeeded / currentWidth));
+    
+    const repeatedBase = Array(repeats).fill(baseSet).flat();
+    return [...repeatedBase, ...repeatedBase];
+  }, [vols]);
 
-  // Duplicate for seamless loop
-  const displayVols = [...vols, ...vols];
+  if (displayVols.length === 0) return null;
 
   return (
     <div className="w-full bg-[#050505] border-b border-white/5 overflow-hidden relative h-16 flex items-center shadow-2xl z-10">

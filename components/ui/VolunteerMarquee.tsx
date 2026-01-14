@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Volunteer } from '../../types';
 import { UserCircle } from 'lucide-react';
 
@@ -7,13 +7,28 @@ interface VolunteerMarqueeProps {
 }
 
 const VolunteerMarquee: React.FC<VolunteerMarqueeProps> = ({ volunteers }) => {
-  if (volunteers.length === 0) return null;
+  const displayVols = useMemo(() => {
+    if (!volunteers || volunteers.length === 0) return [];
+    
+    const baseSet = volunteers;
+    const itemWidth = 220; 
+    const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
+    
+    // Calculate how many items are needed to cover the visible viewport
+    const itemsNeededToCoverScreen = Math.ceil(screenWidth / itemWidth);
+    
+    let fillSet = [...baseSet];
+    // Only duplicate the cycle if the base set is smaller than the screen width
+    if (fillSet.length < itemsNeededToCoverScreen) {
+        const repeats = Math.ceil(itemsNeededToCoverScreen / fillSet.length);
+        fillSet = Array(repeats).fill(baseSet).flat();
+    }
+    
+    // Double for the seamless -50% CSS transition
+    return [...fillSet, ...fillSet];
+  }, [volunteers]);
 
-  // Newest to Oldest sorting
-  const sortedVols = [...volunteers].reverse();
-  
-  // Standard marquee requirement: Exactly one clone set for a seamless loop
-  const displayVols = [...sortedVols, ...sortedVols];
+  if (displayVols.length === 0) return null;
 
   return (
     <div className="w-full bg-transparent py-8 md:py-12 overflow-hidden group relative">
@@ -29,7 +44,6 @@ const VolunteerMarquee: React.FC<VolunteerMarqueeProps> = ({ volunteers }) => {
           >
             <div className="flex flex-col items-center transition-all duration-500 group-hover/card:-translate-y-2">
               
-              {/* Photo/Logo Top Layer */}
               <div className="relative w-full aspect-square mb-4 md:mb-6 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] bg-zinc-900 border border-white/5 shadow-2xl group-hover/card:border-blue-500/30 transition-colors">
                 {vol.profile_photo_url ? (
                   <img 
@@ -44,13 +58,12 @@ const VolunteerMarquee: React.FC<VolunteerMarqueeProps> = ({ volunteers }) => {
                   </div>
                 )}
                 
-                {/* Active Indicator */}
-                {vol.enrollments > 0 && idx < sortedVols.length && (
+                {/* Active Indicator (Limited to first instance pass) */}
+                {vol.enrollments > 0 && idx < (displayVols.length / 2) && (
                   <div className="absolute top-4 right-4 h-2 w-2 bg-blue-500 rounded-full shadow-[0_0_12px_rgba(59,130,246,1)] animate-pulse z-10"></div>
                 )}
               </div>
 
-              {/* Name & Subtitle Bottom Layer */}
               <div className="text-center w-full px-2 space-y-1">
                 <h4 className="text-[10px] md:text-[11px] font-black text-white uppercase tracking-[0.25em] leading-tight truncate group-hover/card:text-blue-500 transition-colors">
                   {vol.name}

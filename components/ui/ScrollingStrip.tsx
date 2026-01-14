@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from '../../supabase/client';
 import { Organisation } from '../../types';
 import { Building2, Globe } from 'lucide-react';
@@ -48,10 +48,22 @@ const ScrollingStrip: React.FC = () => {
     };
   }, [fetchInitialOrgs]);
 
-  if (orgs.length === 0) return null;
+  const displayOrgs = useMemo(() => {
+    if (orgs.length === 0) return [];
+    
+    const baseSet = orgs;
+    const itemWidth = 300; // estimated width of each strip item
+    const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
+    
+    const minWidthNeeded = screenWidth;
+    const currentWidth = baseSet.length * itemWidth;
+    const repeats = Math.max(1, Math.ceil(minWidthNeeded / currentWidth));
+    
+    const repeatedBase = Array(repeats).fill(baseSet).flat();
+    return [...repeatedBase, ...repeatedBase];
+  }, [orgs]);
 
-  // Duplicate for seamless loop
-  const displayOrgs = [...orgs, ...orgs];
+  if (displayOrgs.length === 0) return null;
 
   return (
     <div className="w-full bg-[#050505] border-b border-white/5 overflow-hidden relative h-16 flex items-center shadow-2xl z-20">

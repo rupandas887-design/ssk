@@ -14,8 +14,8 @@ import { Users, Globe, HeartPulse } from 'lucide-react';
 
 const LandingPage: React.FC = () => {
   const [members, setMembers] = useState<Member[]>([]);
-  const [organisations, setOrganisations] = useState<Organisation[]>([]);
-  const [volsData, setVolsData] = useState<any[]>([]);
+  const [orgsDataRaw, setOrgsDataRaw] = useState<Organisation[]>([]);
+  const [volsDataRaw, setVolsDataRaw] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -27,9 +27,9 @@ const LandingPage: React.FC = () => {
         supabase.from('profiles').select('*, organisations(name)')
       ]);
       if (mRes.data) setMembers(mRes.data);
-      if (oRes.data) setOrganisations(oRes.data);
+      if (oRes.data) setOrgsDataRaw(oRes.data);
       if (pRes.data) {
-        setVolsData(pRes.data.filter(p => String(p.role).toLowerCase() === 'volunteer'));
+        setVolsDataRaw(pRes.data.filter(p => String(p.role).toLowerCase() === 'volunteer'));
       }
     } catch (err) {
       console.error("Sync Failure:", err);
@@ -44,19 +44,53 @@ const LandingPage: React.FC = () => {
     return () => clearInterval(timer);
   }, [fetchData]);
 
-  const volunteers = useMemo(() => {
+  // Process and de-duplicate both lists with cross-role exclusivity
+  const { organisations, volunteers } = useMemo(() => {
+    const seenIdentities = new Set<string>();
+
+    // 1. Process Organisations (Primary Priority)
+    const uniqueOrgs: Organisation[] = [];
+    (orgsDataRaw || []).forEach(o => {
+      const nameKey = (o.name || '').toLowerCase().trim();
+      const secretaryKey = (o.secretary_name || '').toLowerCase().trim();
+      const mobileKey = (o.mobile || '').trim();
+      
+      // Create identity footprint (combining org name, lead name and mobile)
+      const footprint = `${secretaryKey}-${mobileKey}`;
+      
+      // De-duplicate within Orgs list itself
+      if (seenIdentities.has(footprint)) return;
+      
+      uniqueOrgs.push(o);
+      seenIdentities.add(footprint);
+      // Also track the business name to be extra safe
+      seenIdentities.add(`${nameKey}-${mobileKey}`);
+    });
+
+    // 2. Prepare Volunteer Enrollment Map
     const enrollmentMap = members.reduce((acc, m) => {
       if (m.volunteer_id) acc[m.volunteer_id] = (acc[m.volunteer_id] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
-    // IDENTIFICATION DUAL ROLE FILTER:
-    // Exclude volunteers who are already listed as Organizations (checked by mobile number)
-    const orgMobiles = new Set(organisations.map(o => o.mobile?.trim()));
+    // 3. Process Volunteers (Exclude if already represented in Organizations)
+    const uniqueVols: any[] = [];
+    const volDedupeSet = new Set<string>();
 
-    return volsData
-      .filter(v => !orgMobiles.has(v.mobile?.trim()))
-      .map(v => ({
+    (volsDataRaw || []).forEach(v => {
+      const nameKey = (v.name || '').toLowerCase().trim();
+      const mobileKey = (v.mobile || '').trim();
+      const footprint = `${nameKey}-${mobileKey}`;
+
+      // CROSS-SECTION DEDUPLICATION:
+      // If this person is already an Org lead or the Org identity, skip them here.
+      if (seenIdentities.has(footprint)) return;
+      
+      // SELF-DEDUPLICATION:
+      // Prevent the same volunteer from appearing twice in the volunteer list
+      if (volDedupeSet.has(footprint)) return;
+
+      uniqueVols.push({
         id: v.id,
         name: v.name || 'Anonymous',
         email: v.email,
@@ -66,8 +100,16 @@ const LandingPage: React.FC = () => {
         mobile: v.mobile,
         enrollments: enrollmentMap[v.id] || 0,
         profile_photo_url: v.profile_photo_url, 
-      }));
-  }, [volsData, members, organisations]);
+      });
+
+      volDedupeSet.add(footprint);
+    });
+
+    return { 
+      organisations: uniqueOrgs.reverse(), // Newest first
+      volunteers: uniqueVols.reverse() 
+    };
+  }, [orgsDataRaw, volsDataRaw, members]);
 
   return (
     <div className="bg-black text-white min-h-screen selection:bg-[#FF6600]/30 overflow-x-hidden font-jost">
@@ -164,7 +206,7 @@ const LandingPage: React.FC = () => {
                   <div className="activity-icon-container mb-6 md:mb-8">
                     <HeartPulse size={40} className="text-[#FF6600] animate-pulse-soft" />
                   </div>
-                  <p className="text-5xl md:text-6xl font-black text-[#FF6600] font-cinzel leading-none">{volsData.length}</p>
+                  <p className="text-5xl md:text-6xl font-black text-[#FF6600] font-cinzel leading-none">{volunteers.length}</p>
                   <p className="text-[9px] md:text-[10px] font-black text-white uppercase tracking-[0.4em] mt-2 md:mt-3">VOLUNTEERS</p>
                 </div>
                 <div className="w-1/2 h-px bg-white/5"></div>

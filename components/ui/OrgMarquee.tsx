@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Organisation } from '../../types';
 import { Building2 } from 'lucide-react';
 
@@ -7,14 +7,34 @@ interface OrgMarqueeProps {
 }
 
 const OrgMarquee: React.FC<OrgMarqueeProps> = ({ organisations }) => {
-  if (organisations.length === 0) return null;
+  const displayOrgs = useMemo(() => {
+    if (!organisations || organisations.length === 0) return [];
+    
+    const baseSet = organisations;
+    
+    // Constant widths for calculation
+    const itemWidth = 220; 
+    const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
+    
+    /**
+     * LOGIC: To have a gapless marquee that moves -50%, the total width of the
+     * items in the set MUST be at least the screen width. 
+     * We only repeat if the current unique count is too small to cover the view.
+     */
+    const itemsNeededToCoverScreen = Math.ceil(screenWidth / itemWidth);
+    
+    let fillSet = [...baseSet];
+    // If we have fewer items than a single screen-width, repeat the cycle
+    if (fillSet.length < itemsNeededToCoverScreen) {
+        const repeats = Math.ceil(itemsNeededToCoverScreen / fillSet.length);
+        fillSet = Array(repeats).fill(baseSet).flat();
+    }
+    
+    // Double for the seamless CSS transition (-50%)
+    return [...fillSet, ...fillSet];
+  }, [organisations]);
 
-  // Newest to Oldest sorting
-  const sortedOrgs = [...organisations].reverse();
-  
-  // Standard marquee requirement: Exactly one clone set for a seamless loop
-  // This ensures no visual "triplicates" appear on screen at once
-  const displayOrgs = [...sortedOrgs, ...sortedOrgs];
+  if (displayOrgs.length === 0) return null;
 
   return (
     <div className="w-full bg-transparent py-8 md:py-12 overflow-hidden group relative">
@@ -30,7 +50,6 @@ const OrgMarquee: React.FC<OrgMarqueeProps> = ({ organisations }) => {
           >
             <div className="flex flex-col items-center transition-all duration-500 group-hover/card:-translate-y-2">
               
-              {/* Photo/Logo Top Layer */}
               <div className="relative w-full aspect-square mb-4 md:mb-6 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] bg-zinc-900 border border-white/5 shadow-2xl group-hover/card:border-orange-500/30 transition-colors">
                 {org.profile_photo_url ? (
                   <img 
@@ -45,13 +64,12 @@ const OrgMarquee: React.FC<OrgMarqueeProps> = ({ organisations }) => {
                   </div>
                 )}
                 
-                {/* Micro Indicator - Only for unique set first pass */}
-                {idx < sortedOrgs.length && idx < 4 && (
+                {/* Visual Cue for Authenticated Nodes (Limit to 4 markers total for aesthetics) */}
+                {idx < 4 && (
                   <div className="absolute top-4 right-4 h-2 w-2 bg-orange-500 rounded-full shadow-[0_0_12px_rgba(234,88,12,1)] animate-pulse z-10"></div>
                 )}
               </div>
 
-              {/* Name & Subtitle Bottom Layer */}
               <div className="text-center w-full px-2 space-y-1">
                 <h4 className="text-[10px] md:text-[11px] font-black text-white uppercase tracking-[0.25em] leading-tight truncate group-hover/card:text-orange-500 transition-colors">
                   {org.name}
