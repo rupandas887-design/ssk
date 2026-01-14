@@ -12,10 +12,9 @@ const OrgMarquee: React.FC<OrgMarqueeProps> = ({ organisations }) => {
   // Newest to Oldest sorting
   const sortedOrgs = [...organisations].reverse();
   
-  // Standard marquee trick: Duplicate the set exactly once for a seamless loop
-  // if the list is very short, we duplicate more to fill the screen width
-  const duplicationCount = sortedOrgs.length < 5 ? 4 : 2;
-  const displayOrgs = Array(duplicationCount).fill(sortedOrgs).flat();
+  // Standard marquee requirement: Exactly one clone set for a seamless loop
+  // This ensures no visual "triplicates" appear on screen at once
+  const displayOrgs = [...sortedOrgs, ...sortedOrgs];
 
   return (
     <div className="w-full bg-transparent py-8 md:py-12 overflow-hidden group relative">
@@ -46,7 +45,7 @@ const OrgMarquee: React.FC<OrgMarqueeProps> = ({ organisations }) => {
                   </div>
                 )}
                 
-                {/* Micro Indicator */}
+                {/* Micro Indicator - Only for unique set first pass */}
                 {idx < sortedOrgs.length && idx < 4 && (
                   <div className="absolute top-4 right-4 h-2 w-2 bg-orange-500 rounded-full shadow-[0_0_12px_rgba(234,88,12,1)] animate-pulse z-10"></div>
                 )}

@@ -12,9 +12,8 @@ const VolunteerMarquee: React.FC<VolunteerMarqueeProps> = ({ volunteers }) => {
   // Newest to Oldest sorting
   const sortedVols = [...volunteers].reverse();
   
-  // Standard marquee trick: Duplicate the set exactly once for a seamless loop
-  const duplicationCount = sortedVols.length < 5 ? 4 : 2;
-  const displayVols = Array(duplicationCount).fill(sortedVols).flat();
+  // Standard marquee requirement: Exactly one clone set for a seamless loop
+  const displayVols = [...sortedVols, ...sortedVols];
 
   return (
     <div className="w-full bg-transparent py-8 md:py-12 overflow-hidden group relative">
@@ -46,7 +45,7 @@ const VolunteerMarquee: React.FC<VolunteerMarqueeProps> = ({ volunteers }) => {
                 )}
                 
                 {/* Active Indicator */}
-                {vol.enrollments > 0 && (
+                {vol.enrollments > 0 && idx < sortedVols.length && (
                   <div className="absolute top-4 right-4 h-2 w-2 bg-blue-500 rounded-full shadow-[0_0_12px_rgba(59,130,246,1)] animate-pulse z-10"></div>
                 )}
               </div>

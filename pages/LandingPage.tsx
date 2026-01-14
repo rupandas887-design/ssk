@@ -50,18 +50,24 @@ const LandingPage: React.FC = () => {
       return acc;
     }, {} as Record<string, number>);
 
-    return volsData.map(v => ({
-      id: v.id,
-      name: v.name || 'Anonymous',
-      email: v.email,
-      role: Role.Volunteer,
-      organisationId: v.organisation_id,
-      organisationName: v.organisations?.name || 'Independent',
-      mobile: v.mobile,
-      enrollments: enrollmentMap[v.id] || 0,
-      profile_photo_url: v.profile_photo_url, 
-    }));
-  }, [volsData, members]);
+    // IDENTIFICATION DUAL ROLE FILTER:
+    // Exclude volunteers who are already listed as Organizations (checked by mobile number)
+    const orgMobiles = new Set(organisations.map(o => o.mobile?.trim()));
+
+    return volsData
+      .filter(v => !orgMobiles.has(v.mobile?.trim()))
+      .map(v => ({
+        id: v.id,
+        name: v.name || 'Anonymous',
+        email: v.email,
+        role: Role.Volunteer,
+        organisationId: v.organisation_id,
+        organisationName: v.organisations?.name || 'Independent',
+        mobile: v.mobile,
+        enrollments: enrollmentMap[v.id] || 0,
+        profile_photo_url: v.profile_photo_url, 
+      }));
+  }, [volsData, members, organisations]);
 
   return (
     <div className="bg-black text-white min-h-screen selection:bg-[#FF6600]/30 overflow-x-hidden font-jost">
@@ -128,7 +134,6 @@ const LandingPage: React.FC = () => {
             <div className="md:col-span-4 analytics-card p-8 md:p-12 flex flex-col items-center justify-center min-h-[360px] md:min-h-[420px]">
               <Globe className="globe-watermark" size={140} />
               <div className="mb-6 md:mb-10 text-gray-700">
-                {/* Fix: Removed non-existent md:size prop */}
                 <Users size={48} strokeWidth={1} />
               </div>
               <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.4em] text-white mb-6 md:mb-8 text-center">TOTAL VERIFIED MEMBERS</p>
@@ -157,10 +162,9 @@ const LandingPage: React.FC = () => {
               <div className="flex-1 flex flex-col items-center justify-center space-y-10 md:space-y-12">
                 <div className="flex flex-col items-center">
                   <div className="activity-icon-container mb-6 md:mb-8">
-                    {/* Fix: Removed non-existent md:size prop */}
                     <HeartPulse size={40} className="text-[#FF6600] animate-pulse-soft" />
                   </div>
-                  <p className="text-5xl md:text-6xl font-black text-[#FF6600] font-cinzel leading-none">{volunteers.length}</p>
+                  <p className="text-5xl md:text-6xl font-black text-[#FF6600] font-cinzel leading-none">{volsData.length}</p>
                   <p className="text-[9px] md:text-[10px] font-black text-white uppercase tracking-[0.4em] mt-2 md:mt-3">VOLUNTEERS</p>
                 </div>
                 <div className="w-1/2 h-px bg-white/5"></div>

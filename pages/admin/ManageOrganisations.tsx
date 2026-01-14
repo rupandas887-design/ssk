@@ -105,16 +105,15 @@ const ManageOrganisations: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-        // 1. DUAL ROLE CHECK: Verify this mobile is NOT a Volunteer in the Profiles registry
-        const { data: volunteerCheck } = await supabase
-          .from('profiles')
-          .select('id, name')
+        // 1. Check for existing Organization mobile
+        const { data: orgCheck } = await supabase
+          .from('organisations')
+          .select('id')
           .eq('mobile', mobile.trim())
-          .eq('role', 'Volunteer')
           .maybeSingle();
-
-        if (volunteerCheck) {
-          throw new Error(`Identity Conflict: Mobile "${mobile}" is already registered to Volunteer "${volunteerCheck.name}". One identity cannot hold dual roles.`);
+        
+        if (orgCheck) {
+          throw new Error(`Registry Conflict: This mobile number is already linked to an authorized Organization.`);
         }
 
         // 2. Deployment of Organisation Media & Record

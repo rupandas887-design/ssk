@@ -88,18 +88,7 @@ const ManageVolunteers: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-        // 1. DUAL ROLE CHECK: Verify this mobile is NOT an Organization
-        const { data: orgCheck } = await supabase
-          .from('organisations')
-          .select('id, name')
-          .eq('mobile', mobile.trim())
-          .maybeSingle();
-
-        if (orgCheck) {
-          throw new Error(`Identity Conflict: Mobile "${mobile}" is already registered as Organization "${orgCheck.name}". One identity cannot hold dual roles.`);
-        }
-
-        // 2. Check for existing Volunteer mobile
+        // 1. Check for existing Volunteer mobile
         const { data: profileCheck } = await supabase
           .from('profiles')
           .select('id')
@@ -110,7 +99,7 @@ const ManageVolunteers: React.FC = () => {
           throw new Error(`Registry Conflict: This mobile number is already linked to an existing agent.`);
         }
 
-        // 3. Authorization
+        // 2. Authorization
         let photoUrl = '';
         if (newVol.profilePhoto) {
             const fileName = `agent_profile_${uuidv4()}.jpg`;
