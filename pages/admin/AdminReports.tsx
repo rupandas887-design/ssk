@@ -330,7 +330,41 @@ const AdminReports: React.FC = () => {
                 </Card>
             </div>
 
-            <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Registry Audit Profile" maxWidth="4xl">
+            <Modal 
+              isOpen={isEditModalOpen} 
+              onClose={() => setIsEditModalOpen(false)} 
+              title="Registry Audit Profile" 
+              maxWidth="4xl"
+              footer={editingMember && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
+                        <Button 
+                          variant="secondary" 
+                          onClick={() => handleCopyDetails(editingMember)} 
+                          className="flex-1 sm:flex-none px-4 py-3.5 text-[9px] font-black uppercase tracking-widest gap-2 bg-white/5 border border-white/5 active:scale-95 transition-all"
+                        >
+                            <Copy size={16} /> <span>Copy Details</span>
+                        </Button>
+                        <Button 
+                          variant="secondary" 
+                          onClick={() => setIsEditModalOpen(false)} 
+                          className="flex-1 sm:flex-none px-6 sm:px-10 py-3.5 text-[9px] font-black uppercase tracking-widest active:scale-95 transition-all"
+                        >
+                          Abort
+                        </Button>
+                    </div>
+                    
+                    <Button 
+                      onClick={handleUpdateMember} 
+                      disabled={isUpdating} 
+                      className="w-full sm:w-auto px-10 sm:px-14 py-4 text-[10px] font-black uppercase tracking-[0.4em] bg-orange-600 hover:bg-orange-500 shadow-[0_15px_30px_-10px_rgba(234,102,12,0.4)] flex items-center justify-center gap-3 active:scale-95 transition-all"
+                    >
+                        {isUpdating ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                        {isUpdating ? 'SYNCING...' : 'COMMIT CHANGES'}
+                    </Button>
+                </div>
+              )}
+            >
                 {editingMember && (
                     <div className="space-y-6 sm:space-y-8">
                         <div className="bg-black/60 border border-white/10 rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-8 overflow-hidden relative shadow-2xl">
@@ -360,7 +394,7 @@ const AdminReports: React.FC = () => {
                                                 </h4>
                                             </div>
                                             <div className="flex-shrink-0">
-                                                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${editingMember.status === MemberStatus.Accepted ? 'bg-green-500/10 border-green-500/20 text-green-500' : 'bg-orange-500/10 border-orange-500/20 text-orange-500 animate-pulse'}`}>
+                                                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${editingMember.status === MemberStatus.Accepted ? 'bg-green-500/10 border-green-500/20 text-green-500' : 'bg-orange-500/10 border-orange-500/20 text-orange-400 animate-pulse'}`}>
                                                     {editingMember.status === MemberStatus.Accepted ? <CheckCircle size={10} /> : <Clock size={10} />}
                                                     <span className="text-[8px] font-black uppercase tracking-widest whitespace-nowrap">
                                                         {editingMember.status === MemberStatus.Accepted ? 'Verified Identity' : 'Review Pending'}
@@ -397,7 +431,7 @@ const AdminReports: React.FC = () => {
                              </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5 pb-20 sm:pb-0">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5 pb-8">
                             <Input label="First Name" value={editingMember.name} onChange={(e) => setEditingMember({...editingMember, name: e.target.value})} icon={<UserIcon size={12} />} className="py-2.5 text-xs font-bold" />
                             <Input label="Surname" value={editingMember.surname} onChange={(e) => setEditingMember({...editingMember, surname: e.target.value})} icon={<UserIcon size={12} />} className="py-2.5 text-xs font-bold" />
                             <Input label="Father Name" value={editingMember.father_name} onChange={(e) => setEditingMember({...editingMember, father_name: e.target.value})} icon={<UserCircle size={12} />} className="py-2.5 text-xs font-bold" />
@@ -420,20 +454,6 @@ const AdminReports: React.FC = () => {
                             <div className="sm:col-span-2 lg:col-span-3">
                                 <Input label="Full Address" value={editingMember.address} onChange={(e) => setEditingMember({...editingMember, address: e.target.value})} icon={<MapPin size={12} />} className="py-2.5 text-xs font-bold" />
                             </div>
-                        </div>
-
-                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-white/10 sticky bottom-[-1rem] sm:bottom-[-2rem] bg-[#050505] pb-4 z-20">
-                            <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
-                                <Button variant="secondary" onClick={() => handleCopyDetails(editingMember)} className="flex-1 sm:flex-none px-3 sm:px-4 py-3 text-[8px] sm:text-[9px] font-black uppercase tracking-widest gap-2 bg-white/5 border border-white/5">
-                                    <Copy size={14} /> <span className="hidden xs:inline">Copy</span>
-                                </Button>
-                                <Button variant="secondary" onClick={() => setIsEditModalOpen(false)} className="flex-1 sm:flex-none px-6 sm:px-8 py-3 text-[8px] sm:text-[9px] font-black uppercase tracking-widest">Abort</Button>
-                            </div>
-                            
-                            <Button onClick={handleUpdateMember} disabled={isUpdating} className="w-full sm:w-auto px-10 sm:px-12 py-3.5 sm:py-4 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.3em] bg-orange-600 hover:bg-orange-500 shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all">
-                                {isUpdating ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                                {isUpdating ? 'SYNCING...' : 'COMMIT CHANGES'}
-                            </Button>
                         </div>
                     </div>
                 )}
