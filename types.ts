@@ -57,13 +57,16 @@ export enum Qualification {
 }
 
 export enum Occupation {
-  Job = 'Job',
-  Business = 'Business',
-  Professional = 'Professional',
-  Housewife = 'Housewife',
+  Employee = 'Employee / Job',
+  BusinessOwner = 'Business Owner',
   Student = 'Student',
   Retired = 'Retired',
-  Other = 'Other',
+  Engineer = 'Engineer',
+  Doctor = 'Doctor',
+  Lawyer = 'Lawyer',
+  GovtService = 'IAS / KAS / Govt Clerk',
+  SocialWorker = 'Social Worker',
+  Other = 'Others',
 }
 
 export enum SupportNeed {

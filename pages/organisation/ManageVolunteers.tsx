@@ -88,13 +88,29 @@ const ManageVolunteers: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-        // 1. Check for cross-role conflict (Organization registry)
-        const { data: orgCheck } = await supabase.from('organisations').select('id, name').eq('mobile', mobile.trim()).maybeSingle();
+        // 1. DUAL ROLE CHECK: Verify this mobile is NOT an Organization
+        const { data: orgCheck } = await supabase
+          .from('organisations')
+          .select('id, name')
+          .eq('mobile', mobile.trim())
+          .maybeSingle();
+
         if (orgCheck) {
-          throw new Error(`Identity Conflict: Mobile "${mobile}" is already registered as the Organization "${orgCheck.name}". One identity cannot hold dual roles.`);
+          throw new Error(`Identity Conflict: Mobile "${mobile}" is already registered as Organization "${orgCheck.name}". One identity cannot hold dual roles.`);
         }
 
-        // 2. Authorization
+        // 2. Check for existing Volunteer mobile
+        const { data: profileCheck } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('mobile', mobile.trim())
+          .maybeSingle();
+        
+        if (profileCheck) {
+          throw new Error(`Registry Conflict: This mobile number is already linked to an existing agent.`);
+        }
+
+        // 3. Authorization
         let photoUrl = '';
         if (newVol.profilePhoto) {
             const fileName = `agent_profile_${uuidv4()}.jpg`;
@@ -115,7 +131,16 @@ const ManageVolunteers: React.FC = () => {
                 id: authData.user.id, name: name.trim(), email: email.trim().toLowerCase(), role: 'Volunteer',
                 organisation_id: user?.organisationId, mobile: mobile.trim(), status: 'Active', profile_photo_url: photoUrl || undefined
             });
-            await syncToSheets(SheetType.VOLUNTEERS, { name, email, mobile, organisation_name: user?.organisationName, status: 'Active' });
+            
+            await syncToSheets(SheetType.VOLUNTEERS, { 
+              name, 
+              email, 
+              mobile, 
+              organisation_name: user?.organisationName, 
+              status: 'Active',
+              authorized_date: new Date().toLocaleDateString()
+            });
+
             setNewVol({ name: '', mobile: '', email: '', password: '', profilePhoto: null });
             setPreviewUrl(null);
             fetchVolunteers();

@@ -1,8 +1,6 @@
-
 import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-
-export type NotificationType = 'success' | 'error' | 'info' | 'registry-success';
+import Notification, { NotificationType } from '../components/ui/Notification';
 
 interface ExtendedNotificationProps {
     id: string;
@@ -21,24 +19,33 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<ExtendedNotificationProps[]>([]);
 
+  const dismissNotification = useCallback((id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  }, []);
+
   const addNotification = useCallback((message: string, type: NotificationType, imageUrl?: string, title?: string) => {
     const id = uuidv4();
-    // We still maintain the state and auto-dismissal logic to prevent memory leaks 
-    // and keep the context functional for any code that relies on it.
     setNotifications(prev => [...prev, { id, message, type, imageUrl, title }]);
     
+    const duration = type === 'registry-success' ? 6000 : 5000;
     setTimeout(() => {
-        setNotifications(prev => prev.filter(n => n.id !== id));
-    }, 5000);
-  }, []);
+        dismissNotification(id);
+    }, duration);
+  }, [dismissNotification]);
 
   return (
     <NotificationContext.Provider value={{ addNotification }}>
       {children}
-      {/* 
-          Visual notification section removed as requested. 
-          Toasts will no longer appear in the UI. 
-      */}
+      <div className="fixed bottom-6 right-6 z-[300] space-y-4 max-w-full sm:max-w-md pointer-events-none">
+          {notifications.map(n => (
+              <div key={n.id} className="pointer-events-auto">
+                  <Notification 
+                      {...n} 
+                      onDismiss={dismissNotification} 
+                  />
+              </div>
+          ))}
+      </div>
     </NotificationContext.Provider>
   );
 };

@@ -26,7 +26,7 @@ const initialFormData = {
   pincode: '',
   address: '',
   aadhaarPhoto: null as File | null,
-  occupation: Occupation.Job,
+  occupation: Occupation.Employee,
   supportNeed: SupportNeed.Education,
 };
 
