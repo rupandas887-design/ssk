@@ -157,7 +157,7 @@ const ManageVolunteers: React.FC = () => {
   const handleToggleStatus = async (vol: VolunteerWithEnrollments) => {
     const newStatus = vol.status === 'Active' ? 'Deactivated' : 'Active';
     const confirmMsg = newStatus === 'Deactivated' 
-        ? `Are you sure you wish to Deactivate Volunteer "${vol.name}"? This will suspend their field access.`
+        ? `Are you sure you wish to Deactivate Volunteer "${vol.name}"?`
         : `Activate Volunteer "${vol.name}"?`;
         
     if (!window.confirm(confirmMsg)) return;
@@ -203,7 +203,7 @@ const ManageVolunteers: React.FC = () => {
 
         if (rpcError) throw rpcError;
 
-        addNotification(`Network access key synchronized for ${selectedVol.name}.`, 'success');
+        addNotification(`Network access key synchronized.`, 'success');
         setIsResetModalOpen(false);
     } catch (err: any) {
         addNotification(`Override failed: ${err.message}`, 'error');
@@ -220,25 +220,23 @@ const ManageVolunteers: React.FC = () => {
     
     if (!user?.organisationId) return;
     if (!email || !password || !name || !mobile) {
-        addNotification("Incomplete identity data. Please fill all fields.", 'error');
+        addNotification("Incomplete identity data.", 'error');
         return;
     }
 
     setIsSubmitting(true);
     try {
-        // 1. CROSS-TABLE UNIQUENESS CHECKS (Mobile & Email)
         const [orgCheck, profileCheck] = await Promise.all([
           supabase.from('organisations').select('id').eq('mobile', mobile).maybeSingle(),
           supabase.from('profiles').select('id').or(`mobile.eq.${mobile},email.eq.${email}`).maybeSingle()
         ]);
 
         if (orgCheck.data || profileCheck.data) {
-          addNotification("Duplicate email or primary phone number detected. Registration is not allowed for volunteers or organizations with existing details.", 'error');
+          addNotification("Duplicate data detected. Access denied.", 'error');
           setIsSubmitting(false);
           return;
         }
 
-        // 2. Profile Photo Process
         let photoUrl = '';
         if (newVol.profilePhoto) {
           try {
@@ -248,7 +246,6 @@ const ManageVolunteers: React.FC = () => {
           }
         }
 
-        // 3. Authentication Node Deployment
         const authClient = createClient(supabaseUrl, supabaseAnonKey, {
           auth: {
             persistSession: false,
@@ -272,7 +269,6 @@ const ManageVolunteers: React.FC = () => {
 
         if (authError) throw new Error(`Auth Provisioning Failed: ${authError.message}`);
         
-        // 4. Profile Synchronization
         if (authData?.user?.id) {
             const { error: profileError } = await supabase.from('profiles').upsert({
                 id: authData.user.id,
@@ -287,7 +283,6 @@ const ManageVolunteers: React.FC = () => {
             
             if (profileError) throw new Error(`Database Sync Failed: ${profileError.message}`);
 
-            // 5. External Registry Sync
             await syncToSheets(SheetType.VOLUNTEERS, {
               name, email, mobile,
               organisation_name: user.organisationName,
@@ -324,7 +319,6 @@ const ManageVolunteers: React.FC = () => {
                  </div>
               </div>
 
-              {/* Profile Image Section */}
               <div className="flex flex-col items-center gap-4 pb-4">
                 <div 
                   onClick={() => fileInputRef.current?.click()}
@@ -441,7 +435,7 @@ const ManageVolunteers: React.FC = () => {
                     </tr>
                   ) : filteredVolunteers.length === 0 ? (
                     <tr>
-                      <td colSpan={3} className="p-20 text-center text-[10px] font-black uppercase tracking-[0.5em] text-white italic">No matching personnel records detected.</td>
+                      <td colSpan={3} className="p-20 text-center text-[10px] font-black uppercase tracking-[0.5em] text-white italic">No matching records.</td>
                     </tr>
                   ) : filteredVolunteers.map(vol => (
                     <tr key={vol.id} className="group border-b border-gray-900/50 hover:bg-white/[0.015] transition-all">
@@ -505,7 +499,17 @@ const ManageVolunteers: React.FC = () => {
         </div>
       </div>
 
-      <Modal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} title="Volunteer Intelligence Profile">
+      {/* VIEW PROFILE MODAL */}
+      <Modal 
+        isOpen={isViewModalOpen} 
+        onClose={() => setIsViewModalOpen(false)} 
+        title="Volunteer Intelligence Profile"
+        footer={(
+          <div className="flex justify-end">
+              <Button onClick={() => setIsViewModalOpen(false)} className="px-10 py-4 text-[10px] font-black uppercase tracking-widest bg-blue-600 hover:bg-blue-500">Close Intelligence File</Button>
+          </div>
+        )}
+      >
           {selectedVol && (
             <div className="space-y-8 p-2">
                 <div className="flex items-center gap-6 p-8 bg-blue-500/5 border border-blue-500/10 rounded-[2.5rem] relative overflow-hidden group">
@@ -561,15 +565,29 @@ const ManageVolunteers: React.FC = () => {
                         <p className="text-xl font-black text-white">{selectedVol.enrollments} Enrollments</p>
                     </div>
                 </div>
-
-                <div className="flex justify-end pt-4">
-                    <Button onClick={() => setIsViewModalOpen(false)} className="px-10 py-4 text-[10px] font-black uppercase tracking-widest">Close Intelligence File</Button>
-                </div>
             </div>
           )}
       </Modal>
 
-      <Modal isOpen={isResetModalOpen} onClose={() => setIsResetModalOpen(false)} title="Security Override: Access Key Reset">
+      {/* PASSWORD RESET MODAL */}
+      <Modal 
+        isOpen={isResetModalOpen} 
+        onClose={() => setIsResetModalOpen(false)} 
+        title="Security Override: Access Key Reset"
+        footer={selectedVol && (
+          <div className="flex justify-end gap-4">
+              <Button variant="secondary" onClick={() => setIsResetModalOpen(false)} className="px-8 py-4 text-[10px] font-black tracking-widest uppercase">Abort</Button>
+              <Button 
+                  onClick={handleResetPassword} 
+                  disabled={isSubmitting || resetPassword.length < 6} 
+                  className="px-12 py-4 text-[10px] font-black uppercase tracking-widest bg-orange-600 hover:bg-orange-500 flex items-center gap-2"
+              >
+                  {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : <KeyRound size={16} />}
+                  {isSubmitting ? 'SYNCHRONIZING...' : 'Force Commit Key'}
+              </Button>
+          </div>
+        )}
+      >
           {selectedVol && (
             <div className="space-y-8 p-2">
                 <div className="p-6 bg-orange-600/10 border border-orange-500/20 rounded-2xl flex items-start gap-4">
@@ -602,18 +620,6 @@ const ManageVolunteers: React.FC = () => {
                             {showResetPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                         </button>
                     </div>
-                </div>
-
-                <div className="flex justify-end gap-4 pt-6 border-t border-white/5">
-                    <Button variant="secondary" onClick={() => setIsResetModalOpen(false)} className="px-8 py-4 text-[10px] font-black tracking-widest">Abort</Button>
-                    <Button 
-                        onClick={handleResetPassword} 
-                        disabled={isSubmitting || resetPassword.length < 6} 
-                        className="px-12 py-4 text-[10px] font-black uppercase tracking-widest bg-orange-600 hover:bg-orange-500 flex items-center gap-2"
-                    >
-                        {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : <KeyRound size={16} />}
-                        {isSubmitting ? 'SYNCHRONIZING...' : 'Force Commit Key'}
-                    </Button>
                 </div>
             </div>
           )}

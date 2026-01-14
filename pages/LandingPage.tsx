@@ -128,7 +128,8 @@ const LandingPage: React.FC = () => {
             <div className="md:col-span-4 analytics-card p-8 md:p-12 flex flex-col items-center justify-center min-h-[360px] md:min-h-[420px]">
               <Globe className="globe-watermark" size={140} />
               <div className="mb-6 md:mb-10 text-gray-700">
-                <Users size={40} md:size={48} strokeWidth={1} />
+                {/* Fix: Removed non-existent md:size prop */}
+                <Users size={48} strokeWidth={1} />
               </div>
               <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.4em] text-white mb-6 md:mb-8 text-center">TOTAL VERIFIED MEMBERS</p>
               <p className="text-8xl md:text-9xl font-normal text-[#FF6600] font-cinzel leading-none">
@@ -156,7 +157,8 @@ const LandingPage: React.FC = () => {
               <div className="flex-1 flex flex-col items-center justify-center space-y-10 md:space-y-12">
                 <div className="flex flex-col items-center">
                   <div className="activity-icon-container mb-6 md:mb-8">
-                    <HeartPulse size={32} md:size={40} className="text-[#FF6600] animate-pulse-soft" />
+                    {/* Fix: Removed non-existent md:size prop */}
+                    <HeartPulse size={40} className="text-[#FF6600] animate-pulse-soft" />
                   </div>
                   <p className="text-5xl md:text-6xl font-black text-[#FF6600] font-cinzel leading-none">{volunteers.length}</p>
                   <p className="text-[9px] md:text-[10px] font-black text-white uppercase tracking-[0.4em] mt-2 md:mt-3">VOLUNTEERS</p>

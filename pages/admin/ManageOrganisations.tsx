@@ -143,19 +143,17 @@ const ManageOrganisations: React.FC = () => {
     
     setIsSubmitting(true);
     try {
-        // 1. CROSS-TABLE UNIQUENESS CHECKS (Mobile & Email)
         const [orgCheck, profileCheck] = await Promise.all([
           supabase.from('organisations').select('id').eq('mobile', mobile).maybeSingle(),
           supabase.from('profiles').select('id').or(`mobile.eq.${mobile},email.eq.${email}`).maybeSingle()
         ]);
 
         if (orgCheck.data || profileCheck.data) {
-          addNotification("Duplicate email or primary phone number detected. Registration is not allowed for volunteers or organizations with existing details.", 'error');
+          addNotification("Duplicate details detected. Access denied.", 'error');
           setIsSubmitting(false);
           return;
         }
 
-        // 2. Profile Photo Process
         let photoUrl = '';
         if (newOrg.profilePhoto) {
           try {
@@ -165,7 +163,6 @@ const ManageOrganisations: React.FC = () => {
           }
         }
 
-        // 3. Organisation Record Creation
         const { data: orgData, error: orgError } = await supabase
           .from('organisations')
           .insert({ 
@@ -179,7 +176,6 @@ const ManageOrganisations: React.FC = () => {
 
         if (orgError) throw new Error(`Database Error: ${orgError.message}`);
 
-        // 4. Authentication Node Deployment - Use independent client to prevent session takeover
         const authClient = createClient(supabaseUrl, supabaseAnonKey, {
           auth: {
             persistSession: false,
@@ -196,14 +192,12 @@ const ManageOrganisations: React.FC = () => {
         });
 
         if (authError) {
-          // Rollback Organization creation if auth fails
           await supabase.from('organisations').delete().eq('id', orgData.id);
           throw new Error(`Authentication Provisioning Failed: ${authError.message}`);
         }
 
-        // 5. Profile Synchronization (Backup Upsert)
         if (authData?.user?.id) {
-            const { error: profileError } = await supabase.from('profiles').upsert({
+            await supabase.from('profiles').upsert({
                 id: authData.user.id,
                 name: secName,
                 email,
@@ -212,18 +206,13 @@ const ManageOrganisations: React.FC = () => {
                 mobile,
                 status: 'Active'
             });
-            if (profileError) {
-                console.error("Profile Sync Warning:", profileError);
-            }
         }
 
-        // 6. External Registry Sync (Sheets)
         await syncToSheets(SheetType.ORGANISATIONS, {
           name, secretary_name: secName, mobile, email, status: 'Active',
           registration_date: new Date().toLocaleDateString()
         });
 
-        // 7. Success Lifecycle
         setNewOrg({ name: '', mobile: '', secretaryName: '', email: '', password: '', profilePhoto: null });
         setPreviewUrl(null);
         fetchOrganisations();
@@ -231,7 +220,7 @@ const ManageOrganisations: React.FC = () => {
         setShowSuccessSplash(true);
         setTimeout(() => setShowSuccessSplash(false), 3000);
     } catch (err: any) {
-        addNotification(`Registration Failed: ${err.message || 'System handshake failure.'}`, 'error');
+        addNotification(`Registration Failed: ${err.message}`, 'error');
     } finally {
         setIsSubmitting(false);
     }
@@ -387,7 +376,7 @@ const ManageOrganisations: React.FC = () => {
                     <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                 </button>
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto custom-scrollbar">
                 <table className="w-full text-left">
                     <thead className="border-b border-gray-800">
                         <tr>
@@ -465,7 +454,17 @@ const ManageOrganisations: React.FC = () => {
       )}
 
       {/* EDIT MODAL */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Modify Organization Parameters">
+      <Modal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        title="Modify Organization Parameters"
+        footer={editingOrg && (
+          <div className="flex justify-end gap-4">
+              <Button variant="secondary" onClick={() => setIsModalOpen(false)} className="text-[10px] font-black tracking-widest uppercase py-3 px-8">Abort</Button>
+              <Button onClick={handleUpdateOrganisation} disabled={isSubmitting} className="text-[10px] font-black tracking-widest uppercase py-3 px-8">{isSubmitting ? "Syncing..." : "Apply Changes"}</Button>
+          </div>
+        )}
+      >
           {editingOrg && (
             <div className="space-y-8">
                 <div className="flex flex-col items-center justify-center pb-2">
@@ -490,17 +489,29 @@ const ManageOrganisations: React.FC = () => {
                         <option value="Deactivated">Deactivated</option>
                     </Select>
                 </div>
-
-                <div className="flex justify-end gap-4 pt-6 border-t border-white/5">
-                    <Button variant="secondary" onClick={() => setIsModalOpen(false)} className="text-[10px] font-black tracking-widest">Abort</Button>
-                    <Button onClick={handleUpdateOrganisation} disabled={isSubmitting} className="text-[10px] font-black tracking-widest">{isSubmitting ? "Syncing..." : "Apply Changes"}</Button>
-                </div>
             </div>
           )}
       </Modal>
 
       {/* SECURITY OVERRIDE (PASSWORD RESET) MODAL */}
-      <Modal isOpen={isResetModalOpen} onClose={() => setIsResetModalOpen(false)} title="Security Override: Access Key Reset">
+      <Modal 
+        isOpen={isResetModalOpen} 
+        onClose={() => setIsResetModalOpen(false)} 
+        title="Security Override: Access Key Reset"
+        footer={selectedOrgForReset && (
+          <div className="flex justify-end gap-4">
+              <Button variant="secondary" onClick={() => setIsResetModalOpen(false)} className="text-[10px] font-black tracking-widest uppercase py-3 px-8">Abort</Button>
+              <Button 
+                  onClick={handleExecuteReset} 
+                  disabled={isSubmitting || resetPassword.length < 6} 
+                  className="bg-orange-600 hover:bg-orange-500 text-[10px] font-black tracking-widest uppercase flex items-center gap-2 py-3 px-8"
+              >
+                  {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : <KeyRound size={16} />}
+                  {isSubmitting ? "Synchronizing..." : "Force Commit Key"}
+              </Button>
+          </div>
+        )}
+      >
           {selectedOrgForReset && (
             <div className="space-y-8">
                 <div className="p-6 bg-orange-600/10 border border-orange-500/20 rounded-2xl flex items-start gap-4">
@@ -533,18 +544,6 @@ const ManageOrganisations: React.FC = () => {
                             {showResetPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                         </button>
                     </div>
-                </div>
-
-                <div className="flex justify-end gap-4 pt-6 border-t border-white/5">
-                    <Button variant="secondary" onClick={() => setIsResetModalOpen(false)} className="text-[10px] font-black tracking-widest">Abort</Button>
-                    <Button 
-                        onClick={handleExecuteReset} 
-                        disabled={isSubmitting || resetPassword.length < 6} 
-                        className="bg-orange-600 hover:bg-orange-500 text-[10px] font-black tracking-widest uppercase flex items-center gap-2"
-                    >
-                        {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : <KeyRound size={16} />}
-                        {isSubmitting ? "Synchronizing..." : "Force Commit Key"}
-                    </Button>
                 </div>
             </div>
           )}

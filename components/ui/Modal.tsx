@@ -37,15 +37,15 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer,
 
   return (
     <div 
-      className="fixed inset-0 bg-black/95 backdrop-blur-md flex items-center justify-center z-[200] p-0 sm:p-6 animate-in fade-in duration-300 overflow-hidden"
+      className="fixed inset-0 bg-black/95 backdrop-blur-md flex items-center justify-center z-[200] p-0 sm:p-4 animate-in fade-in duration-300 overflow-hidden"
       onClick={onClose}
     >
       <div 
-        className={`w-full ${widthClasses[maxWidth]} h-[100dvh] sm:h-auto sm:max-h-[92dvh] animate-in zoom-in-95 duration-300 relative mx-auto flex flex-col bg-[#050505] sm:rounded-[2.5rem] border border-white/10 shadow-[0_32px_120px_-20px_rgba(0,0,0,1)] overflow-hidden`}
+        className={`w-full ${widthClasses[maxWidth]} h-full sm:h-auto sm:max-h-[90vh] animate-in zoom-in-95 duration-300 relative mx-auto flex flex-col bg-[#050505] sm:rounded-[2.5rem] border-x border-b sm:border border-white/10 shadow-[0_32px_120px_-20px_rgba(0,0,0,1)] overflow-hidden`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Fixed Header */}
-        <div className="flex justify-between items-center p-6 sm:p-8 border-b border-white/5 bg-[#050505] z-30 shrink-0">
+        {/* Fixed Header: Stationary at the top */}
+        <div className="flex justify-between items-center p-5 sm:p-8 border-b border-white/5 bg-[#050505] z-30 shrink-0">
           <h3 className="font-cinzel text-sm sm:text-lg text-orange-500 font-bold uppercase tracking-widest leading-tight pr-4">
             {title}
           </h3>
@@ -58,19 +58,19 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer,
           </button>
         </div>
         
-        {/* Independently Scrollable Content */}
+        {/* Independently Scrollable Content: Handles the bulk of the form/data */}
         <div 
-          className="flex-1 overflow-y-auto custom-scrollbar p-6 sm:p-8 overscroll-contain relative bg-[#020202]/50"
+          className="flex-1 overflow-y-auto custom-scrollbar p-5 sm:p-8 overscroll-contain relative bg-[#020202]/50 touch-pan-y"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
-          <div className="relative z-10">
+          <div className="min-h-full">
             {children}
           </div>
         </div>
 
-        {/* Fixed Footer */}
+        {/* Fixed Footer: Stationary at the bottom */}
         {footer && (
-          <div className="shrink-0 border-t border-white/5 p-6 sm:p-8 bg-[#050505] z-30">
+          <div className="shrink-0 border-t border-white/5 p-5 sm:p-8 bg-[#050505] z-30">
             {footer}
           </div>
         )}

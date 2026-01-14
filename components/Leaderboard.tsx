@@ -45,7 +45,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ volunteers, organisations, me
               >
                 <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
                   <div className="text-orange-400 shrink-0">
-                    <Trophy size={18} md:size={20} strokeWidth={2.5} />
+                    {/* Fix: Removed non-existent md:size prop */}
+                    <Trophy size={20} strokeWidth={2.5} />
                   </div>
                   <span className="font-bold text-white text-xs md:text-base truncate">
                     {volunteer.name}
@@ -72,7 +73,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ volunteers, organisations, me
               >
                 <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
                   <div className="text-orange-400 shrink-0">
-                    <Shield size={18} md:size={20} strokeWidth={2.5} />
+                    {/* Fix: Removed non-existent md:size prop */}
+                    <Shield size={20} strokeWidth={2.5} />
                   </div>
                   <span className="font-bold text-white text-xs md:text-base truncate">
                     {org.name}

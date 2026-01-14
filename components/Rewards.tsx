@@ -81,14 +81,16 @@ const Rewards: React.FC<RewardsProps> = ({ members, volunteers, organisations })
         title: 'Top Enroller of the Week',
         winner: topVol ? topVol.name : (weeklyMembers.length > 0 ? 'Evaluating...' : 'No data available'),
         achievement: topVolCount > 0 ? `${topVolCount} Enrollments` : 'N/A',
-        icon: <Trophy className="text-yellow-400" size={32} md:size={40} />,
+        // Fix: Removed non-existent md:size prop
+        icon: <Trophy className="text-yellow-400" size={40} />,
         label: 'Individual Merit'
       },
       {
         title: 'Organization of the Week',
         winner: topOrg ? topOrg.name : (weeklyMembers.length > 0 ? 'Evaluating...' : 'No data available'),
         achievement: topOrgCount > 0 ? `${topOrgCount} Enrollments` : 'N/A',
-        icon: <Shield className="text-orange-500" size={32} md:size={40} />,
+        // Fix: Removed non-existent md:size prop
+        icon: <Shield className="text-orange-500" size={40} />,
         label: 'Institutional Excellence'
       }
     ];
@@ -105,7 +107,8 @@ const Rewards: React.FC<RewardsProps> = ({ members, volunteers, organisations })
         
         <div className="mt-4 flex flex-col items-center gap-2">
             <div className="flex items-center gap-2 px-4 md:px-5 py-1.5 md:py-2 bg-orange-500/10 border border-orange-500/20 rounded-full shadow-[0_0_20px_rgba(234,88,12,0.1)]">
-                <CalendarDays size={12} md:size={14} className="text-orange-500" />
+                {/* Fix: Removed non-existent md:size prop */}
+                <CalendarDays size={14} className="text-orange-500" />
                 <span className="text-[8px] md:text-[10px] font-black text-orange-400 uppercase tracking-widest md:tracking-[0.3em]">
                     Window: {dateRange}
                 </span>
@@ -139,7 +142,8 @@ const Rewards: React.FC<RewardsProps> = ({ members, volunteers, organisations })
               </p>
               
               <div className="mt-6 md:mt-8 flex items-center gap-2 px-3 md:px-4 py-1.5 bg-white/[0.02] border border-white/5 rounded-full">
-                <Star size={10} md:size={12} className="text-yellow-500 animate-pulse" />
+                {/* Fix: Removed non-existent md:size prop */}
+                <Star size={12} className="text-yellow-500 animate-pulse" />
                 <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Verified Achievement</span>
               </div>
             </div>
