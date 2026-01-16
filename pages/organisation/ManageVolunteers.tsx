@@ -35,7 +35,9 @@ import {
   Building2,
   Lock,
   Camera,
-  XCircle
+  XCircle,
+  Edit3,
+  Trash2
 } from 'lucide-react';
 
 type VolunteerWithEnrollments = Volunteer & { enrollments: number };
@@ -49,13 +51,24 @@ const ManageVolunteers: React.FC = () => {
   const [newVol, setNewVol] = useState({ name: '', mobile: '', email: '', password: '', profilePhoto: null as File | null });
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+  
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
+  
+  // Modal States
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedVol, setSelectedVol] = useState<VolunteerWithEnrollments | null>(null);
+  const [editingVol, setEditingVol] = useState<VolunteerWithEnrollments | null>(null);
+  
+  // Edit Specific States
+  const [editPreviewUrl, setEditPreviewUrl] = useState<string | null>(null);
+  const [editProfilePhoto, setEditProfilePhoto] = useState<File | null>(null);
   const [resetPassword, setResetPassword] = useState('');
+  
   const { addNotification } = useNotification();
 
   const fetchVolunteers = useCallback(async () => {
@@ -88,7 +101,6 @@ const ManageVolunteers: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-        // 1. Check for existing Volunteer mobile
         const { data: profileCheck } = await supabase
           .from('profiles')
           .select('id')
@@ -99,7 +111,6 @@ const ManageVolunteers: React.FC = () => {
           throw new Error(`Registry Conflict: This mobile number is already linked to an existing agent.`);
         }
 
-        // 2. Authorization
         let photoUrl = '';
         if (newVol.profilePhoto) {
             const fileName = `agent_profile_${uuidv4()}.jpg`;
@@ -140,6 +151,61 @@ const ManageVolunteers: React.FC = () => {
     } finally { setIsSubmitting(false); }
   };
 
+  const handleEditClick = (vol: VolunteerWithEnrollments) => {
+    setEditingVol({ ...vol });
+    setEditPreviewUrl(vol.profile_photo_url || null);
+    setEditProfilePhoto(null);
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateVolunteer = async () => {
+    if (!editingVol) return;
+    setIsSubmitting(true);
+    try {
+        let finalPhotoUrl = editingVol.profile_photo_url;
+
+        // Upload new photo if selected
+        if (editProfilePhoto) {
+            const fileName = `agent_profile_update_${uuidv4()}.jpg`;
+            const { data, error: storageError } = await supabase.storage.from('member-images').upload(fileName, editProfilePhoto);
+            if (storageError) throw storageError;
+            if (data) {
+                finalPhotoUrl = supabase.storage.from('member-images').getPublicUrl(data.path).data.publicUrl;
+            }
+        }
+
+        const { error: profileError } = await supabase
+            .from('profiles')
+            .update({ 
+                name: editingVol.name.trim(), 
+                mobile: editingVol.mobile.trim(),
+                email: editingVol.email.trim().toLowerCase(),
+                profile_photo_url: finalPhotoUrl
+            })
+            .eq('id', editingVol.id);
+            
+        if (profileError) throw profileError;
+
+        addNotification('Personnel record synchronized.', 'success');
+        fetchVolunteers(); 
+        setIsEditModalOpen(false);
+        setEditingVol(null);
+        setEditProfilePhoto(null);
+    } catch (err: any) {
+        addNotification(`Sync Error: ${err.message}`, 'error');
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
+
+  const handleRemoveEditPhoto = () => {
+    if (editingVol) {
+        setEditingVol({ ...editingVol, profile_photo_url: undefined });
+        setEditPreviewUrl(null);
+        setEditProfilePhoto(null);
+    }
+  };
+
   const filteredVolunteers = useMemo(() => {
     return volunteers.filter(v => v.name.toLowerCase().includes(searchTerm.toLowerCase()) || v.mobile?.includes(searchTerm));
   }, [volunteers, searchTerm]);
@@ -151,9 +217,16 @@ const ManageVolunteers: React.FC = () => {
           <Card title="Authorize New Volunteer">
             <div className="space-y-6">
               <div className="flex flex-col items-center gap-4">
-                <div onClick={() => fileInputRef.current?.click()} className="relative cursor-pointer">
-                  <div className="h-28 w-28 rounded-full border-2 border-dashed border-gray-800 bg-black/40 flex items-center justify-center overflow-hidden">
-                    {previewUrl ? <img src={previewUrl} className="h-full w-full object-cover" /> : <Camera size={28} className="text-gray-600" />}
+                <div onClick={() => fileInputRef.current?.click()} className="relative cursor-pointer group">
+                  <div className="h-28 w-28 rounded-full border-2 border-dashed border-gray-800 bg-black/40 flex items-center justify-center overflow-hidden group-hover:border-blue-500/50 transition-all">
+                    {previewUrl ? (
+                        <img src={previewUrl} className="h-full w-full object-cover" />
+                    ) : (
+                        <div className="flex flex-col items-center gap-1 text-gray-600">
+                            <Camera size={28} />
+                            <span className="text-[8px] font-black uppercase">Add Photo</span>
+                        </div>
+                    )}
                   </div>
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => {
                       if (e.target.files?.[0]) {
@@ -218,9 +291,14 @@ const ManageVolunteers: React.FC = () => {
                         <span className="font-black text-xl text-white tracking-tighter">{vol.enrollments}</span>
                       </td>
                       <td className="p-6 text-right">
-                        <button onClick={() => { setSelectedVol(vol); setIsResetModalOpen(true); }} className="p-3 bg-white/5 border border-white/10 text-white hover:text-orange-400 rounded-xl">
-                            <KeyRound size={16} />
-                        </button>
+                        <div className="flex justify-end gap-3">
+                            <button onClick={() => handleEditClick(vol)} className="p-3 bg-white/5 border border-white/10 text-gray-500 hover:text-blue-400 rounded-xl transition-all">
+                                <Edit3 size={16} />
+                            </button>
+                            <button onClick={() => { setSelectedVol(vol); setIsResetModalOpen(true); }} className="p-3 bg-white/5 border border-white/10 text-gray-500 hover:text-orange-400 rounded-xl transition-all">
+                                <KeyRound size={16} />
+                            </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -231,15 +309,85 @@ const ManageVolunteers: React.FC = () => {
         </div>
       </div>
 
+      {/* EDIT VOLUNTEER MODAL */}
+      <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Audit Personnel File">
+          {editingVol && (
+            <div className="space-y-6">
+                <div className="flex flex-col items-center gap-4 mb-4">
+                    <div className="relative">
+                        <div onClick={() => editFileInputRef.current?.click()} className="relative group cursor-pointer">
+                            <div className="h-28 w-28 rounded-full border-2 border-dashed border-gray-800 bg-black/40 flex items-center justify-center overflow-hidden group-hover:border-blue-500/50 transition-all duration-300 shadow-xl">
+                                {editPreviewUrl ? (
+                                    <img src={editPreviewUrl} className="h-full w-full object-cover" alt="Edit Preview" />
+                                ) : (
+                                    <div className="flex flex-col items-center gap-1 text-gray-600">
+                                        <Camera size={28} />
+                                        <span className="text-[8px] font-black uppercase">Change Photo</span>
+                                    </div>
+                                )}
+                            </div>
+                            <input type="file" ref={editFileInputRef} className="hidden" accept="image/*" onChange={(e) => {
+                                if (e.target.files?.[0]) {
+                                    setEditProfilePhoto(e.target.files[0]);
+                                    setEditPreviewUrl(URL.createObjectURL(e.target.files[0]));
+                                }
+                            }} />
+                        </div>
+                        {editPreviewUrl && (
+                            <button 
+                                onClick={handleRemoveEditPhoto}
+                                className="absolute -top-1 -right-1 p-1.5 bg-red-600 text-white rounded-full shadow-lg hover:bg-red-500 transition-colors z-10"
+                            >
+                                <Trash2 size={12} />
+                            </button>
+                        )}
+                    </div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-600">Update Identity Photo</p>
+                </div>
+
+                <Input label="FULL NAME" value={editingVol.name} onChange={(e) => setEditingVol({...editingVol, name: e.target.value})} icon={<UserCircle size={16} />} />
+                <Input label="MOBILE IDENTITY" value={editingVol.mobile} onChange={(e) => setEditingVol({...editingVol, mobile: e.target.value})} maxLength={10} icon={<Phone size={16} />} />
+                <Input label="ACCESS EMAIL" value={editingVol.email} onChange={(e) => setEditingVol({...editingVol, email: e.target.value})} icon={<Mail size={16} />} />
+                
+                <div className="flex gap-4 pt-4">
+                    <Button variant="secondary" onClick={() => setIsEditModalOpen(false)} className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest">Abort</Button>
+                    <Button onClick={handleUpdateVolunteer} disabled={isSubmitting} className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest bg-blue-600 hover:bg-blue-500">
+                        {isSubmitting ? <Loader2 className="animate-spin mr-2" size={16} /> : <ShieldCheck size={16} className="mr-2" />}
+                        {isSubmitting ? "Syncing..." : "Sync Record"}
+                    </Button>
+                </div>
+            </div>
+          )}
+      </Modal>
+
+      {/* SECURITY OVERRIDE MODAL */}
       <Modal isOpen={isResetModalOpen} onClose={() => setIsResetModalOpen(false)} title="Security Override">
           <div className="space-y-6">
-              <Input label="NEW ACCESS KEY" type="password" value={resetPassword} onChange={(e) => setResetPassword(e.target.value)} />
+              <div className="p-4 bg-orange-500/10 border border-orange-500/20 rounded-2xl flex items-start gap-4 mb-2">
+                  <Lock className="text-orange-500 shrink-0 mt-1" size={20} />
+                  <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-orange-500 mb-1">Access Key Reset</p>
+                      <p className="text-[10px] text-gray-400 font-bold leading-relaxed uppercase tracking-wider">
+                          Forcing a new security key for <span className="text-white">{selectedVol?.name}</span>. The previous key will be invalidated immediately.
+                      </p>
+                  </div>
+              </div>
+              <Input label="NEW ACCESS KEY" type="password" value={resetPassword} onChange={(e) => setResetPassword(e.target.value)} icon={<KeyRound size={16} />} />
               <Button onClick={async () => {
                   setIsSubmitting(true);
                   const { error } = await supabase.rpc('admin_reset_password', { target_user_id: selectedVol?.id, new_password: resetPassword });
-                  if (!error) { setIsResetModalOpen(false); addNotification('Key Synchronized.', 'success'); }
+                  if (!error) { 
+                    setIsResetModalOpen(false); 
+                    setResetPassword('');
+                    addNotification('Access Key Synchronized.', 'success'); 
+                  } else {
+                    addNotification(`Override Error: ${error.message}`, 'error');
+                  }
                   setIsSubmitting(false);
-              }} disabled={isSubmitting || resetPassword.length < 6} className="w-full">Synchronize Key</Button>
+              }} disabled={isSubmitting || resetPassword.length < 6} className="w-full py-5 text-[11px] font-black uppercase tracking-[0.4em] bg-orange-600 hover:bg-orange-500">
+                {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <Zap size={20} />}
+                {isSubmitting ? 'ESTABLISHING...' : 'Synchronize Key'}
+              </Button>
           </div>
       </Modal>
     </DashboardLayout>

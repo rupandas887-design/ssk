@@ -49,6 +49,7 @@ const ManageOrganisations: React.FC = () => {
   });
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
   
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -56,6 +57,8 @@ const ManageOrganisations: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOrg, setEditingOrg] = useState<(Organisation & { email?: string }) | null>(null);
+  const [editProfilePhoto, setEditProfilePhoto] = useState<File | null>(null);
+  const [editPreviewUrl, setEditPreviewUrl] = useState<string | null>(null);
   const [showSuccessSplash, setShowSuccessSplash] = useState(false);
   
   const { addNotification } = useNotification();
@@ -184,6 +187,8 @@ const ManageOrganisations: React.FC = () => {
 
   const handleEditClick = (org: OrganisationWithEmail) => {
     setEditingOrg({ ...org });
+    setEditPreviewUrl(org.profile_photo_url || null);
+    setEditProfilePhoto(null);
     setIsModalOpen(true);
   };
 
@@ -191,13 +196,26 @@ const ManageOrganisations: React.FC = () => {
     if (!editingOrg) return;
     setIsSubmitting(true);
     try {
+        let finalPhotoUrl = editingOrg.profile_photo_url;
+
+        // 1. Handle Photo Upload if changed
+        if (editProfilePhoto) {
+            const fileName = `org_profile_update_${uuidv4()}.jpg`;
+            const { data, error: storageError } = await supabase.storage.from('member-images').upload(fileName, editProfilePhoto);
+            if (storageError) throw storageError;
+            if (data) {
+                finalPhotoUrl = supabase.storage.from('member-images').getPublicUrl(data.path).data.publicUrl;
+            }
+        }
+
         const { error: orgError } = await supabase
             .from('organisations')
             .update({ 
                 name: editingOrg.name, 
                 status: editingOrg.status,
                 secretary_name: editingOrg.secretary_name,
-                mobile: editingOrg.mobile
+                mobile: editingOrg.mobile,
+                profile_photo_url: finalPhotoUrl
             })
             .eq('id', editingOrg.id);
             
@@ -208,13 +226,16 @@ const ManageOrganisations: React.FC = () => {
             .update({ 
                 name: editingOrg.secretary_name,
                 status: editingOrg.status,
-                mobile: editingOrg.mobile
+                mobile: editingOrg.mobile,
+                profile_photo_url: finalPhotoUrl
             })
             .eq('organisation_id', editingOrg.id);
 
         addNotification('Registry sync complete.', 'success');
         fetchOrganisations(); 
         setIsModalOpen(false);
+        setEditProfilePhoto(null);
+        setEditPreviewUrl(null);
     } catch (err: any) {
         addNotification(err.message, 'error');
     } finally {
@@ -342,16 +363,40 @@ const ManageOrganisations: React.FC = () => {
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Modify Parameters">
           {editingOrg && (
             <div className="space-y-6">
-                <Input label="Organization Name" value={editingOrg.name} onChange={(e) => setEditingOrg({...editingOrg, name: e.target.value})} />
-                <Input label="Secretary Name" value={editingOrg.secretary_name} onChange={(e) => setEditingOrg({...editingOrg, secretary_name: e.target.value})} />
-                <Input label="Mobile" value={editingOrg.mobile} onChange={(e) => setEditingOrg({...editingOrg, mobile: e.target.value})} />
+                <div className="flex flex-col items-center gap-4 mb-6">
+                    <div onClick={() => editFileInputRef.current?.click()} className="relative group cursor-pointer">
+                        <div className="h-24 w-24 rounded-full border-2 border-dashed border-gray-800 bg-black/40 flex items-center justify-center overflow-hidden group-hover:border-orange-500/50 transition-all duration-300 shadow-xl">
+                            {editPreviewUrl ? (
+                                <img src={editPreviewUrl} className="h-full w-full object-cover" alt="Edit Preview" />
+                            ) : (
+                                <div className="flex flex-col items-center gap-1 text-gray-600">
+                                    <Camera size={24} />
+                                    <span className="text-[7px] font-black uppercase">Change Photo</span>
+                                </div>
+                            )}
+                        </div>
+                        <input type="file" ref={editFileInputRef} className="hidden" accept="image/*" onChange={(e) => {
+                            if (e.target.files?.[0]) {
+                                setEditProfilePhoto(e.target.files[0]);
+                                setEditPreviewUrl(URL.createObjectURL(e.target.files[0]));
+                            }
+                        }} />
+                    </div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-600">Update Organization Logo</p>
+                </div>
+
+                <Input label="Organization Name" value={editingOrg.name} onChange={(e) => setEditingOrg({...editingOrg, name: e.target.value})} icon={<Building2 size={16} />} />
+                <Input label="Secretary Name" value={editingOrg.secretary_name} onChange={(e) => setEditingOrg({...editingOrg, secretary_name: e.target.value})} icon={<User size={16} />} />
+                <Input label="Mobile" value={editingOrg.mobile} onChange={(e) => setEditingOrg({...editingOrg, mobile: e.target.value})} icon={<Phone size={16} />} />
                 <Select label="Status" value={editingOrg.status} onChange={(e) => setEditingOrg({...editingOrg, status: e.target.value as any})}>
                     <option value="Active">Active</option>
                     <option value="Deactivated">Deactivated</option>
                 </Select>
-                <div className="flex gap-4 pt-4">
-                    <Button variant="secondary" onClick={() => setIsModalOpen(false)} className="flex-1">Cancel</Button>
-                    <Button onClick={handleUpdateOrganisation} disabled={isSubmitting} className="flex-1">
+                
+                <div className="flex gap-4 pt-6">
+                    <Button variant="secondary" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest">Cancel</Button>
+                    <Button onClick={handleUpdateOrganisation} disabled={isSubmitting} className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest bg-orange-600 hover:bg-orange-500">
+                        {isSubmitting ? <Loader2 className="animate-spin mr-2" size={16} /> : null}
                         {isSubmitting ? "Syncing..." : "Apply Changes"}
                     </Button>
                 </div>
