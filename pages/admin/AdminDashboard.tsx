@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
@@ -16,7 +17,10 @@ import {
   Database,
   TrendingUp,
   FileSpreadsheet,
-  Map
+  Map,
+  Power,
+  PowerOff,
+  Loader2
 } from 'lucide-react';
 import { Organisation, Volunteer, Member, Role } from '../../types';
 import { supabase } from '../../supabase/client';
@@ -34,11 +38,12 @@ type VolunteerWithOrg = Volunteer & {
 const AdminDashboard: React.FC = () => {
     const { addNotification } = useNotification();
     const [searchTerm, setSearchTerm] = useState('');
-    const [organisations, setOrganisations] = useState<Organisation[]>([]);
+    const [organisations, setOrgs] = useState<Organisation[]>([]);
     const [members, setMembers] = useState<Member[]>([]);
     const [volunteersWithOrg, setVolunteersWithOrg] = useState<VolunteerWithOrg[]>([]);
     const [loading, setLoading] = useState(true);
     const [isVolunteersModalOpen, setIsVolunteersModalOpen] = useState(false);
+    const [statusTransitionId, setStatusTransitionId] = useState<string | null>(null);
 
     const fetchData = async () => {
         setLoading(true);
@@ -51,7 +56,7 @@ const AdminDashboard: React.FC = () => {
             const fetchedOrgs = orgsRes.data || [];
             const fetchedMembers = membersRes.data || [];
             
-            setOrganisations(fetchedOrgs);
+            setOrgs(fetchedOrgs);
             setMembers(fetchedMembers);
 
             const { data: profilesData, error: profilesError } = await supabase
@@ -81,7 +86,7 @@ const AdminDashboard: React.FC = () => {
                     organisationId: p.organisation_id,
                     organisation_name: p.organisations?.name || fetchedOrgs.find(o => o.id === p.organisation_id)?.name || 'Independent Organization',
                     mobile: p.mobile || 'N/A',
-                    status: p.status || 'Active',
+                    status: (p.status as 'Active' | 'Deactivated') || 'Active',
                     enrollments: enrollmentMap[p.id] || 0
                 }));
                 
@@ -98,6 +103,31 @@ const AdminDashboard: React.FC = () => {
     useEffect(() => {
         fetchData();
     }, []);
+
+    const handleToggleVolunteerStatus = async (volunteerId: string, currentStatus: string) => {
+        const newStatus = currentStatus === 'Active' ? 'Deactivated' : 'Active';
+        setStatusTransitionId(volunteerId);
+        
+        try {
+            const { error } = await supabase
+                .from('profiles')
+                .update({ status: newStatus })
+                .eq('id', volunteerId);
+            
+            if (error) throw error;
+            
+            addNotification(`Agent status updated to ${newStatus}.`, "success");
+            
+            // Update local state for immediate feedback
+            setVolunteersWithOrg(prev => prev.map(v => 
+                v.id === volunteerId ? { ...v, status: newStatus as any } : v
+            ));
+        } catch (err: any) {
+            addNotification(`Status update failed: ${err.message}`, "error");
+        } finally {
+            setStatusTransitionId(null);
+        }
+    };
 
     const filteredVolunteers = useMemo(() => {
         if (!searchTerm) return volunteersWithOrg;
@@ -272,13 +302,21 @@ const AdminDashboard: React.FC = () => {
                     
                     <div className="space-y-4">
                         {filteredVolunteers.map(vol => (
-                            <div key={vol.id} className="p-5 bg-gray-900/40 border border-gray-800/60 rounded-2xl flex items-center justify-between group hover:border-blue-500/40 transition-all">
+                            <div key={vol.id} className={`p-5 bg-gray-900/40 border border-gray-800/60 rounded-2xl flex items-center justify-between group hover:border-blue-500/40 transition-all ${vol.status === 'Deactivated' ? 'opacity-60 grayscale-[0.5]' : ''}`}>
                                 <div className="flex items-center gap-4">
                                     <div className="h-12 w-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 border border-blue-500/20 shadow-inner group-hover:scale-105 transition-transform">
                                         <UserIcon size={24} />
                                     </div>
                                     <div>
-                                        <p className="text-base font-bold text-white leading-none mb-2 group-hover:text-blue-400 transition-colors">{vol.name}</p>
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <p className="text-base font-bold text-white leading-none group-hover:text-blue-400 transition-colors">{vol.name}</p>
+                                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/40 border border-white/5">
+                                                <span className={`h-1.5 w-1.5 rounded-full ${vol.status === 'Active' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
+                                                <span className={`text-[8px] font-black uppercase tracking-widest ${vol.status === 'Active' ? 'text-green-400' : 'text-red-400'}`}>
+                                                    {vol.status}
+                                                </span>
+                                            </div>
+                                        </div>
                                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                                             <div className="flex items-center gap-1.5">
                                                 <Building2 size={10} className="text-orange-500" />
@@ -294,12 +332,33 @@ const AdminDashboard: React.FC = () => {
                                         </div>
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <div className="flex items-center justify-end gap-2 mb-1">
-                                        <TrendingUp size={14} className="text-blue-400" />
-                                        <span className="text-xl font-black text-white font-mono">{vol.enrollments}</span>
+                                <div className="flex items-center gap-6">
+                                    <div className="text-right hidden sm:block">
+                                        <div className="flex items-center justify-end gap-2 mb-1">
+                                            <TrendingUp size={14} className="text-blue-400" />
+                                            <span className="text-xl font-black text-white font-mono">{vol.enrollments}</span>
+                                        </div>
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-gray-600">Enrollments</span>
                                     </div>
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-600">Enrollments</span>
+                                    
+                                    <button 
+                                        onClick={() => handleToggleVolunteerStatus(vol.id, vol.status)}
+                                        disabled={statusTransitionId === vol.id}
+                                        className={`p-3 rounded-xl border transition-all flex items-center justify-center ${
+                                            vol.status === 'Active' 
+                                            ? 'bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white' 
+                                            : 'bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500 hover:text-white'
+                                        }`}
+                                        title={vol.status === 'Active' ? 'Deactivate Agent' : 'Activate Agent'}
+                                    >
+                                        {statusTransitionId === vol.id ? (
+                                            <Loader2 size={18} className="animate-spin" />
+                                        ) : vol.status === 'Active' ? (
+                                            <PowerOff size={18} />
+                                        ) : (
+                                            <Power size={18} />
+                                        )}
+                                    </button>
                                 </div>
                             </div>
                         ))}
