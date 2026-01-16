@@ -64,7 +64,7 @@ export enum Occupation {
   Engineer = 'Engineer',
   Doctor = 'Doctor',
   Lawyer = 'Lawyer',
-  GovtService = 'IAS / KAS / Govt Clerk',
+  GovtService = 'IAS / KAS / Govt staff',
   SocialWorker = 'Social Worker',
   CA = 'Chartered Accountant',
   Housewife = 'Housewife',
