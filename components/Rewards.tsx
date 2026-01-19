@@ -14,18 +14,23 @@ const Rewards: React.FC<RewardsProps> = ({ members, volunteers, organisations })
     const now = new Date();
     const currentDay = now.getDay(); // 0 (Sun) to 6 (Sat)
     
-    // Calculate Monday of the current cycle
-    // If it's Sunday (0), we show the performance of the week that just ended (last Monday)
-    // If it's Monday-Saturday, we show the current week's Monday.
-    const diffToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+    // Logic to find the most recent completed Monday-Sunday window
+    // If today is Monday (1), we want the week that ended yesterday (Sun).
+    // If today is Sunday (0), we still want the week that ended last Sunday.
     
-    const startOfWindow = new Date(now);
-    startOfWindow.setDate(now.getDate() + diffToMonday);
-    startOfWindow.setHours(0, 0, 0, 0);
-
-    const endOfWindow = new Date(startOfWindow);
-    endOfWindow.setDate(startOfWindow.getDate() + 5); // Saturday
+    // Step 1: Find the most recent Monday
+    // If today is Monday (1), diff is 0. If Sun (0), diff is -6. If Tue (2), diff is 1.
+    const daysSinceMonday = currentDay === 0 ? 6 : currentDay - 1;
+    
+    // Step 2: Set the end of the window to the Sunday just passed (or yesterday if today is Monday)
+    const endOfWindow = new Date(now);
+    endOfWindow.setDate(now.getDate() - daysSinceMonday - 1);
     endOfWindow.setHours(23, 59, 59, 999);
+
+    // Step 3: Set the start of the window to the Monday of that same week
+    const startOfWindow = new Date(endOfWindow);
+    startOfWindow.setDate(endOfWindow.getDate() - 6);
+    startOfWindow.setHours(0, 0, 0, 0);
 
     const formatDate = (date: Date) => {
         return date.toLocaleDateString('en-GB', { 
@@ -36,7 +41,7 @@ const Rewards: React.FC<RewardsProps> = ({ members, volunteers, organisations })
     
     const dateRangeStr = `${formatDate(startOfWindow)} — ${formatDate(endOfWindow)}`;
 
-    // Filter members based on the Monday -> Saturday window
+    // Filter members based on the Mon -> Sun window
     const weeklyMembers = members.filter(m => {
         const submissionDate = new Date(m.submission_date);
         return submissionDate >= startOfWindow && submissionDate <= endOfWindow;
@@ -81,7 +86,6 @@ const Rewards: React.FC<RewardsProps> = ({ members, volunteers, organisations })
         title: 'Top Enroller of the Week',
         winner: topVol ? topVol.name : (weeklyMembers.length > 0 ? 'Evaluating...' : 'No data available'),
         achievement: topVolCount > 0 ? `${topVolCount} Enrollments` : 'N/A',
-        // Fix: Removed non-existent md:size prop
         icon: <Trophy className="text-yellow-400" size={40} />,
         label: 'Individual Merit'
       },
@@ -89,7 +93,6 @@ const Rewards: React.FC<RewardsProps> = ({ members, volunteers, organisations })
         title: 'Organization of the Week',
         winner: topOrg ? topOrg.name : (weeklyMembers.length > 0 ? 'Evaluating...' : 'No data available'),
         achievement: topOrgCount > 0 ? `${topOrgCount} Enrollments` : 'N/A',
-        // Fix: Removed non-existent md:size prop
         icon: <Shield className="text-orange-500" size={40} />,
         label: 'Institutional Excellence'
       }
@@ -107,13 +110,12 @@ const Rewards: React.FC<RewardsProps> = ({ members, volunteers, organisations })
         
         <div className="mt-4 flex flex-col items-center gap-2">
             <div className="flex items-center gap-2 px-4 md:px-5 py-1.5 md:py-2 bg-orange-500/10 border border-orange-500/20 rounded-full shadow-[0_0_20px_rgba(234,88,12,0.1)]">
-                {/* Fix: Removed non-existent md:size prop */}
                 <CalendarDays size={14} className="text-orange-500" />
                 <span className="text-[8px] md:text-[10px] font-black text-orange-400 uppercase tracking-widest md:tracking-[0.3em]">
                     Window: {dateRange}
                 </span>
             </div>
-            <p className="text-[8px] font-black text-gray-700 uppercase tracking-widest md:tracking-[0.4em] mt-1 text-center">Auto-Cycling Registry (MON-SAT)</p>
+            <p className="text-[8px] font-black text-gray-700 uppercase tracking-widest md:tracking-[0.4em] mt-1 text-center">Calculated MON – SUN • Updated every Monday</p>
         </div>
       </div>
 
@@ -142,7 +144,6 @@ const Rewards: React.FC<RewardsProps> = ({ members, volunteers, organisations })
               </p>
               
               <div className="mt-6 md:mt-8 flex items-center gap-2 px-3 md:px-4 py-1.5 bg-white/[0.02] border border-white/5 rounded-full">
-                {/* Fix: Removed non-existent md:size prop */}
                 <Star size={12} className="text-yellow-500 animate-pulse" />
                 <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Verified Achievement</span>
               </div>
