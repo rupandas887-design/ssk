@@ -19,15 +19,15 @@ const initialFormData = {
   surname: '',
   fatherName: '',
   dob: '',
-  gender: Gender.Male,
-  maritalStatus: MaritalStatus.Single,
-  qualification: Qualification.Secondary,
+  gender: '' as unknown as Gender,
+  maritalStatus: '' as unknown as MaritalStatus,
+  qualification: '' as unknown as Qualification,
   emergencyContact: '',
   pincode: '',
   address: '',
   aadhaarPhoto: null as File | null,
-  occupation: Occupation.Employee,
-  supportNeed: SupportNeed.Education,
+  occupation: '' as unknown as Occupation,
+  supportNeed: '' as unknown as SupportNeed,
 };
 
 const NewMemberForm: React.FC = () => {
@@ -116,8 +116,8 @@ const NewMemberForm: React.FC = () => {
 
   const handleStep2Next = () => {
     setValidationError('');
-    if (!formData.name || !formData.surname || !formData.fatherName || !formData.dob || !formData.gender || !formData.emergencyContact || !formData.pincode || !formData.address) {
-      setValidationError('Action Required: All text fields are mandatory.');
+    if (!formData.name || !formData.surname || !formData.fatherName || !formData.dob || !formData.gender || !formData.maritalStatus || !formData.qualification || !formData.emergencyContact || !formData.pincode || !formData.address) {
+      setValidationError('Action Required: All fields including Gender, Marital Status, and Qualification are mandatory.');
       return;
     }
     
@@ -159,6 +159,11 @@ const NewMemberForm: React.FC = () => {
       addNotification("Registry Fault: Organization Linkage Missing or Invalid. Please contact Admin.", "error");
       return;
     }
+
+    if (!formData.occupation || !formData.supportNeed) {
+      setValidationError('Action Required: Occupation and Support Need selections are mandatory.');
+      return;
+    }
     
     setIsSubmitting(true);
     try {
@@ -174,13 +179,13 @@ const NewMemberForm: React.FC = () => {
         gender: formData.gender,
         marital_status: formData.maritalStatus,
         qualification: formData.qualification,
-        emergency_contact: formData.emergencyContact,
+        emergency_contact: formData.emergency_contact,
         pincode: formData.pincode,
         address: formData.address.trim(),
         aadhaar_front_url: photoUrl,
         aadhaar_back_url: photoUrl, 
         occupation: formData.occupation,
-        support_need: formData.supportNeed,
+        support_need: formData.support_need,
         volunteer_id: user.id,
         organisation_id: user.organisationId,
         submission_date: new Date().toISOString(),
@@ -310,17 +315,20 @@ const NewMemberForm: React.FC = () => {
           {step === 2 && (
             <Card title="Citizen Identity File" className="bg-[#0a0c14] border-white/10 rounded-[2.5rem] p-8 md:p-14 shadow-2xl relative">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-12">
-                <Input label="GIVEN NAME *" name="name" value={formData.name} onChange={handleChange} placeholder="First Name" required />
-                <Input label="SURNAME *" name="surname" value={formData.surname} onChange={handleChange} placeholder="Last Name" required />
-                <Input label="FATHER / GUARDIAN NAME *" name="fatherName" value={formData.fatherName} onChange={handleChange} description="Maintained separately from primary identity name." required />
+                <Input label="Full Name *" name="name" value={formData.name} onChange={handleChange} placeholder="First Name" required />
+                <Input label="Gharano *" name="surname" value={formData.surname} onChange={handleChange} placeholder="Last Name" required />
+                <Input label="Father / Guardian / Husband Name *" name="fatherName" value={formData.fatherName} onChange={handleChange} description="Maintained separately from primary identity name." required />
                 <Input label="DATE OF BIRTH *" name="dob" type="date" value={formData.dob} onChange={handleChange} required />
                 <Select label="BIOLOGICAL GENDER *" name="gender" value={formData.gender} onChange={handleChange}>
+                  <option value="">Select Gender</option>
                   {Object.values(Gender).map(g => <option key={g} value={g}>{g}</option>)}
                 </Select>
                 <Select label="MARITAL STATUS *" name="maritalStatus" value={formData.maritalStatus} onChange={handleChange}>
+                  <option value="">Select Marital Status</option>
                   {Object.values(MaritalStatus).map(m => <option key={m} value={m}>{m}</option>)}
                 </Select>
                 <Select label="QUALIFICATION *" name="qualification" value={formData.qualification} onChange={handleChange}>
+                  <option value="">Select Qualification</option>
                   {Object.values(Qualification).map(q => <option key={q} value={q}>{q}</option>)}
                 </Select>
                 <Input label="EMERGENCY CONTACT *" name="emergencyContact" value={formData.emergencyContact} onChange={handleChange} maxLength={10} required />
@@ -375,10 +383,12 @@ const NewMemberForm: React.FC = () => {
             <Card title="Review Node" className="bg-[#0a0c14] border-white/10 rounded-[2.5rem] p-8 md:p-14 shadow-2xl">
               <div className="space-y-12">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                  <Select label="What do you do? *" name="occupation" value={formData.occupation} onChange={handleChange}>
+                  <Select label="What do they do? *" name="occupation" value={formData.occupation} onChange={handleChange}>
+                    <option value="">Select Occupation</option>
                     {Object.values(Occupation).map(o => <option key={o} value={o}>{o}</option>)}
                   </Select>
-                  <Select label="What do you want? *" name="supportNeed" value={formData.supportNeed} onChange={handleChange}>
+                  <Select label="What do they want? *" name="supportNeed" value={formData.supportNeed} onChange={handleChange}>
+                    <option value="">Select Support Need</option>
                     {Object.values(SupportNeed).map(s => <option key={s} value={s}>{s}</option>)}
                   </Select>
                 </div>
@@ -389,7 +399,7 @@ const NewMemberForm: React.FC = () => {
                   <div className="space-y-3">
                     <h4 className="text-base font-bold text-white uppercase tracking-tight">Identity Certification</h4>
                     <p className="text-[11px] text-gray-500 leading-relaxed uppercase tracking-[0.2em] font-bold">
-                      I certify that I have physically verified the Given Name and Surname of this citizen against legal documentation. Single-side Aadhaar verification is sufficient for this drive.
+                      I certify that I have physically verified the Full Name and Gharano of this citizen against legal documentation. Single-side Aadhaar verification is sufficient for this drive.
                     </p>
                   </div>
                 </div>

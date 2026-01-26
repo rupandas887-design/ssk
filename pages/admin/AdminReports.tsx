@@ -167,7 +167,6 @@ const AdminReports: React.FC = () => {
                 pincode: editingMember.pincode,
                 address: editingMember.address,
                 occupation: editingMember.occupation,
-                support_need: editingMember.support_need,
                 status: editingMember.status,
             }).eq('id', editingMember.id);
             
@@ -293,7 +292,7 @@ const AdminReports: React.FC = () => {
                                                     </span>
                                                     <div className="flex items-center gap-2 mt-1">
                                                         <span className="text-[10px] text-orange-500/60 font-black uppercase tracking-widest truncate">
-                                                            {m.agent_profile?.organisations?.name || 'Central Command'}
+                                                            {m.agent_profile?.organisations?.name || 'Master Hub'}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -432,9 +431,9 @@ const AdminReports: React.FC = () => {
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5 pb-8">
-                            <Input label="First Name" value={editingMember.name} onChange={(e) => setEditingMember({...editingMember, name: e.target.value})} icon={<UserIcon size={12} />} className="py-2.5 text-xs font-bold" />
-                            <Input label="Surname" value={editingMember.surname} onChange={(e) => setEditingMember({...editingMember, surname: e.target.value})} icon={<UserIcon size={12} />} className="py-2.5 text-xs font-bold" />
-                            <Input label="Father Name" value={editingMember.father_name} onChange={(e) => setEditingMember({...editingMember, father_name: e.target.value})} icon={<UserCircle size={12} />} className="py-2.5 text-xs font-bold" />
+                            <Input label="Full Name" value={editingMember.name} onChange={(e) => setEditingMember({...editingMember, name: e.target.value})} icon={<UserIcon size={12} />} className="py-2.5 text-xs font-bold" />
+                            <Input label="Gharano" value={editingMember.surname} onChange={(e) => setEditingMember({...editingMember, surname: e.target.value})} icon={<UserIcon size={12} />} className="py-2.5 text-xs font-bold" />
+                            <Input label="Father / Guardian / Husband Name" value={editingMember.father_name} onChange={(e) => setEditingMember({...editingMember, father_name: e.target.value})} icon={<UserCircle size={12} />} className="py-2.5 text-xs font-bold" />
                             <Input label="Primary Contact" value={editingMember.mobile} onChange={(e) => setEditingMember({...editingMember, mobile: e.target.value})} icon={<Phone size={12} />} className="py-2.5 text-xs font-bold" />
                             <Input label="Birth Date" type="date" value={editingMember.dob} onChange={(e) => setEditingMember({...editingMember, dob: e.target.value})} icon={<Calendar size={12} />} className="py-2.5 text-xs font-bold" />
                             <Select label="Biological Gender" value={editingMember.gender} onChange={(e) => setEditingMember({...editingMember, gender: e.target.value as Gender})} className="py-2.5 text-xs font-bold">

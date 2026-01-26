@@ -57,11 +57,6 @@ const VolunteerMarquee: React.FC<VolunteerMarqueeProps> = ({ volunteers }) => {
                     <UserCircle size={48} strokeWidth={1} />
                   </div>
                 )}
-                
-                {/* Active Indicator (Limited to first instance pass) */}
-                {vol.enrollments > 0 && idx < (displayVols.length / 2) && (
-                  <div className="absolute top-4 right-4 h-2 w-2 bg-blue-500 rounded-full shadow-[0_0_12px_rgba(59,130,246,1)] animate-pulse z-10"></div>
-                )}
               </div>
 
               <div className="text-center w-full px-2 space-y-1">
