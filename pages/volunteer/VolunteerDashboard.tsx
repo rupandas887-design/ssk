@@ -129,17 +129,17 @@ const VolunteerDashboard: React.FC = () => {
         setIsUpdatingMember(true);
         try {
             const { error } = await supabase.from('members').update({
-                name: editingMember.name.trim(),
-                surname: editingMember.surname.trim(),
-                father_name: editingMember.father_name.trim(),
-                mobile: editingMember.mobile.trim(),
-                emergency_contact: editingMember.emergency_contact.trim(),
+                name: (editingMember.name || '').trim(),
+                surname: (editingMember.surname || '').trim(),
+                father_name: (editingMember.father_name || '').trim(),
+                mobile: (editingMember.mobile || '').trim(),
+                emergency_contact: (editingMember.emergency_contact || '').trim(),
                 dob: editingMember.dob,
                 gender: editingMember.gender,
                 marital_status: editingMember.marital_status,
                 qualification: editingMember.qualification,
-                pincode: editingMember.pincode,
-                address: editingMember.address,
+                pincode: (editingMember.pincode || '').trim(),
+                address: (editingMember.address || '').trim(),
                 occupation: editingMember.occupation,
                 support_need: editingMember.support_need,
             }).eq('id', editingMember.id);
@@ -149,7 +149,7 @@ const VolunteerDashboard: React.FC = () => {
             setIsEditModalOpen(false);
             fetchSubmissions();
         } catch (err: any) {
-            addNotification(`Update failed.`, "error");
+            addNotification(`Update failed: ${err.message}`, "error");
         } finally {
             setIsUpdatingMember(false);
         }
@@ -182,8 +182,8 @@ const VolunteerDashboard: React.FC = () => {
             
             if (start && submissionDate < start) return false;
             if (end && submissionDate > end) return false;
-            if (filters.phone && !member.mobile.includes(filters.phone)) return false;
-            if (filters.area && !member.pincode.includes(filters.area)) return false;
+            if (filters.phone && member.mobile && !member.mobile.includes(filters.phone)) return false;
+            if (filters.area && member.pincode && !member.pincode.includes(filters.area)) return false;
             return true;
         });
     }, [mySubmissions, filters]);
@@ -428,6 +428,7 @@ const VolunteerDashboard: React.FC = () => {
                       <Input label="Gharano" disabled={isEditingVerified} value={editingMember.surname} onChange={(e) => setEditingMember({...editingMember, surname: e.target.value})} icon={<User size={12} />} className="py-2.5 text-xs font-bold" />
                       <Input label="Father / Guardian / Husband Name" disabled={isEditingVerified} value={editingMember.father_name} onChange={(e) => setEditingMember({...editingMember, father_name: e.target.value})} icon={<UserCircle size={12} />} className="py-2.5 text-xs font-bold" />
                       <Input label="Mobile" disabled={isEditingVerified} value={editingMember.mobile} onChange={(e) => setEditingMember({...editingMember, mobile: e.target.value})} icon={<Phone size={12} />} className="py-2.5 text-xs font-bold" />
+                      <Input label="Emergency Contact" disabled={isEditingVerified} value={editingMember.emergency_contact} onChange={(e) => setEditingMember({...editingMember, emergency_contact: e.target.value})} icon={<Phone size={12} />} className="py-2.5 text-xs font-bold" />
                       <Input label="DOB" disabled={isEditingVerified} type="date" value={editingMember.dob} onChange={(e) => setEditingMember({...editingMember, dob: e.target.value})} icon={<Calendar size={12} />} className="py-2.5 text-xs font-bold" />
                       <Select label="Gender" disabled={isEditingVerified} value={editingMember.gender} onChange={(e) => setEditingMember({...editingMember, gender: e.target.value as Gender})} className="py-2.5 text-xs font-bold">
                           {Object.values(Gender).map(g => <option key={g} value={g}>{g}</option>)}

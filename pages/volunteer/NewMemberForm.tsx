@@ -46,7 +46,7 @@ const NewMemberForm: React.FC = () => {
   const isLinkBroken = user?.organisationId && !user?.organisationName;
 
   const formatInput = (text: string) => {
-    return text.trim().toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    return (text || '').trim().toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -170,8 +170,8 @@ const NewMemberForm: React.FC = () => {
       const photoUrl = await uploadFile(formData.aadhaarPhoto!);
 
       const memberPayload = {
-        aadhaar: formData.aadhaar,
-        mobile: formData.mobile,
+        aadhaar: (formData.aadhaar || '').trim(),
+        mobile: (formData.mobile || '').trim(),
         name: formatInput(formData.name),
         surname: formatInput(formData.surname),
         father_name: formatInput(formData.fatherName),
@@ -179,13 +179,13 @@ const NewMemberForm: React.FC = () => {
         gender: formData.gender,
         marital_status: formData.maritalStatus,
         qualification: formData.qualification,
-        emergency_contact: formData.emergency_contact,
-        pincode: formData.pincode,
-        address: formData.address.trim(),
+        emergency_contact: (formData.emergencyContact || '').trim(),
+        pincode: (formData.pincode || '').trim(),
+        address: (formData.address || '').trim(),
         aadhaar_front_url: photoUrl,
         aadhaar_back_url: photoUrl, 
         occupation: formData.occupation,
-        support_need: formData.support_need,
+        support_need: formData.supportNeed,
         volunteer_id: user.id,
         organisation_id: user.organisationId,
         submission_date: new Date().toISOString(),

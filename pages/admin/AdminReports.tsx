@@ -105,8 +105,8 @@ const AdminReports: React.FC = () => {
             const matchSearch = !searchQuery || 
                 m.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                 m.surname.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                m.mobile.includes(searchQuery) ||
-                m.aadhaar.includes(searchQuery);
+                (m.mobile && m.mobile.includes(searchQuery)) ||
+                (m.aadhaar && m.aadhaar.includes(searchQuery));
             return matchOrg && matchVol && matchSearch;
         });
     }, [members, selectedOrgId, selectedVolunteerId, searchQuery]);
@@ -155,17 +155,17 @@ const AdminReports: React.FC = () => {
         setIsUpdating(true);
         try {
             const { error } = await supabase.from('members').update({
-                name: editingMember.name.trim(),
-                surname: editingMember.surname.trim(),
-                father_name: editingMember.father_name.trim(),
-                mobile: editingMember.mobile.trim(),
-                emergency_contact: editingMember.emergency_contact.trim(),
+                name: (editingMember.name || '').trim(),
+                surname: (editingMember.surname || '').trim(),
+                father_name: (editingMember.father_name || '').trim(),
+                mobile: (editingMember.mobile || '').trim(),
+                emergency_contact: (editingMember.emergency_contact || '').trim(),
                 dob: editingMember.dob,
                 gender: editingMember.gender,
                 marital_status: editingMember.marital_status,
                 qualification: editingMember.qualification,
-                pincode: editingMember.pincode,
-                address: editingMember.address,
+                pincode: (editingMember.pincode || '').trim(),
+                address: (editingMember.address || '').trim(),
                 occupation: editingMember.occupation,
                 status: editingMember.status,
             }).eq('id', editingMember.id);
@@ -175,7 +175,7 @@ const AdminReports: React.FC = () => {
             setIsEditModalOpen(false);
             fetchData();
         } catch (err: any) {
-            addNotification(`Update failed.`, "error");
+            addNotification(`Update failed: ${err.message}`, "error");
         } finally {
             setIsUpdating(false);
         }
@@ -435,6 +435,7 @@ const AdminReports: React.FC = () => {
                             <Input label="Gharano" value={editingMember.surname} onChange={(e) => setEditingMember({...editingMember, surname: e.target.value})} icon={<UserIcon size={12} />} className="py-2.5 text-xs font-bold" />
                             <Input label="Father / Guardian / Husband Name" value={editingMember.father_name} onChange={(e) => setEditingMember({...editingMember, father_name: e.target.value})} icon={<UserCircle size={12} />} className="py-2.5 text-xs font-bold" />
                             <Input label="Primary Contact" value={editingMember.mobile} onChange={(e) => setEditingMember({...editingMember, mobile: e.target.value})} icon={<Phone size={12} />} className="py-2.5 text-xs font-bold" />
+                            <Input label="Emergency Contact" value={editingMember.emergency_contact} onChange={(e) => setEditingMember({...editingMember, emergency_contact: e.target.value})} icon={<Phone size={12} />} className="py-2.5 text-xs font-bold" />
                             <Input label="Birth Date" type="date" value={editingMember.dob} onChange={(e) => setEditingMember({...editingMember, dob: e.target.value})} icon={<Calendar size={12} />} className="py-2.5 text-xs font-bold" />
                             <Select label="Biological Gender" value={editingMember.gender} onChange={(e) => setEditingMember({...editingMember, gender: e.target.value as Gender})} className="py-2.5 text-xs font-bold">
                                 {Object.values(Gender).map(g => <option key={g} value={g}>{g}</option>)}

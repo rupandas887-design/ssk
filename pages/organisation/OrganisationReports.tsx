@@ -112,7 +112,7 @@ const OrganisationReports: React.FC = () => {
             if (end && subDate > end) return false;
             if (filters.search) {
                 const term = filters.search.toLowerCase();
-                return member.name.toLowerCase().includes(term) || member.surname.toLowerCase().includes(term) || member.mobile.includes(term) || member.aadhaar.includes(term);
+                return member.name.toLowerCase().includes(term) || member.surname.toLowerCase().includes(term) || (member.mobile && member.mobile.includes(term)) || (member.aadhaar && member.aadhaar.includes(term));
             }
             return true;
         });
@@ -139,17 +139,17 @@ const OrganisationReports: React.FC = () => {
         setIsUpdating(true);
         try {
             const { error } = await supabase.from('members').update({
-                name: editingMember.name.trim(),
-                surname: editingMember.surname.trim(),
-                father_name: editingMember.father_name.trim(),
-                mobile: editingMember.mobile.trim(),
-                emergency_contact: editingMember.emergency_contact.trim(),
+                name: (editingMember.name || '').trim(),
+                surname: (editingMember.surname || '').trim(),
+                father_name: (editingMember.father_name || '').trim(),
+                mobile: (editingMember.mobile || '').trim(),
+                emergency_contact: (editingMember.emergency_contact || '').trim(),
                 dob: editingMember.dob,
                 gender: editingMember.gender,
                 marital_status: editingMember.marital_status,
                 qualification: editingMember.qualification,
-                pincode: editingMember.pincode,
-                address: editingMember.address,
+                pincode: (editingMember.pincode || '').trim(),
+                address: (editingMember.address || '').trim(),
                 occupation: editingMember.occupation,
                 support_need: editingMember.support_need,
             }).eq('id', editingMember.id);
@@ -159,7 +159,7 @@ const OrganisationReports: React.FC = () => {
             setIsEditModalOpen(false);
             fetchData();
         } catch (err: any) {
-            addNotification(`Sync failed.`, "error");
+            addNotification(`Sync failed: ${err.message}`, "error");
         } finally {
             setIsUpdating(false);
         }
@@ -382,6 +382,7 @@ const OrganisationReports: React.FC = () => {
                             <Input label="Gharano" disabled={isVerified} value={editingMember.surname} onChange={(e) => setEditingMember({...editingMember, surname: e.target.value})} icon={<UserIcon size={12} />} className="py-2.5 text-xs font-bold" />
                             <Input label="Father / Guardian / Husband Name" disabled={isVerified} value={editingMember.father_name} onChange={(e) => setEditingMember({...editingMember, father_name: e.target.value})} icon={<UserCircle size={12} />} className="py-2.5 text-xs font-bold" />
                             <Input label="Mobile" disabled={isVerified} value={editingMember.mobile} onChange={(e) => setEditingMember({...editingMember, mobile: e.target.value})} icon={<Phone size={12} />} className="py-2.5 text-xs font-bold" />
+                            <Input label="Emergency Contact" disabled={isVerified} value={editingMember.emergency_contact} onChange={(e) => setEditingMember({...editingMember, emergency_contact: e.target.value})} icon={<Phone size={12} />} className="py-2.5 text-xs font-bold" />
                             <Input label="DOB" disabled={isVerified} type="date" value={editingMember.dob} onChange={(e) => setEditingMember({...editingMember, dob: e.target.value})} icon={<Calendar size={12} />} className="py-2.5 text-xs font-bold" />
                             <Select label="Gender" disabled={isVerified} value={editingMember.gender} onChange={(e) => setEditingMember({...editingMember, gender: e.target.value as Gender})} className="py-2.5 text-xs font-bold">
                                 {Object.values(Gender).map(g => <option key={g} value={g}>{g}</option>)}
