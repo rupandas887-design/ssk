@@ -182,12 +182,13 @@ const AdminReports: React.FC = () => {
     };
 
     const handleExport = () => {
-        const headers = ['Aadhaar', 'Display Name', 'Father Name', 'Mobile', 'DOB', 'Gender', 'Marital Status', 'Qualification', 'Address', 'Pincode', 'What they do?', 'What they want?', 'Volunteer', 'Organization', 'Status'];
+        const headers = ['Aadhaar', 'Display Name', 'Father / Guardian / Husband Name', 'Mobile', 'Emergency Contact', 'DOB', 'Gender', 'Marital Status', 'Qualification', 'Address', 'Pincode', 'What they do?', 'What they want?', 'Volunteer', 'Organization', 'Status'];
         const rows = filteredMembers.map(m => [
             m.aadhaar, 
             formatDisplayName(m.name, m.surname), 
             m.father_name, 
-            m.mobile, 
+            m.mobile,
+            m.emergency_contact, 
             m.dob, 
             m.gender,
             m.marital_status,
@@ -394,7 +395,7 @@ const AdminReports: React.FC = () => {
                                             </div>
                                             <div className="flex-shrink-0">
                                                 <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${editingMember.status === MemberStatus.Accepted ? 'bg-green-500/10 border-green-500/20 text-green-500' : 'bg-orange-500/10 border-orange-500/20 text-orange-400 animate-pulse'}`}>
-                                                    {editingMember.status === MemberStatus.Accepted ? <CheckCircle size={10} /> : <Clock size={10} />}
+                                                    {editingMember.status === MemberStatus.Accepted ? <CheckCircle size={10} /> : <CheckCircle size={10} className="animate-pulse" />}
                                                     <span className="text-[8px] font-black uppercase tracking-widest whitespace-nowrap">
                                                         {editingMember.status === MemberStatus.Accepted ? 'Verified Identity' : 'Review Pending'}
                                                     </span>

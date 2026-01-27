@@ -166,12 +166,12 @@ const OrganisationReports: React.FC = () => {
     };
 
     const handleExport = () => {
-        const headers = ['Aadhaar', 'Identity Name', 'Father Name', 'Mobile', 'DOB', 'Pincode', 'Address', 'Volunteer', 'Date', 'Status'];
+        const headers = ['Identity Name', 'Father / Guardian / Husband Name', 'Mobile', 'Emergency Contact', 'DOB', 'Pincode', 'Address', 'Volunteer', 'Date', 'Status'];
         const rows = filteredMembers.map(m => [
-            m.aadhaar, 
             formatDisplayName(m.name, m.surname), 
             m.father_name, 
-            m.mobile, 
+            m.mobile,
+            m.emergency_contact, 
             m.dob, 
             m.pincode, 
             m.address,
