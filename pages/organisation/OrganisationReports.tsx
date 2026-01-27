@@ -166,7 +166,7 @@ const OrganisationReports: React.FC = () => {
     };
 
     const handleExport = () => {
-        const headers = ['Identity Name', 'Father / Guardian / Husband Name', 'Mobile', 'Emergency Contact', 'DOB', 'Pincode', 'Address', 'Volunteer', 'Date', 'Status'];
+        const headers = ['Identity Name', 'Father / Guardian / Husband Name', 'Mobile', 'Emergency Contact', 'DOB', 'Pincode', 'Volunteer', 'Date', 'Status', 'Address'];
         const rows = filteredMembers.map(m => [
             formatDisplayName(m.name, m.surname), 
             m.father_name, 
@@ -174,10 +174,10 @@ const OrganisationReports: React.FC = () => {
             m.emergency_contact, 
             m.dob, 
             m.pincode, 
-            m.address,
             m.agent_profile?.name || 'N/A',
             m.submission_date.split('T')[0], 
-            m.status
+            m.status,
+            m.address // Moved to last
         ]);
         const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });

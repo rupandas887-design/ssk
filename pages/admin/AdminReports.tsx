@@ -3,6 +3,7 @@ import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import { GoogleGenAI } from "@google/genai";
 import Select from '../../components/ui/Select';
 import Modal from '../../components/ui/Modal';
 import { supabase } from '../../supabase/client';
@@ -182,7 +183,7 @@ const AdminReports: React.FC = () => {
     };
 
     const handleExport = () => {
-        const headers = ['Aadhaar', 'Display Name', 'Father / Guardian / Husband Name', 'Mobile', 'Emergency Contact', 'DOB', 'Gender', 'Marital Status', 'Qualification', 'Address', 'Pincode', 'What they do?', 'What they want?', 'Volunteer', 'Organization', 'Status'];
+        const headers = ['Aadhaar', 'Display Name', 'Father / Guardian / Husband Name', 'Mobile', 'Emergency Contact', 'DOB', 'Gender', 'Marital Status', 'Qualification', 'Pincode', 'What they do?', 'What they want?', 'Volunteer', 'Organization', 'Status', 'Address'];
         const rows = filteredMembers.map(m => [
             m.aadhaar, 
             formatDisplayName(m.name, m.surname), 
@@ -193,13 +194,13 @@ const AdminReports: React.FC = () => {
             m.gender,
             m.marital_status,
             m.qualification,
-            m.address,
             m.pincode,
             m.occupation,
             m.support_need,
             m.agent_profile?.name || 'N/A',
             m.agent_profile?.organisations?.name || 'N/A',
-            m.status
+            m.status,
+            m.address // Moved to last
         ]);
         const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
