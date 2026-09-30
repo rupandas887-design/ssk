@@ -11,36 +11,27 @@ const OrgMarquee: React.FC<OrgMarqueeProps> = ({ organisations }) => {
     if (!organisations || organisations.length === 0) return [];
     
     const baseSet = organisations;
-    
-    // Constant widths for calculation
     const itemWidth = 220; 
     const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
     
-    /**
-     * LOGIC: To have a gapless marquee that moves -50%, the total width of the
-     * items in the set MUST be at least the screen width. 
-     * We only repeat if the current unique count is too small to cover the view.
-     */
     const itemsNeededToCoverScreen = Math.ceil(screenWidth / itemWidth);
     
     let fillSet = [...baseSet];
-    // If we have fewer items than a single screen-width, repeat the cycle
     if (fillSet.length < itemsNeededToCoverScreen) {
         const repeats = Math.ceil(itemsNeededToCoverScreen / fillSet.length);
         fillSet = Array(repeats).fill(baseSet).flat();
     }
     
-    // Double for the seamless CSS transition (-50%)
     return [...fillSet, ...fillSet];
   }, [organisations]);
 
   if (displayOrgs.length === 0) return null;
 
   return (
-    <div className="w-full bg-transparent py-8 md:py-12 overflow-hidden group relative">
-      {/* Premium Edge Fades */}
-      <div className="absolute inset-y-0 left-0 w-24 md:w-48 bg-gradient-to-r from-black via-black/90 to-transparent z-20 pointer-events-none"></div>
-      <div className="absolute inset-y-0 right-0 w-24 md:w-48 bg-gradient-to-l from-black via-black/90 to-transparent z-20 pointer-events-none"></div>
+    <div className="w-full bg-transparent py-6 md:py-10 overflow-hidden group relative">
+      {/* Edge Fades for #F5F7FB canvas */}
+      <div className="absolute inset-y-0 left-0 w-20 md:w-40 bg-gradient-to-r from-[#F5F7FB] via-[#F5F7FB]/90 to-transparent z-20 pointer-events-none"></div>
+      <div className="absolute inset-y-0 right-0 w-20 md:w-40 bg-gradient-to-l from-[#F5F7FB] via-[#F5F7FB]/90 to-transparent z-20 pointer-events-none"></div>
 
       <div className="flex animate-marquee-slow group-hover:[animation-play-state:paused] whitespace-nowrap items-start">
         {displayOrgs.map((org, idx) => (
@@ -48,33 +39,32 @@ const OrgMarquee: React.FC<OrgMarqueeProps> = ({ organisations }) => {
             key={`${org.id}-${idx}`}
             className="flex-shrink-0 w-[160px] md:w-[220px] px-3 md:px-5 group/card"
           >
-            <div className="flex flex-col items-center transition-all duration-500 group-hover/card:-translate-y-2">
+            <div className="flex flex-col items-center transition-all duration-300 group-hover/card:-translate-y-1.5">
               
-              <div className="relative w-full aspect-square mb-4 md:mb-6 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] bg-zinc-900 border border-white/5 shadow-2xl group-hover/card:border-orange-500/30 transition-colors">
+              <div className="relative w-full aspect-square mb-3 md:mb-4 overflow-hidden rounded-2xl bg-white border border-slate-200/90 shadow-sm group-hover/card:shadow-md group-hover/card:border-saffron-400 transition-all">
                 {org.profile_photo_url ? (
                   <img 
                     src={org.profile_photo_url} 
                     alt={org.name} 
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover/card:scale-110"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover/card:scale-105"
                     loading="lazy"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-zinc-900 text-orange-500/10">
-                    <Building2 size={48} strokeWidth={1} />
+                  <div className="w-full h-full flex items-center justify-center bg-saffron-50/50 text-saffron-400">
+                    <Building2 size={40} strokeWidth={1.5} />
                   </div>
                 )}
                 
-                {/* Visual Cue for Authenticated Nodes (Limit to 4 markers total for aesthetics) */}
                 {idx < 4 && (
-                  <div className="absolute top-4 right-4 h-2 w-2 bg-orange-500 rounded-full shadow-[0_0_12px_rgba(234,88,12,1)] animate-pulse z-10"></div>
+                  <div className="absolute top-3 right-3 h-2 w-2 bg-saffron-500 rounded-full shadow-[0_0_8px_rgba(255,138,0,0.8)] animate-pulse z-10"></div>
                 )}
               </div>
 
-              <div className="text-center w-full px-2 space-y-1">
-                <h4 className="text-[10px] md:text-[11px] font-black text-white uppercase tracking-[0.25em] leading-tight truncate group-hover/card:text-orange-500 transition-colors">
+              <div className="text-center w-full px-2 space-y-0.5">
+                <h4 className="text-xs font-bold text-slate-800 leading-tight truncate group-hover/card:text-saffron-600 transition-colors">
                   {org.name}
                 </h4>
-                <p className="text-[8px] md:text-[9px] font-bold text-gray-500 uppercase tracking-widest opacity-60 group-hover/card:opacity-100 transition-opacity">
+                <p className="text-[10px] font-medium text-slate-500 truncate">
                   {org.secretary_name || 'Verified Member'}
                 </p>
               </div>

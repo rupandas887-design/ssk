@@ -1,16 +1,33 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Button from '../../components/ui/Button';
-import { Gender, Occupation, SupportNeed, MaritalStatus, Qualification } from '../../types';
+import { Gender, Occupation, SupportNeed, MaritalStatus, Qualification, Role } from '../../types';
 import { supabase } from '../../supabase/client';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import { syncToSheets, SheetType } from '../../services/googleSheets';
-import { ShieldAlert, RefreshCw, Fingerprint, ShieldCheck, Search, XCircle, ImageIcon, Image as ImageIcon2, Info } from 'lucide-react';
+import CulturalLoader from '../../components/ui/CulturalLoader';
+import { 
+  ShieldAlert, 
+  RefreshCw, 
+  ShieldCheck, 
+  Search, 
+  Check, 
+  Loader2, 
+  AlertCircle,
+  User,
+  Phone,
+  CreditCard,
+  CheckCircle2,
+  ArrowRight,
+  ArrowLeft,
+  Sparkles,
+  FileCheck
+} from 'lucide-react';
 
 const initialFormData = {
   aadhaar: '',
@@ -30,6 +47,14 @@ const initialFormData = {
   supportNeed: '' as unknown as SupportNeed,
 };
 
+type AadhaarCheckStatus = 'idle' | 'checking' | 'verified' | 'duplicate' | 'error';
+
+// Standard 12-digit numeric Aadhaar verification
+export const validateAadhaarFormat = (aadhaar: string): boolean => {
+  const clean = (aadhaar || '').replace(/\D/g, '');
+  return clean.length === 12;
+};
+
 const NewMemberForm: React.FC = () => {
   const { user } = useAuth();
   const { addNotification } = useNotification();
@@ -38,77 +63,232 @@ const NewMemberForm: React.FC = () => {
   const [validationError, setValidationError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
-  
-  const [preview, setPreview] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Diagnostic: Check if organization link is broken (ID exists but Name doesn't return from join)
-  const isLinkBroken = user?.organisationId && !user?.organisationName;
+  // Aadhaar duplicate checking state
+  const [aadhaarStatus, setAadhaarStatus] = useState<AadhaarCheckStatus>('idle');
+  const [aadhaarError, setAadhaarError] = useState('');
+  const lastCheckedAadhaarRef = useRef<string>('');
 
-  const formatInput = (text: string) => {
-    return (text || '').trim().toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  // Diagnostic: Check if volunteer is unlinked
+  const isUnlinkedVolunteer = Boolean(user && user.role === Role.Volunteer && !user.organisationId);
+
+  // Core verification function that queries Supabase for entered 12-digit Aadhaar
+  const checkAadhaar = useCallback(async (aadhaarNumber: string): Promise<boolean> => {
+    const normalized = (aadhaarNumber || '').replace(/\D/g, '').slice(0, 12);
+
+    if (normalized.length !== 12) {
+      setAadhaarStatus('idle');
+      setAadhaarError('');
+      lastCheckedAadhaarRef.current = '';
+      return false;
+    }
+
+    setAadhaarStatus('checking');
+    setAadhaarError('');
+
+    try {
+      // Direct query on members table using maybeSingle()
+      const { data, error } = await supabase
+        .from('members')
+        .select('id, name, surname')
+        .eq('aadhaar', normalized)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Aadhaar Supabase check failed:', error);
+        lastCheckedAadhaarRef.current = '';
+        setAadhaarStatus('error');
+        setAadhaarError('Unable to verify identification with database. Click Retry.');
+        return false;
+      }
+
+      lastCheckedAadhaarRef.current = normalized;
+
+      if (data) {
+        setAadhaarStatus('duplicate');
+        setAadhaarError('Aadhaar number already registered.');
+        return false;
+      }
+
+      setAadhaarStatus('verified');
+      setAadhaarError('');
+      return true;
+    } catch (err: any) {
+      console.error('Aadhaar verification error:', err);
+      lastCheckedAadhaarRef.current = '';
+      setAadhaarStatus('error');
+      setAadhaarError('Network connection issue. Click Retry.');
+      return false;
+    }
+  }, []);
+
+  // Auto-verify if 12 digits are present and haven't been checked yet
+  useEffect(() => {
+    const clean = (formData.aadhaar || '').replace(/\D/g, '').slice(0, 12);
+    if (clean.length === 12 && lastCheckedAadhaarRef.current !== clean && aadhaarStatus !== 'checking') {
+      checkAadhaar(clean);
+    }
+  }, [formData.aadhaar, checkAadhaar, aadhaarStatus]);
+
+  const handleAadhaarPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text');
+    const normalized = pasted.replace(/\D/g, '').slice(0, 12);
+    setFormData(prev => ({ ...prev, aadhaar: normalized }));
+    setValidationError('');
+
+    if (normalized.length === 12) {
+      if (lastCheckedAadhaarRef.current !== normalized) {
+        checkAadhaar(normalized);
+      }
+    } else {
+      setAadhaarStatus('idle');
+      setAadhaarError('');
+      lastCheckedAadhaarRef.current = '';
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    if ((name === 'aadhaar' || name === 'mobile' || name === 'emergencyContact' || name === 'pincode') && value !== '' && !/^\d+$/.test(value)) return;
+    
+    if (name === 'aadhaar') {
+      const normalizedAadhaar = value.replace(/\D/g, '').slice(0, 12);
+      setFormData(prev => ({ ...prev, [name]: normalizedAadhaar }));
+      setValidationError('');
+
+      if (normalizedAadhaar.length === 12) {
+        if (normalizedAadhaar !== lastCheckedAadhaarRef.current) {
+          checkAadhaar(normalizedAadhaar);
+        }
+      } else {
+        setAadhaarStatus('idle');
+        setAadhaarError('');
+        lastCheckedAadhaarRef.current = '';
+      }
+      return;
+    }
+
+    if (name === 'mobile' || name === 'emergencyContact') {
+      const numericVal = value.replace(/\D/g, '').slice(0, 10);
+      setFormData(prev => ({ ...prev, [name]: numericVal }));
+      setValidationError('');
+      return;
+    }
+
+    if (name === 'pincode') {
+      const numericVal = value.replace(/\D/g, '').slice(0, 6);
+      setFormData(prev => ({ ...prev, [name]: numericVal }));
+      setValidationError('');
+      return;
+    }
+
     setFormData(prev => ({ ...prev, [name]: value }));
+    setValidationError('');
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setFormData(prev => ({ ...prev, aadhaarPhoto: file }));
-      if (preview) URL.revokeObjectURL(preview);
-      setPreview(URL.createObjectURL(file));
-    }
+  const formatInput = (str: string) => {
+    return (str || '').trim().toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   };
-  
-  const handleRemoveImage = () => {
-    if (preview) URL.revokeObjectURL(preview);
-    setFormData(prev => ({ ...prev, aadhaarPhoto: null }));
-    setPreview(null);
+
+  const renderAadhaarStatusIcon = () => {
+    if (aadhaarStatus === 'checking') {
+      return (
+        <span className="flex items-center gap-1.5 text-saffron-600 text-xs font-semibold select-none">
+          <Loader2 size={16} className="animate-spin" />
+          <span className="hidden sm:inline">Checking...</span>
+        </span>
+      );
+    }
+    if (aadhaarStatus === 'verified') {
+      return (
+        <span className="flex items-center gap-1 text-emerald-600 text-xs font-semibold select-none">
+          <CheckCircle2 size={16} />
+          <span className="hidden sm:inline">Available</span>
+        </span>
+      );
+    }
+    if (aadhaarStatus === 'duplicate') {
+      return (
+        <span className="flex items-center gap-1 text-rose-600 text-xs font-semibold select-none">
+          <AlertCircle size={16} />
+          <span className="hidden sm:inline">Registered</span>
+        </span>
+      );
+    }
+    if (aadhaarStatus === 'error') {
+      return (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const rawVal = (formData.aadhaar || '').replace(/\D/g, '').slice(0, 12);
+            if (rawVal.length === 12) {
+              lastCheckedAadhaarRef.current = '';
+              checkAadhaar(rawVal);
+            }
+          }}
+          className="flex items-center gap-1 text-amber-600 hover:text-amber-700 text-xs font-semibold select-none hover:underline cursor-pointer"
+          title="Retry Verification"
+        >
+          <RefreshCw size={14} />
+          <span>Retry</span>
+        </button>
+      );
+    }
+    return null;
   };
 
   const handleStep1Next = async () => {
     setValidationError('');
-    
-    // Safety check for organization linkage
-    if (!user?.organisationId || isLinkBroken) {
-      setValidationError(`Linkage Fault: Your account is linked to an ID (${user?.organisationId?.slice(0,8)}) that does not exist in the master registry or has been purged.`);
+    setAadhaarError('');
+
+    if (isUnlinkedVolunteer) {
+      setValidationError('Organization Linkage Fault: Cannot proceed without active affiliation.');
       return;
     }
 
-    if (!formData.aadhaar || !formData.mobile) {
-      setValidationError('Action Required: Identity Number and Primary Mobile are mandatory.');
+    const cleanAadhaar = (formData.aadhaar || '').replace(/\D/g, '').slice(0, 12);
+    if (!cleanAadhaar || cleanAadhaar.length !== 12) {
+      setValidationError('Please enter a valid 12-digit Aadhaar number.');
       return;
     }
-    if (!/^\d{12}$/.test(formData.aadhaar)) {
-      setValidationError('UID must be exactly 12 numeric digits.');
+
+    const cleanMobile = (formData.mobile || '').replace(/\D/g, '').slice(0, 10);
+    if (!cleanMobile || cleanMobile.length !== 10) {
+      setValidationError('Please enter a valid 10-digit Mobile number.');
       return;
     }
-    if (!/^\d{10}$/.test(formData.mobile)) {
-      setValidationError('Mobile must be exactly 10 numeric digits.');
+
+    if (aadhaarStatus === 'duplicate') {
+      setValidationError('This Aadhaar number is already registered.');
       return;
     }
 
     setIsValidating(true);
     try {
-      const { data, error } = await supabase.from('members').select('id').eq('aadhaar', formData.aadhaar).maybeSingle();
-      
-      if (error) {
-        setValidationError(`Uplink Error: ${error.message}`);
+      // If not yet verified for this exact 12-digit value, run verification
+      let isVerified = aadhaarStatus === 'verified' && lastCheckedAadhaarRef.current === cleanAadhaar;
+      if (!isVerified) {
+        isVerified = await checkAadhaar(cleanAadhaar);
+      }
+
+      if (!isVerified) {
+        if (aadhaarError) {
+          setValidationError(aadhaarError);
+        } else if (lastCheckedAadhaarRef.current === cleanAadhaar) {
+          setValidationError('This Aadhaar number is already registered.');
+        } else {
+          setValidationError('Unable to verify identification with database. Click Retry.');
+        }
         return;
       }
 
-      if (data) {
-        setValidationError('Identification Conflict: This record already exists in the Global Registry.');
-      } else {
-        setStep(2);
-        window.scrollTo(0, 0);
-      }
-    } catch (e: any) {
-      setValidationError(`System Fault: ${e.message || 'Access Denied'}`);
+      setStep(2);
+      window.scrollTo(0, 0);
+    } catch (err: any) {
+      console.error("Validation error:", err);
+      setValidationError(err.message || 'System error validating identification.');
     } finally {
       setIsValidating(false);
     }
@@ -117,27 +297,22 @@ const NewMemberForm: React.FC = () => {
   const handleStep2Next = () => {
     setValidationError('');
     if (!formData.name || !formData.surname || !formData.fatherName || !formData.dob || !formData.gender || !formData.maritalStatus || !formData.qualification || !formData.emergencyContact || !formData.pincode || !formData.address) {
-      setValidationError('Action Required: All fields including Gender, Marital Status, and Qualification are mandatory.');
+      setValidationError('All fields including Gender, Marital Status, and Qualification are mandatory.');
       return;
     }
     
     if (!/^\d{10}$/.test(formData.emergencyContact)) {
-      setValidationError('Emergency Contact must be 10 digits.');
+      setValidationError('Emergency Contact must be exactly 10 digits.');
       return;
     }
 
     if (formData.mobile === formData.emergencyContact) {
-      setValidationError('Conflict: Mobile and Emergency Contact cannot be identical.');
+      setValidationError('Conflict: Primary Mobile and Emergency Contact cannot be identical.');
       return;
     }
 
     if (!/^\d{6}$/.test(formData.pincode)) {
       setValidationError('Pincode must be exactly 6 digits.');
-      return;
-    }
-
-    if (!formData.aadhaarPhoto) {
-      setValidationError('Identity Scan is mandatory.');
       return;
     }
 
@@ -155,19 +330,19 @@ const NewMemberForm: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!user?.organisationId || isLinkBroken || !user?.id) {
-      addNotification("Registry Fault: Organization Linkage Missing or Invalid. Please contact Admin.", "error");
+    if (isUnlinkedVolunteer || !user?.id) {
+      addNotification("Registry Error: Organization Linkage Missing. Please contact Admin.", "error");
       return;
     }
 
     if (!formData.occupation || !formData.supportNeed) {
-      setValidationError('Action Required: Occupation and Support Need selections are mandatory.');
+      setValidationError('Occupation and Support Need selections are mandatory.');
       return;
     }
     
     setIsSubmitting(true);
     try {
-      const photoUrl = await uploadFile(formData.aadhaarPhoto!);
+      const photoUrl = formData.aadhaarPhoto ? await uploadFile(formData.aadhaarPhoto) : '';
 
       const memberPayload = {
         aadhaar: (formData.aadhaar || '').trim(),
@@ -186,8 +361,8 @@ const NewMemberForm: React.FC = () => {
         aadhaar_back_url: photoUrl, 
         occupation: formData.occupation,
         support_need: formData.supportNeed,
-        volunteer_id: user.id,
-        organisation_id: user.organisationId,
+        volunteer_id: user?.id || '',
+        organisation_id: user?.organisationId || null,
         submission_date: new Date().toISOString(),
         status: 'Pending'
       };
@@ -195,8 +370,15 @@ const NewMemberForm: React.FC = () => {
       const { error: dbError } = await supabase.from('members').insert(memberPayload);
       
       if (dbError) {
+        if (dbError.code === '23505') {
+          const msg = 'This Aadhaar number is already registered.';
+          setAadhaarStatus('duplicate');
+          setAadhaarError(msg);
+          setValidationError(msg);
+          throw new Error(msg);
+        }
         if (dbError.code === '23503') {
-          const msg = `Critical Linkage Fault: Organization ID (${user.organisationId}) is invalid or has been purged from the master registry. Please contact support.`;
+          const msg = `Critical Linkage: Organization ID (${user?.organisationId}) is unlinked in master registry.`;
           setValidationError(msg);
           throw new Error(msg);
         }
@@ -205,19 +387,20 @@ const NewMemberForm: React.FC = () => {
 
       syncToSheets(SheetType.MEMBERS, {
         ...memberPayload,
-        volunteer_name: user.name,
-        organisation_name: user.organisationName,
+        volunteer_name: user?.name || 'Field Volunteer',
+        organisation_name: user?.organisationName || 'Community Node',
         submission_date: new Date().toLocaleDateString()
       }).catch(err => console.error("Sheet Sync Failed:", err));
 
-      addNotification("Identity record synchronized successfully.", 'success');
+      addNotification("Member record successfully synchronized to registry.", 'success');
       setFormData(initialFormData);
-      setPreview(null);
+      setAadhaarStatus('idle');
+      setAadhaarError('');
       setStep(1);
       window.scrollTo(0, 0);
     } catch (err: any) {
       console.error("Submission Fault:", err);
-      addNotification(err.message || "Registry Fault: Synchronization Interrupted.", 'error');
+      addNotification(err.message || "Registry synchronization error.", 'error');
       setValidationError(err.message);
     } finally {
       setIsSubmitting(false);
@@ -225,200 +408,252 @@ const NewMemberForm: React.FC = () => {
   };
 
   return (
-    <DashboardLayout title="Identity Enrollment Hub">
-      <div className="w-full max-w-4xl mx-auto space-y-8 md:space-y-12 pb-20">
-        <div className="bg-[#0a0c14] border border-white/5 rounded-3xl p-6 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-2xl">
-          <div className="flex items-center gap-6">
-            <div className="p-4 bg-orange-600/10 rounded-2xl text-orange-500 border border-orange-500/20 shadow-inner">
-              <Fingerprint size={32} strokeWidth={1.5} />
+    <DashboardLayout title="Member Enrollment" hideHeader={true}>
+      {isSubmitting && (
+        <CulturalLoader message="Verifying & finalizing member enrollment in SSK live registry..." overlay={true} compact={false} />
+      )}
+      <div className="w-full max-w-3xl mx-auto space-y-6 pb-20 px-2 sm:px-4 pt-4 sm:pt-6">
+        
+        {/* Step Progress Indicators */}
+        <div className="flex items-center justify-between max-w-xl mx-auto px-4 mb-2">
+          <div className="flex items-center gap-2">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs transition-colors ${
+              step >= 1 ? 'bg-gradient-to-r from-saffron-500 to-saffron-600 text-white shadow-sm' : 'bg-slate-100 text-slate-400'
+            }`}>
+              1
             </div>
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500 mb-2">Authenticated Operator</p>
-              <h4 className="text-lg md:text-xl font-bold text-white uppercase font-cinzel">{user?.name}</h4>
-            </div>
+            <span className={`text-xs font-semibold ${step >= 1 ? 'text-slate-900' : 'text-slate-400'} hidden sm:inline`}>
+              Clearance
+            </span>
           </div>
-          <div className="text-center sm:text-right px-6 py-3 bg-black/60 rounded-2xl border border-white/5 flex flex-col gap-1 items-center sm:items-end">
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-600 mb-1">Organization Node</p>
-            <p className={`text-[11px] font-black uppercase tracking-[0.2em] ${isLinkBroken ? 'text-red-500 animate-pulse' : 'text-orange-500'}`}>
-              {user?.organisationName || 'LINKAGE FAULT'}
-            </p>
-            <div className="flex items-center gap-1.5 opacity-40">
-              <Info size={10} className="text-gray-500" />
-              <span className="text-[8px] font-mono text-gray-600 uppercase tracking-tighter">ID: {user?.organisationId?.slice(0, 8) || 'NONE'}...</span>
+
+          <div className={`flex-1 h-0.5 mx-3 sm:mx-4 ${step >= 2 ? 'bg-saffron-500' : 'bg-slate-200'}`}></div>
+
+          <div className="flex items-center gap-2">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs transition-colors ${
+              step >= 2 ? 'bg-gradient-to-r from-saffron-500 to-saffron-600 text-white shadow-sm' : 'bg-slate-100 text-slate-400'
+            }`}>
+              2
             </div>
+            <span className={`text-xs font-semibold ${step >= 2 ? 'text-slate-900' : 'text-slate-400'} hidden sm:inline`}>
+              Profile
+            </span>
+          </div>
+
+          <div className={`flex-1 h-0.5 mx-3 sm:mx-4 ${step >= 3 ? 'bg-saffron-500' : 'bg-slate-200'}`}></div>
+
+          <div className="flex items-center gap-2">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs transition-colors ${
+              step >= 3 ? 'bg-gradient-to-r from-saffron-500 to-saffron-600 text-white shadow-sm' : 'bg-slate-100 text-slate-400'
+            }`}>
+              3
+            </div>
+            <span className={`text-xs font-semibold ${step >= 3 ? 'text-slate-900' : 'text-slate-400'} hidden sm:inline`}>
+              Needs
+            </span>
           </div>
         </div>
 
-        {(isLinkBroken || !user?.organisationId) && (
-          <div className="p-6 bg-red-600/10 border border-red-500/20 rounded-3xl flex items-start gap-4 text-red-400">
-            <ShieldAlert size={24} className="shrink-0 mt-1" />
-            <div className="space-y-1">
-              <p className="text-xs font-black uppercase tracking-widest">Critical System Error: Broken Registry Link</p>
-              <p className="text-[10px] text-gray-400 leading-relaxed font-bold uppercase tracking-wider">
-                The organization ID associated with your profile ({user?.organisationId}) does not exist in the master registry. <br />
-                Enrollment is locked. Please contact the Master Admin to re-link your account.
+        {/* Diagnostic Link Banner */}
+        {isUnlinkedVolunteer && (
+          <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3.5 text-rose-800">
+            <ShieldAlert size={20} className="shrink-0 mt-0.5 text-rose-600" />
+            <div className="text-xs">
+              <p className="font-bold">Affiliation Warning: Unlinked Organization</p>
+              <p className="text-rose-600 mt-0.5 leading-relaxed">
+                Your profile is not linked to an active organization node. Please contact the Master Admin to link your account before enrolling members.
               </p>
             </div>
           </div>
         )}
 
-        <div className="relative pt-6 px-4">
-          <div className="flex justify-between items-center mb-10 relative z-10">
-            {[1, 2, 3].map(s => (
-              <div key={s} className="flex flex-col items-center gap-3">
-                <div className={`h-12 w-12 rounded-full border-2 flex items-center justify-center transition-all duration-700 ${step >= s ? 'bg-orange-600 border-orange-400' : 'bg-[#0a0c14] border-gray-800 opacity-40'}`}>
-                  <span className="text-sm font-black text-white">{s}</span>
-                </div>
+        {/* STEP 1: Clearance */}
+        {step === 1 && (
+          <Card 
+            title="SSK Community Registry" 
+            className="border-slate-200/90 shadow-card p-6 sm:p-8"
+          >
+            <div className="space-y-5">
+              <div>
+                <Input 
+                  label="Identification Number (Aadhaar 12 Digits) *" 
+                  name="aadhaar" 
+                  value={formData.aadhaar} 
+                  onChange={handleChange} 
+                  onPaste={handleAadhaarPaste}
+                  placeholder="Enter 12-digit Aadhaar" 
+                  required 
+                  icon={<CreditCard size={16} />}
+                  rightElement={renderAadhaarStatusIcon()}
+                  isError={aadhaarStatus === 'duplicate' || aadhaarStatus === 'error'}
+                  isSuccess={aadhaarStatus === 'verified'}
+                />
+                {aadhaarStatus === 'verified' && (
+                  <p className="flex items-center gap-1.5 text-xs text-emerald-600 font-semibold mt-1.5">
+                    <CheckCircle2 size={13} />
+                    <span>Identification available for registration.</span>
+                  </p>
+                )}
+                {aadhaarError && (
+                  <p className="flex items-center gap-1.5 text-xs text-rose-600 font-semibold mt-1.5">
+                    <AlertCircle size={13} />
+                    <span>{aadhaarError}</span>
+                  </p>
+                )}
               </div>
-            ))}
-          </div>
-          <div className="absolute top-[2.75rem] left-0 w-full h-0.5 bg-gray-900 rounded-full overflow-hidden">
-            <div className="h-full bg-orange-600 transition-all duration-1000" style={{ width: `${((step - 1) / 2) * 100}%` }}></div>
-          </div>
-        </div>
-        
-        <div className="animate-in fade-in slide-in-from-bottom-6 duration-700">
-          {step === 1 && (
-            <div className="max-w-xl mx-auto py-4">
-              <Card className="relative bg-[#0a0c14] border-white/10 border p-0 rounded-[2.5rem] overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.5)]">
-                <div className="p-8 md:p-12 space-y-10">
-                  <div className="flex items-center gap-6 mb-4">
-                    <div className="p-4 bg-orange-500/10 rounded-2xl text-orange-500">
-                      <ShieldCheck size={28} />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-cinzel text-white uppercase tracking-wider">Validation Step</h3>
-                      <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mt-2">Registry Clearance</p>
-                    </div>
-                  </div>
-                  <div className="space-y-8">
-                    <Input label="IDENTIFICATION (12 DIGITS) *" name="aadhaar" value={formData.aadhaar} onChange={handleChange} maxLength={12} placeholder="Aadhaar Number" required />
-                    <Input label="MOBILE NUMBER *" name="mobile" type="tel" value={formData.mobile} onChange={handleChange} maxLength={10} placeholder="Primary Mobile" required />
-                    {validationError && (
-                      <div className="p-5 bg-red-600/10 border border-red-500/20 rounded-2xl flex items-start gap-3">
-                        <ShieldAlert size={16} className="text-red-500 shrink-0 mt-0.5" />
-                        <p className="text-xs text-red-400 font-bold uppercase tracking-wider leading-relaxed">{validationError}</p>
-                      </div>
-                    )}
-                  </div>
-                  <div className="pt-6">
-                    <Button onClick={handleStep1Next} disabled={isValidating || !user?.organisationId || isLinkBroken} className="w-full py-5 text-[11px] font-black uppercase tracking-[0.4em] flex items-center justify-center gap-4">
-                      {isValidating ? <RefreshCw className="animate-spin" size={20} /> : <Search size={20} />}
-                      {isValidating ? 'VALIDATING...' : 'AUTHORIZE ACCESS'}
-                    </Button>
-                  </div>
+
+              <Input 
+                label="Primary Mobile Number (10 Digits) *" 
+                name="mobile" 
+                type="tel" 
+                value={formData.mobile} 
+                onChange={handleChange} 
+                maxLength={10} 
+                placeholder="10-digit mobile number" 
+                icon={<Phone size={16} />}
+                required 
+              />
+
+              {validationError && !aadhaarError && (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5">
+                  <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-rose-700 font-semibold leading-relaxed">{validationError}</p>
                 </div>
-              </Card>
+              )}
+
+              <div className="pt-4">
+                <Button 
+                  onClick={handleStep1Next} 
+                  disabled={
+                    isValidating || 
+                    aadhaarStatus === 'checking' || 
+                    aadhaarStatus === 'duplicate' || 
+                    aadhaarStatus === 'error' || 
+                    (formData.aadhaar.length === 12 && aadhaarStatus !== 'verified') ||
+                    !formData.aadhaar || 
+                    formData.aadhaar.length !== 12 || 
+                    !formData.mobile || 
+                    formData.mobile.length !== 10 || 
+                    isUnlinkedVolunteer
+                  } 
+                  className="w-full py-3.5 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2"
+                >
+                  {isValidating ? <RefreshCw className="animate-spin" size={16} /> : <Search size={16} />}
+                  <span>{isValidating ? 'Checking Registry...' : 'Verify & Continue'}</span>
+                </Button>
+              </div>
             </div>
-          )}
-          
-          {step === 2 && (
-            <Card title="Citizen Identity File" className="bg-[#0a0c14] border-white/10 rounded-[2.5rem] p-8 md:p-14 shadow-2xl relative">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-12">
+          </Card>
+        )}
+
+        {/* STEP 2: Citizen Identity File */}
+        {step === 2 && (
+          <Card 
+            title="Citizen Identity File" 
+            subtitle="Record comprehensive demographics for community census and service mapping"
+            className="border-slate-200/90 shadow-card p-6 sm:p-8"
+          >
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <Input label="Full Name *" name="name" value={formData.name} onChange={handleChange} placeholder="First Name" required />
-                <Input label="Gharano *" name="surname" value={formData.surname} onChange={handleChange} placeholder="Last Name" required />
-                <Input label="Father / Guardian / Husband Name *" name="fatherName" value={formData.fatherName} onChange={handleChange} description="Maintained separately from primary identity name." required />
-                <Input label="DATE OF BIRTH *" name="dob" type="date" value={formData.dob} onChange={handleChange} required />
-                <Select label="BIOLOGICAL GENDER *" name="gender" value={formData.gender} onChange={handleChange}>
+                <Input label="Gharano (Surname) *" name="surname" value={formData.surname} onChange={handleChange} placeholder="Gharano / Surname" required />
+                <Input label="Spouse *" name="fatherName" value={formData.fatherName} onChange={handleChange} description="Maintained separately from primary identity" required />
+                <Input label="Date of Birth *" name="dob" type="date" value={formData.dob} onChange={handleChange} required />
+                
+                <Select label="Biological Gender *" name="gender" value={formData.gender} onChange={handleChange}>
                   <option value="">Select Gender</option>
                   {Object.values(Gender).map(g => <option key={g} value={g}>{g}</option>)}
                 </Select>
-                <Select label="MARITAL STATUS *" name="maritalStatus" value={formData.maritalStatus} onChange={handleChange}>
+
+                <Select label="Marital Status *" name="maritalStatus" value={formData.maritalStatus} onChange={handleChange}>
                   <option value="">Select Marital Status</option>
                   {Object.values(MaritalStatus).map(m => <option key={m} value={m}>{m}</option>)}
                 </Select>
-                <Select label="QUALIFICATION *" name="qualification" value={formData.qualification} onChange={handleChange}>
+
+                <Select label="Educational Qualification *" name="qualification" value={formData.qualification} onChange={handleChange}>
                   <option value="">Select Qualification</option>
                   {Object.values(Qualification).map(q => <option key={q} value={q}>{q}</option>)}
                 </Select>
-                <Input label="EMERGENCY CONTACT *" name="emergencyContact" value={formData.emergencyContact} onChange={handleChange} maxLength={10} required />
-                <Input label="PINCODE *" name="pincode" value={formData.pincode} onChange={handleChange} maxLength={6} required />
-                <div className="md:col-span-2">
-                  <Input label="FULL ADDRESS *" name="address" value={formData.address} onChange={handleChange} placeholder="Residential address" required />
-                </div>
-              </div>
 
-              <div className="pt-10 border-t border-white/5">
-                <div className="flex items-center gap-3 mb-8">
-                  <ImageIcon2 className="text-orange-500" size={20} />
-                  <h3 className="font-cinzel text-xl text-white uppercase tracking-widest">Aadhaar Card Upload</h3>
-                </div>
+                <Input label="Emergency Contact (10 Digits) *" name="emergencyContact" value={formData.emergencyContact} onChange={handleChange} maxLength={10} placeholder="Alternate contact" required />
+                <Input label="Area Pincode (6 Digits) *" name="pincode" value={formData.pincode} onChange={handleChange} maxLength={6} placeholder="Ex: 560001" required />
                 
-                <div className="max-w-lg mx-auto">
-                  <div className="space-y-4">
-                    <label className="block text-[10px] font-black uppercase tracking-[0.3em] text-gray-500">AADHAAR PHOTO (SINGLE SIDE) *</label>
-                    <div className="relative border-2 border-gray-800 border-dashed rounded-[2.5rem] bg-black/60 aspect-video flex flex-col items-center justify-center overflow-hidden group/upload hover:border-orange-500/50 transition-all duration-500">
-                      {preview ? (
-                        <>
-                          <img src={preview} className="w-full h-full object-cover" />
-                          <button onClick={handleRemoveImage} className="absolute top-6 right-6 p-3 bg-red-600 text-white rounded-2xl shadow-xl hover:bg-red-700 transition-all scale-90 hover:scale-100"><XCircle size={24} /></button>
-                        </>
-                      ) : (
-                        <button onClick={() => inputRef.current?.click()} className="flex flex-col items-center gap-4 text-gray-700 group-hover/upload:text-orange-500/70 transition-colors">
-                          <ImageIcon size={64} strokeWidth={1} />
-                          <span className="text-[11px] font-black uppercase tracking-[0.4em]">UPLOAD CARD PHOTO</span>
-                        </button>
-                      )}
-                      <input ref={inputRef} type="file" className="sr-only" onChange={handleFileChange} accept="image/*" />
-                    </div>
-                  </div>
+                <div className="md:col-span-2">
+                  <Input label="Full Residential Address *" name="address" value={formData.address} onChange={handleChange} placeholder="Door No, Street, Locality, City" required />
                 </div>
               </div>
-              
+
               {validationError && (
-                <div className="mt-12 flex items-center gap-4 p-5 bg-red-600/10 border border-red-500/20 rounded-2xl flex items-start">
-                  <ShieldAlert size={20} className="text-red-500 shrink-0 mt-0.5" />
-                  <p className="text-xs text-red-400 font-bold uppercase tracking-widest leading-relaxed">{validationError}</p>
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5">
+                  <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-rose-700 font-semibold leading-relaxed">{validationError}</p>
                 </div>
               )}
 
-              <div className="mt-16 flex flex-col sm:flex-row justify-between gap-6">
-                <Button variant="secondary" onClick={() => { setStep(1); window.scrollTo(0, 0); }} className="w-full sm:w-auto py-4 px-10">Back</Button>
-                <Button onClick={handleStep2Next} className="w-full sm:w-auto py-4 px-12">Review Registry</Button>
-              </div>
-            </Card>
-          )}
-          
-          {step === 3 && (
-            <Card title="Review Node" className="bg-[#0a0c14] border-white/10 rounded-[2.5rem] p-8 md:p-14 shadow-2xl">
-              <div className="space-y-12">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                  <Select label="What do they do? *" name="occupation" value={formData.occupation} onChange={handleChange}>
-                    <option value="">Select Occupation</option>
-                    {Object.values(Occupation).map(o => <option key={o} value={o}>{o}</option>)}
-                  </Select>
-                  <Select label="What do they want? *" name="supportNeed" value={formData.supportNeed} onChange={handleChange}>
-                    <option value="">Select Support Need</option>
-                    {Object.values(SupportNeed).map(s => <option key={s} value={s}>{s}</option>)}
-                  </Select>
-                </div>
-                <div className="p-8 bg-orange-600/5 border border-orange-500/10 rounded-[2rem] flex flex-col md:flex-row items-start gap-8">
-                  <div className="p-4 bg-orange-500/10 rounded-2xl text-orange-500 shrink-0">
-                    <ShieldCheck size={36} strokeWidth={1.5} />
-                  </div>
-                  <div className="space-y-3">
-                    <h4 className="text-base font-bold text-white uppercase tracking-tight">Identity Certification</h4>
-                    <p className="text-[11px] text-gray-500 leading-relaxed uppercase tracking-[0.2em] font-bold">
-                      I certify that I have physically verified the Full Name and Gharano of this citizen against legal documentation. Single-side Aadhaar verification is sufficient for this drive.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              {validationError && (
-                <div className="mt-10 flex items-center gap-4 p-5 bg-red-600/10 border border-red-500/20 rounded-2xl flex items-start">
-                  <ShieldAlert size={20} className="text-red-500 shrink-0 mt-0.5" />
-                  <p className="text-xs text-red-400 font-bold uppercase tracking-widest leading-relaxed">{validationError}</p>
-                </div>
-              )}
-              <div className="mt-16 flex flex-col sm:flex-row justify-between gap-6">
-                <Button variant="secondary" onClick={() => { setStep(2); window.scrollTo(0, 0); }} className="w-full sm:w-auto py-4 px-10">Modify Profile</Button>
-                <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full sm:w-auto py-5 px-16 text-[12px] font-black uppercase tracking-[0.4em]">
-                  {isSubmitting ? 'SYNCHRONIZING...' : 'FINALIZE REGISTRATION'}
+              <div className="flex flex-col sm:flex-row justify-between gap-3 pt-4 border-t border-slate-100">
+                <Button variant="secondary" onClick={() => { setStep(1); window.scrollTo(0, 0); }} className="w-full sm:w-auto text-xs font-semibold gap-1.5">
+                  <ArrowLeft size={14} /> Back
+                </Button>
+                <Button onClick={handleStep2Next} className="w-full sm:w-auto text-xs font-bold gap-1.5">
+                  <span>Continue to Assessment</span> <ArrowRight size={14} />
                 </Button>
               </div>
-            </Card>
-          )}
-        </div>
+            </div>
+          </Card>
+        )}
+
+        {/* STEP 3: Needs Assessment & Confirmation */}
+        {step === 3 && (
+          <Card 
+            title="Needs &amp; Certification" 
+            subtitle="Tag community support requirements and certify identity accuracy"
+            className="border-slate-200/90 shadow-card p-6 sm:p-8"
+          >
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <Select label="What is their primary occupation? *" name="occupation" value={formData.occupation} onChange={handleChange}>
+                  <option value="">Select Occupation</option>
+                  {Object.values(Occupation).map(o => <option key={o} value={o}>{o}</option>)}
+                </Select>
+
+                <Select label="What support do they need from Samaj? *" name="supportNeed" value={formData.supportNeed} onChange={handleChange}>
+                  <option value="">Select Support Need</option>
+                  {Object.values(SupportNeed).map(s => <option key={s} value={s}>{s}</option>)}
+                </Select>
+              </div>
+
+              {/* Volunteer Attestation Card */}
+              <div className="p-5 bg-gradient-to-br from-saffron-50/60 to-saffron-50/30 border border-saffron-100/80 rounded-2xl flex items-start gap-4">
+                <div className="p-2.5 bg-white border border-saffron-100 rounded-xl text-saffron-600 shadow-sm shrink-0 mt-0.5">
+                  <ShieldCheck size={24} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">Volunteer Attestation</h4>
+                  <p className="text-xs text-slate-600 leading-relaxed mt-1">
+                    I attest that I have verified the identity of this citizen. This record will be submitted to the SSK Samaj live registry ledger under node <span className="font-semibold text-saffron-900">{user?.organisationName || 'Community'}</span>.
+                  </p>
+                </div>
+              </div>
+
+              {validationError && (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5">
+                  <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-rose-700 font-semibold leading-relaxed">{validationError}</p>
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row justify-between gap-3 pt-4 border-t border-slate-100">
+                <Button variant="secondary" onClick={() => { setStep(2); window.scrollTo(0, 0); }} className="w-full sm:w-auto text-xs font-semibold gap-1.5">
+                  <ArrowLeft size={14} /> Back to Profile
+                </Button>
+                <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full sm:w-auto py-3 px-8 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2">
+                  {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : <FileCheck size={16} />}
+                  <span>{isSubmitting ? 'Synchronizing Record...' : 'Finalize Registration'}</span>
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
       </div>
     </DashboardLayout>
   );

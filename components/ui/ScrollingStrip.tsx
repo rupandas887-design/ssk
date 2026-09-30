@@ -52,7 +52,7 @@ const ScrollingStrip: React.FC = () => {
     if (orgs.length === 0) return [];
     
     const baseSet = orgs;
-    const itemWidth = 300; // estimated width of each strip item
+    const itemWidth = 300;
     const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
     
     const minWidthNeeded = screenWidth;
@@ -66,47 +66,46 @@ const ScrollingStrip: React.FC = () => {
   if (displayOrgs.length === 0) return null;
 
   return (
-    <div className="w-full bg-[#050505] border-b border-white/5 overflow-hidden relative h-16 flex items-center shadow-2xl z-20">
+    <div className="w-full bg-white border-b border-slate-200 overflow-hidden relative h-14 flex items-center shadow-xs z-20">
       {/* Sidebar Label */}
-      <div className="absolute left-0 top-0 bottom-0 z-30 bg-[#050505] w-72 flex items-center gap-4 px-8 border-r border-orange-500/20 shadow-[10px_0_30px_rgba(0,0,0,1)]">
+      <div className="absolute left-0 top-0 bottom-0 z-30 bg-slate-50 w-64 sm:w-72 flex items-center gap-3 px-6 border-r border-slate-200 shadow-sm">
         <div className="relative flex-shrink-0">
-          <Globe size={18} className="text-orange-500 animate-[spin_15s_linear_infinite]" />
-          <div className="absolute inset-0 bg-orange-500 blur-lg opacity-20"></div>
+          <Globe size={16} className="text-blue-600 animate-[spin_15s_linear_infinite]" />
         </div>
-        <span className="text-[11px] font-black uppercase tracking-[0.3em] text-white whitespace-nowrap">Registry Live</span>
+        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-800 whitespace-nowrap">Registry Live</span>
       </div>
 
-      {/* Marquee Container with fixed offset */}
-      <div className="pl-72 w-full">
+      {/* Marquee Container */}
+      <div className="pl-64 sm:pl-72 w-full">
         <div className="animate-marquee flex items-center group">
           <div className="flex items-center group-hover:[animation-play-state:paused]">
             {displayOrgs.map((org, idx) => (
               <div 
                 key={`${org.id}-${idx}`}
                 className={`
-                    flex items-center gap-4 px-12 h-16 border-r border-white/5 transition-all duration-1000
-                    ${newOrgIds.has(org.id) ? 'registry-node-glow bg-orange-500/[0.04]' : 'hover:bg-white/[0.02]'}
+                    flex items-center gap-3.5 px-8 h-14 border-r border-slate-200 transition-colors duration-200
+                    ${newOrgIds.has(org.id) ? 'bg-blue-50/80' : 'hover:bg-slate-50'}
                 `}
               >
                 <div className={`
-                    h-10 w-10 rounded-xl overflow-hidden border bg-black/60 flex-shrink-0 flex items-center justify-center transition-all duration-500
-                    ${newOrgIds.has(org.id) ? 'border-orange-500/50 scale-105 shadow-lg shadow-orange-500/10' : 'border-white/10'}
+                    h-8 w-8 rounded-lg overflow-hidden border bg-slate-50 flex-shrink-0 flex items-center justify-center
+                    ${newOrgIds.has(org.id) ? 'border-blue-400 shadow-xs' : 'border-slate-200'}
                 `}>
                   {org.profile_photo_url ? (
-                    <img src={org.profile_photo_url} alt={org.name} className="h-full w-full object-contain p-1.5" />
+                    <img src={org.profile_photo_url} alt={org.name} className="h-full w-full object-contain p-1" />
                   ) : (
-                    <Building2 size={18} className={newOrgIds.has(org.id) ? 'text-orange-500' : 'text-gray-700'} />
+                    <Building2 size={16} className={newOrgIds.has(org.id) ? 'text-blue-600' : 'text-slate-400'} />
                   )}
                 </div>
                 
                 <div className="flex flex-col">
-                  <span className={`text-[12px] font-black uppercase tracking-wider whitespace-nowrap transition-colors duration-500 ${newOrgIds.has(org.id) ? 'text-white' : 'text-gray-400 group-hover:text-white'}`}>
+                  <span className={`text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-colors duration-200 ${newOrgIds.has(org.id) ? 'text-blue-700' : 'text-slate-700 group-hover:text-slate-900'}`}>
                     {org.name}
                   </span>
                   {newOrgIds.has(org.id) && (
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="h-1 w-1 rounded-full bg-orange-500 animate-pulse"></span>
-                      <span className="text-[8px] font-black text-orange-500 uppercase tracking-widest">Authorized Node</span>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <span className="h-1 w-1 rounded-full bg-blue-600 animate-pulse"></span>
+                      <span className="text-[8px] font-bold text-blue-600 uppercase tracking-wider">Authorized Node</span>
                     </div>
                   )}
                 </div>
@@ -116,7 +115,7 @@ const ScrollingStrip: React.FC = () => {
         </div>
       </div>
 
-      <div className="absolute right-0 top-0 bottom-0 w-40 bg-gradient-to-l from-[#050505] to-transparent z-10 pointer-events-none"></div>
+      <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none"></div>
     </div>
   );
 };

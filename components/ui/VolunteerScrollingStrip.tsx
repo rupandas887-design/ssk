@@ -101,51 +101,50 @@ const VolunteerScrollingStrip: React.FC = () => {
   if (displayVols.length === 0) return null;
 
   return (
-    <div className="w-full bg-[#050505] border-b border-white/5 overflow-hidden relative h-16 flex items-center shadow-2xl z-10">
+    <div className="w-full bg-white border-b border-slate-200 overflow-hidden relative h-14 flex items-center shadow-xs z-10">
       {/* Sidebar Label */}
-      <div className="absolute left-0 top-0 bottom-0 z-30 bg-[#050505] w-72 flex items-center gap-4 px-8 border-r border-blue-500/20 shadow-[10px_0_30px_rgba(0,0,0,1)]">
+      <div className="absolute left-0 top-0 bottom-0 z-30 bg-slate-50 w-64 sm:w-72 flex items-center gap-3 px-6 border-r border-slate-200 shadow-sm">
         <div className="relative flex-shrink-0">
-          <Zap size={18} className="text-blue-500 animate-pulse" />
-          <div className="absolute inset-0 bg-blue-500 blur-lg opacity-20"></div>
+          <Zap size={16} className="text-blue-600 animate-pulse" />
         </div>
-        <span className="text-[11px] font-black uppercase tracking-[0.3em] text-white whitespace-nowrap">Personnel Live</span>
+        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-800 whitespace-nowrap">Personnel Live</span>
       </div>
 
-      {/* Marquee Container with fixed offset */}
-      <div className="pl-72 w-full">
+      {/* Marquee Container */}
+      <div className="pl-64 sm:pl-72 w-full">
         <div className="animate-marquee flex items-center group">
           <div className="flex items-center group-hover:[animation-play-state:paused]">
             {displayVols.map((vol, idx) => (
               <div 
                 key={`${vol.id}-${idx}`}
                 className={`
-                    flex items-center gap-4 px-12 h-16 border-r border-white/5 transition-all duration-1000
-                    ${newVolIds.has(vol.id) ? 'personnel-node-glow bg-blue-500/[0.04]' : 'hover:bg-white/[0.02]'}
+                    flex items-center gap-3.5 px-8 h-14 border-r border-slate-200 transition-colors duration-200
+                    ${newVolIds.has(vol.id) ? 'bg-blue-50/80' : 'hover:bg-slate-50'}
                 `}
               >
                 <div className={`
-                    h-10 w-10 rounded-xl overflow-hidden border bg-black/60 flex-shrink-0 flex items-center justify-center transition-all duration-500
-                    ${newVolIds.has(vol.id) ? 'border-blue-500/50 scale-105 shadow-lg shadow-blue-500/10' : 'border-white/10'}
+                    h-8 w-8 rounded-lg overflow-hidden border bg-slate-50 flex-shrink-0 flex items-center justify-center
+                    ${newVolIds.has(vol.id) ? 'border-blue-400 shadow-xs' : 'border-slate-200'}
                 `}>
                   {vol.profile_photo_url ? (
                     <img src={vol.profile_photo_url} alt={vol.name} className="h-full w-full object-cover" />
                   ) : (
-                    <UserCircle size={20} className={newVolIds.has(vol.id) ? 'text-blue-500' : 'text-gray-700'} />
+                    <UserCircle size={18} className={newVolIds.has(vol.id) ? 'text-blue-600' : 'text-slate-400'} />
                   )}
                 </div>
                 
                 <div className="flex flex-col">
-                  <span className={`text-[12px] font-black uppercase tracking-wider whitespace-nowrap transition-colors duration-500 ${newVolIds.has(vol.id) ? 'text-white' : 'text-gray-400 group-hover:text-white'}`}>
+                  <span className={`text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-colors duration-200 ${newVolIds.has(vol.id) ? 'text-blue-700' : 'text-slate-700 group-hover:text-slate-900'}`}>
                     {vol.name}
                   </span>
                   <div className="flex items-center gap-1.5 mt-0.5">
                       {newVolIds.has(vol.id) ? (
                         <>
-                            <span className="h-1 w-1 rounded-full bg-blue-500 animate-pulse"></span>
-                            <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest">Authorized Agent</span>
+                            <span className="h-1 w-1 rounded-full bg-blue-600 animate-pulse"></span>
+                            <span className="text-[8px] font-bold text-blue-600 uppercase tracking-wider">Authorized Agent</span>
                         </>
                       ) : (
-                        <span className="text-[8px] font-black text-gray-600 uppercase tracking-widest truncate max-w-[140px]">
+                        <span className="text-[9px] font-medium text-slate-400 uppercase tracking-wider truncate max-w-[140px]">
                             {vol.organisation_name || 'Independent'}
                         </span>
                       )}
@@ -157,7 +156,7 @@ const VolunteerScrollingStrip: React.FC = () => {
         </div>
       </div>
 
-      <div className="absolute right-0 top-0 bottom-0 w-40 bg-gradient-to-l from-[#050505] to-transparent z-10 pointer-events-none"></div>
+      <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none"></div>
     </div>
   );
 };

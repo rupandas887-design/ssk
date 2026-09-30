@@ -11,7 +11,6 @@ interface ModalProps {
 }
 
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer, maxWidth = 'lg' }) => {
-  // Prevent background scrolling when modal is open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -37,30 +36,30 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer,
 
   return (
     <div 
-      className="fixed inset-0 bg-black/95 backdrop-blur-md flex items-center justify-center z-[200] p-0 sm:p-4 animate-in fade-in duration-300 overflow-hidden"
+      className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[200] p-2 sm:p-4 animate-in fade-in duration-200 overflow-hidden"
       onClick={onClose}
     >
       <div 
-        className={`w-full ${widthClasses[maxWidth]} h-full sm:h-auto sm:max-h-[90vh] animate-in zoom-in-95 duration-300 relative mx-auto flex flex-col bg-[#050505] sm:rounded-[2.5rem] border-x border-b sm:border border-white/10 shadow-[0_32px_120px_-20px_rgba(0,0,0,1)] overflow-hidden`}
+        className={`w-full ${widthClasses[maxWidth]} h-full sm:h-auto sm:max-h-[90vh] animate-in zoom-in-95 duration-200 relative mx-auto flex flex-col bg-[#F7F9FC] sm:rounded-2xl border border-slate-200/90 shadow-2xl overflow-hidden`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Fixed Header: Stationary at the top */}
-        <div className="flex justify-between items-center p-5 sm:p-8 border-b border-white/5 bg-[#050505] z-30 shrink-0">
-          <h3 className="font-cinzel text-sm sm:text-lg text-orange-500 font-bold uppercase tracking-widest leading-tight pr-4">
+        {/* Fixed Header */}
+        <div className="flex justify-between items-center px-6 py-4 border-b border-slate-200/80 bg-white z-30 shrink-0">
+          <h3 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight leading-tight pr-4">
             {title}
           </h3>
           <button 
             onClick={onClose} 
-            className="text-gray-600 hover:text-white transition-all p-2 bg-white/5 rounded-xl active:scale-95"
+            className="text-slate-400 hover:text-slate-700 transition-all p-2 hover:bg-slate-100 rounded-xl active:scale-95 border border-transparent hover:border-slate-200"
             aria-label="Close modal"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
         
-        {/* Independently Scrollable Content: Handles the bulk of the form/data */}
+        {/* Independently Scrollable Content */}
         <div 
-          className="flex-1 overflow-y-auto custom-scrollbar p-5 sm:p-8 overscroll-contain relative bg-[#020202]/50 touch-pan-y"
+          className="flex-1 overflow-y-auto custom-scrollbar p-5 sm:p-6 overscroll-contain relative bg-[#F7F9FC] text-slate-900 touch-pan-y"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           <div className="min-h-full">
@@ -68,9 +67,9 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer,
           </div>
         </div>
 
-        {/* Fixed Footer: Stationary at the bottom */}
+        {/* Fixed Footer */}
         {footer && (
-          <div className="shrink-0 border-t border-white/5 p-5 sm:p-8 bg-[#050505] z-30">
+          <div className="shrink-0 border-t border-slate-200/80 p-4 sm:px-6 bg-white z-30">
             {footer}
           </div>
         )}

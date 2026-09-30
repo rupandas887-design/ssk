@@ -2,6 +2,7 @@ export enum Role {
   MasterAdmin = 'MasterAdmin',
   Organisation = 'Organisation',
   Volunteer = 'Volunteer',
+  MemberUpdates = 'MemberUpdates',
 }
 
 export interface User {
@@ -84,7 +85,8 @@ export enum SupportNeed {
 
 export enum MemberStatus {
     Pending = 'Pending',
-    Accepted = 'Accepted'
+    Accepted = 'Accepted',
+    Deceased = 'Deceased'
 }
 
 export interface Member {
@@ -101,6 +103,9 @@ export interface Member {
   emergency_contact: string;
   pincode: string;
   address: string;
+  previous_address?: string;
+  address_proof_url?: string;
+  death_certificate_url?: string;
   aadhaar_front_url: string;
   aadhaar_back_url: string;
   occupation: Occupation;

@@ -8,11 +8,10 @@ import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import { Volunteer, Role } from '../../types';
 import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../supabase/client';
+import { supabase, supabaseUrl, supabaseAnonKey } from '../../supabase/client';
 import { useNotification } from '../../context/NotificationContext';
 import { syncToSheets, SheetType } from '../../services/googleSheets';
 import { 
-  Power, 
   UserPlus, 
   UserCheck, 
   Copy, 
@@ -21,29 +20,19 @@ import {
   UserCircle, 
   Zap, 
   RefreshCw, 
-  Activity,
-  FileSpreadsheet,
-  Search,
-  Filter,
-  Eye,
-  EyeOff,
-  KeyRound,
-  ShieldAlert,
-  Fingerprint,
-  Mail,
-  Phone,
-  Building2,
-  Lock,
-  Camera,
-  XCircle,
-  Edit3,
-  Trash2
+  Search, 
+  KeyRound, 
+  ShieldAlert, 
+  Mail, 
+  Phone, 
+  Lock, 
+  Camera, 
+  Edit3, 
+  Trash2,
+  Users
 } from 'lucide-react';
 
 type VolunteerWithEnrollments = Volunteer & { enrollments: number };
-
-const supabaseUrl = "https://baetdjjzfqupdzsoecph.supabase.co";
-const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJhZXRkamp6ZnF1cGR6c29lY3BoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0NzEwMTYsImV4cCI6MjA4MjA0NzAxNn0.MYrwQ7E4HVq7TwXpxum9ZukIz4ZAwyunlhpkwkpZ-bo";
 
 const ManageVolunteers: React.FC = () => {
   const { user } = useAuth();
@@ -72,17 +61,68 @@ const ManageVolunteers: React.FC = () => {
   const { addNotification } = useNotification();
 
   const fetchVolunteers = useCallback(async () => {
-    if (!user?.organisationId) return;
+    if (!user?.organisationId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-        const { data: profileData } = await supabase.from('profiles').select('*, members(id)').eq('role', 'Volunteer').eq('organisation_id', user.organisationId);
-        if (profileData) setVolunteers(profileData.map((v: any) => ({
-            id: v.id, name: v.name, email: v.email, mobile: v.mobile, role: Role.Volunteer, organisationId: v.organisation_id, organisationName: user.organisationName, status: v.status || 'Active', enrollments: v.members?.length || 0, profile_photo_url: v.profile_photo_url
-        })));
-    } finally { setLoading(false); }
+        const { data: profileData, error } = await supabase
+          .from('profiles')
+          .select('*, members(id)')
+          .eq('role', 'Volunteer')
+          .eq('organisation_id', user.organisationId);
+
+        if (error) {
+          console.error("Fetch volunteers error:", error);
+        }
+
+        if (profileData) {
+          setVolunteers(profileData.map((v: any) => ({
+            id: v.id, 
+            name: v.name, 
+            email: v.email, 
+            mobile: v.mobile, 
+            role: Role.Volunteer, 
+            organisationId: v.organisation_id, 
+            organisationName: user.organisationName, 
+            status: v.status || 'Active', 
+            enrollments: v.members?.length || 0, 
+            profile_photo_url: v.profile_photo_url
+          })));
+        }
+    } catch (err: any) {
+        console.error("ManageVolunteers exception:", err);
+    } finally { 
+      setLoading(false); 
+    }
   }, [user]);
 
-  useEffect(() => { fetchVolunteers(); }, [fetchVolunteers]);
+  useEffect(() => { 
+    fetchVolunteers();
+
+    const channel = supabase
+      .channel('manage-volunteers-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        fetchVolunteers();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, () => {
+        fetchVolunteers();
+      })
+      .subscribe();
+
+    const handleFocus = () => {
+      fetchVolunteers();
+    };
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('online', handleFocus);
+
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('online', handleFocus);
+    };
+  }, [fetchVolunteers]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -95,60 +135,85 @@ const ManageVolunteers: React.FC = () => {
     setFormError(null);
 
     if (!name || !mobile || !email || !password) {
-        setFormError("Action Required: Please complete all identity fields.");
+        setFormError("Please fill in all volunteer details.");
+        return;
+    }
+
+    if (!/^\d{10}$/.test(mobile.trim())) {
+        setFormError("Mobile number must be exactly 10 digits.");
+        return;
+    }
+
+    if (!user?.organisationId) {
+        setFormError("Missing organization credentials. Re-login required.");
         return;
     }
 
     setIsSubmitting(true);
     try {
-        const { data: profileCheck } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('mobile', mobile.trim())
-          .maybeSingle();
-        
-        if (profileCheck) {
-          throw new Error(`Registry Conflict: This mobile number is already linked to an existing agent.`);
-        }
+        let photoUrl: string | undefined = undefined;
 
-        let photoUrl = '';
         if (newVol.profilePhoto) {
-            const fileName = `agent_profile_${uuidv4()}.jpg`;
-            const { data } = await supabase.storage.from('member-images').upload(fileName, newVol.profilePhoto);
-            if (data) photoUrl = supabase.storage.from('member-images').getPublicUrl(data.path).data.publicUrl;
+            const fileName = `vol_profile_${uuidv4()}.jpg`;
+            const { data, error: storageError } = await supabase.storage.from('member-images').upload(fileName, newVol.profilePhoto);
+            if (storageError) throw storageError;
+            if (data) {
+                photoUrl = supabase.storage.from('member-images').getPublicUrl(data.path).data.publicUrl;
+            }
         }
 
-        const authClient = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false } });
-        const { data: authData, error: authError } = await authClient.auth.signUp({
-          email: email.trim().toLowerCase(), password,
-          options: { data: { name: name.trim(), mobile: mobile.trim(), role: 'Volunteer', organisation_id: user?.organisationId } }
+        const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
+            auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
         });
 
-        if (authError) throw new Error(`Security provisioning failed: ${authError.message}`);
-        
+        const { data: authData, error: authError } = await tempClient.auth.signUp({
+            email: email.trim(),
+            password: password,
+            options: {
+                data: {
+                    name: name.trim(),
+                    role: Role.Volunteer,
+                    organisation_id: user.organisationId,
+                    mobile: mobile.trim(),
+                    status: 'Active',
+                    profile_photo_url: photoUrl
+                }
+            }
+        });
+
+        if (authError) throw authError;
+
         if (authData.user) {
             await supabase.from('profiles').upsert({
-                id: authData.user.id, name: name.trim(), email: email.trim().toLowerCase(), role: 'Volunteer',
-                organisation_id: user?.organisationId, mobile: mobile.trim(), status: 'Active', profile_photo_url: photoUrl || undefined
-            });
-            
-            await syncToSheets(SheetType.VOLUNTEERS, { 
-              name, 
-              email, 
-              mobile, 
-              organisation_name: user?.organisationName, 
-              status: 'Active',
-              authorized_date: new Date().toLocaleDateString()
+                id: authData.user.id,
+                email: email.trim(),
+                name: name.trim(),
+                role: Role.Volunteer,
+                organisation_id: user.organisationId,
+                mobile: mobile.trim(),
+                status: 'Active',
+                profile_photo_url: photoUrl
             });
 
+            syncToSheets(SheetType.VOLUNTEERS, {
+                volunteer_id: authData.user.id,
+                volunteer_name: name.trim(),
+                email: email.trim(),
+                mobile: mobile.trim(),
+                organisation_name: user.organisationName,
+                status: 'Active'
+            }).catch(err => console.error("Sheets Sync Error:", err));
+
+            addNotification("Volunteer deployed successfully.", "success");
             setNewVol({ name: '', mobile: '', email: '', password: '', profilePhoto: null });
             setPreviewUrl(null);
             fetchVolunteers();
-            addNotification('Volunteer authorized.', 'success');
         }
     } catch (err: any) {
-        setFormError(err.message || "An unexpected failure occurred.");
-    } finally { setIsSubmitting(false); }
+        setFormError(err.message || "Failed to create volunteer.");
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   const handleEditClick = (vol: VolunteerWithEnrollments) => {
@@ -164,9 +229,8 @@ const ManageVolunteers: React.FC = () => {
     try {
         let finalPhotoUrl = editingVol.profile_photo_url;
 
-        // Upload new photo if selected
         if (editProfilePhoto) {
-            const fileName = `agent_profile_update_${uuidv4()}.jpg`;
+            const fileName = `vol_profile_update_${uuidv4()}.jpg`;
             const { data, error: storageError } = await supabase.storage.from('member-images').upload(fileName, editProfilePhoto);
             if (storageError) throw storageError;
             if (data) {
@@ -174,25 +238,23 @@ const ManageVolunteers: React.FC = () => {
             }
         }
 
-        const { error: profileError } = await supabase
+        const { error } = await supabase
             .from('profiles')
-            .update({ 
-                name: editingVol.name.trim(), 
-                mobile: editingVol.mobile.trim(),
-                email: editingVol.email.trim().toLowerCase(),
+            .update({
+                name: editingVol.name.trim(),
+                mobile: editingVol.mobile?.trim(),
+                email: editingVol.email.trim(),
                 profile_photo_url: finalPhotoUrl
             })
             .eq('id', editingVol.id);
-            
-        if (profileError) throw profileError;
 
-        addNotification('Personnel record synchronized.', 'success');
-        fetchVolunteers(); 
+        if (error) throw error;
+
+        addNotification("Volunteer updated successfully.", "success");
         setIsEditModalOpen(false);
-        setEditingVol(null);
-        setEditProfilePhoto(null);
+        fetchVolunteers();
     } catch (err: any) {
-        addNotification(`Sync Error: ${err.message}`, 'error');
+        addNotification(err.message, "error");
     } finally {
         setIsSubmitting(false);
     }
@@ -207,24 +269,33 @@ const ManageVolunteers: React.FC = () => {
   };
 
   const filteredVolunteers = useMemo(() => {
-    return volunteers.filter(v => v.name.toLowerCase().includes(searchTerm.toLowerCase()) || v.mobile?.includes(searchTerm));
+    return volunteers.filter(v => 
+      v.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      v.mobile?.includes(searchTerm)
+    );
   }, [volunteers, searchTerm]);
 
   return (
-    <DashboardLayout title="Volunteers management">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-        <div className="lg:col-span-1 space-y-8">
-          <Card title="Authorize New Volunteer">
-            <div className="space-y-6">
-              <div className="flex flex-col items-center gap-4">
-                <div onClick={() => fileInputRef.current?.click()} className="relative cursor-pointer group">
-                  <div className="h-28 w-28 rounded-full border-2 border-dashed border-gray-800 bg-black/40 flex items-center justify-center overflow-hidden group-hover:border-blue-500/50 transition-all">
+    <DashboardLayout title="Volunteers Management">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-12">
+        
+        {/* ADD VOLUNTEER CARD */}
+        <div className="lg:col-span-1 space-y-6">
+          <Card 
+            title="Deploy Volunteer" 
+            subtitle="Register field agent access for this organization node"
+            className="border-slate-200/80 shadow-card"
+          >
+            <div className="space-y-5">
+              <div className="flex flex-col items-center gap-2 pb-2">
+                <div onClick={() => fileInputRef.current?.click()} className="relative group cursor-pointer">
+                  <div className="h-24 w-24 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden group-hover:border-saffron-500 group-hover:bg-saffron-50/30 transition-all shadow-inner">
                     {previewUrl ? (
-                        <img src={previewUrl} className="h-full w-full object-cover" />
+                        <img src={previewUrl} className="h-full w-full object-cover" alt="Preview" />
                     ) : (
-                        <div className="flex flex-col items-center gap-1 text-gray-600">
-                            <Camera size={28} />
-                            <span className="text-[8px] font-black uppercase">Add Photo</span>
+                        <div className="flex flex-col items-center gap-1 text-slate-400 group-hover:text-saffron-600 transition-colors">
+                            <Camera size={24} />
+                            <span className="text-[10px] font-bold">Photo</span>
                         </div>
                     )}
                   </div>
@@ -235,68 +306,105 @@ const ManageVolunteers: React.FC = () => {
                       }
                   }} />
                 </div>
+                <p className="text-[11px] font-medium text-slate-400">Optional Volunteer Photo</p>
               </div>
 
-              <Input label="FULL NAME" name="name" value={newVol.name} onChange={handleInputChange} icon={<UserCircle size={16} />} />
-              <Input label="MOBILE IDENTITY" name="mobile" value={newVol.mobile} onChange={handleInputChange} maxLength={10} icon={<Phone size={16} />} />
-              <Input label="ACCESS EMAIL" name="email" value={newVol.email} onChange={handleInputChange} icon={<Mail size={16} />} />
-              <Input label="SECURITY KEY" name="password" type="password" value={newVol.password} onChange={handleInputChange} icon={<Lock size={16} />} />
+              <Input label="Full Name *" name="name" value={newVol.name} onChange={handleInputChange} placeholder="Agent Name" icon={<UserCircle size={16} />} />
+              <Input label="Mobile Number *" name="mobile" value={newVol.mobile} onChange={handleInputChange} placeholder="10-digit mobile" maxLength={10} icon={<Phone size={16} />} />
+              <Input label="Email Login *" name="email" type="email" value={newVol.email} onChange={handleInputChange} placeholder="agent@org.com" icon={<Mail size={16} />} />
+              <Input label="Security Password *" name="password" type="password" value={newVol.password} onChange={handleInputChange} placeholder="Min 6 characters" icon={<Lock size={16} />} />
 
               {formError && (
-                  <div className="p-4 bg-red-600/10 border border-red-500/20 rounded-2xl flex items-start gap-3 animate-in fade-in slide-in-from-top-1">
-                      <ShieldAlert className="text-red-500 shrink-0 mt-0.5" size={16} />
-                      <p className="text-[11px] text-red-400 font-bold uppercase tracking-tight leading-relaxed">{formError}</p>
+                  <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5">
+                      <ShieldAlert className="text-rose-600 shrink-0 mt-0.5" size={16} />
+                      <p className="text-xs text-rose-700 font-semibold leading-relaxed">{formError}</p>
                   </div>
               )}
 
-              <Button onClick={handleAddVolunteer} disabled={isSubmitting} className="w-full py-5 text-[11px] font-black uppercase tracking-[0.4em]">
-                {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <UserPlus size={20} />}
-                {isSubmitting ? 'AUTHORIZING...' : 'Authorize Volunteer'}
+              <Button onClick={handleAddVolunteer} disabled={isSubmitting} className="w-full py-3 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 mt-2">
+                {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : <UserPlus size={16} />}
+                <span>{isSubmitting ? 'Deploying...' : 'Deploy Field Agent'}</span>
               </Button>
             </div>
           </Card>
         </div>
 
-        <div className="lg:col-span-2">
-          <Card title="Personnel Registry">
-            <div className="mb-8">
-                <Input placeholder="Search Identity..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} icon={<Search size={18} />} />
+        {/* PERSONNEL REGISTRY LIST */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card 
+            title="Personnel Ledger" 
+            subtitle="Active field volunteers affiliated with your organization"
+            className="border-slate-200/80 shadow-card p-0 overflow-hidden"
+          >
+            <div className="p-4 sm:p-6 border-b border-slate-100 bg-slate-50/50">
+                <Input 
+                  placeholder="Search volunteers by name or mobile..." 
+                  value={searchTerm} 
+                  onChange={(e) => setSearchTerm(e.target.value)} 
+                  icon={<Search size={16} />} 
+                />
             </div>
+
             <div className="overflow-x-auto custom-scrollbar">
-              <table className="w-full text-left">
-                <thead className="border-b border-gray-800">
-                  <tr>
-                    <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-white font-black">Agent Node</th>
-                    <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-white font-black text-center">Enrollments</th>
-                    <th className="p-6 text-[10px] uppercase tracking-[0.4em] text-white font-black text-right">Actions</th>
+              <table className="w-full text-left text-sm min-w-[550px]">
+                <thead className="bg-slate-50/80 border-b border-slate-200/80">
+                  <tr className="text-slate-600 text-xs font-bold tracking-wider">
+                    <th className="px-6 py-4">Field Volunteer</th>
+                    <th className="px-6 py-4 text-center">Enrollments</th>
+                    <th className="px-6 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100">
                   {loading ? (
-                    <tr><td colSpan={3} className="p-20 text-center text-[10px] font-black uppercase text-white animate-pulse">Syncing...</td></tr>
+                    <tr>
+                      <td colSpan={3} className="px-6 py-16 text-center text-xs font-semibold text-slate-500">
+                        <Loader2 className="animate-spin inline-block mr-2" size={18} />
+                        Synchronizing personnel list...
+                      </td>
+                    </tr>
+                  ) : filteredVolunteers.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="px-6 py-16 text-center text-xs font-medium text-slate-500">
+                        No field volunteers found matching your query.
+                      </td>
+                    </tr>
                   ) : filteredVolunteers.map(vol => (
-                    <tr key={vol.id} className="group border-b border-gray-900/50 hover:bg-white/[0.015]">
-                      <td className="p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="h-12 w-12 rounded-xl overflow-hidden border border-white/10 bg-black/40 flex items-center justify-center">
-                                {vol.profile_photo_url ? <img src={vol.profile_photo_url} className="h-full w-full object-cover" /> : <UserCircle size={24} className="text-blue-500/50" />}
+                    <tr key={vol.id} className="hover:bg-saffron-50/20 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3.5">
+                            <div className="h-10 w-10 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center shrink-0 shadow-sm">
+                                {vol.profile_photo_url ? (
+                                  <img src={vol.profile_photo_url} className="h-full w-full object-cover" alt={vol.name} />
+                                ) : (
+                                  <UserCircle size={22} className="text-saffron-600" />
+                                )}
                             </div>
-                            <div className="flex flex-col">
-                                <span className="font-bold text-white text-lg group-hover:text-blue-500 transition-colors">{vol.name}</span>
-                                <span className="text-[10px] text-white font-mono tracking-tight">{vol.mobile}</span>
+                            <div className="flex flex-col min-w-0">
+                                <span className="font-bold text-slate-900 text-sm truncate">{vol.name}</span>
+                                <span className="text-xs text-slate-500 font-mono">{vol.mobile || vol.email}</span>
                             </div>
                         </div>
                       </td>
-                      <td className="p-6 text-center">
-                        <span className="font-black text-xl text-white tracking-tighter">{vol.enrollments}</span>
+                      <td className="px-6 py-4 text-center">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-saffron-50 text-saffron-700 border border-saffron-100">
+                          {vol.enrollments} Verified
+                        </span>
                       </td>
-                      <td className="p-6 text-right">
-                        <div className="flex justify-end gap-3">
-                            <button onClick={() => handleEditClick(vol)} className="p-3 bg-white/5 border border-white/10 text-gray-500 hover:text-blue-400 rounded-xl transition-all">
-                                <Edit3 size={16} />
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-2">
+                            <button 
+                              onClick={() => handleEditClick(vol)} 
+                              className="p-2 text-slate-600 hover:text-saffron-600 hover:bg-saffron-50 rounded-lg transition-colors border border-slate-200 hover:border-saffron-200"
+                              title="Edit Agent"
+                            >
+                                <Edit3 size={15} />
                             </button>
-                            <button onClick={() => { setSelectedVol(vol); setIsResetModalOpen(true); }} className="p-3 bg-white/5 border border-white/10 text-gray-500 hover:text-orange-400 rounded-xl transition-all">
-                                <KeyRound size={16} />
+                            <button 
+                              onClick={() => { setSelectedVol(vol); setIsResetModalOpen(true); }} 
+                              className="p-2 text-slate-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors border border-slate-200 hover:border-amber-200"
+                              title="Reset Password"
+                            >
+                                <KeyRound size={15} />
                             </button>
                         </div>
                       </td>
@@ -310,19 +418,34 @@ const ManageVolunteers: React.FC = () => {
       </div>
 
       {/* EDIT VOLUNTEER MODAL */}
-      <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Audit Personnel File">
+      <Modal 
+        isOpen={isEditModalOpen} 
+        onClose={() => setIsEditModalOpen(false)} 
+        title="Edit Volunteer Details"
+        footer={
+          <div className="flex justify-end gap-2 w-full">
+            <Button variant="ghost" onClick={() => setIsEditModalOpen(false)} className="text-xs">
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateVolunteer} disabled={isSubmitting} className="text-xs font-bold gap-2">
+              {isSubmitting ? <Loader2 className="animate-spin" size={15} /> : <ShieldCheck size={15} />}
+              <span>Save Changes</span>
+            </Button>
+          </div>
+        }
+      >
           {editingVol && (
-            <div className="space-y-6">
-                <div className="flex flex-col items-center gap-4 mb-4">
+            <div className="space-y-5">
+                <div className="flex flex-col items-center gap-2 pb-2">
                     <div className="relative">
                         <div onClick={() => editFileInputRef.current?.click()} className="relative group cursor-pointer">
-                            <div className="h-28 w-28 rounded-full border-2 border-dashed border-gray-800 bg-black/40 flex items-center justify-center overflow-hidden group-hover:border-blue-500/50 transition-all duration-300 shadow-xl">
+                            <div className="h-24 w-24 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden group-hover:border-saffron-500 transition-all shadow-inner">
                                 {editPreviewUrl ? (
                                     <img src={editPreviewUrl} className="h-full w-full object-cover" alt="Edit Preview" />
                                 ) : (
-                                    <div className="flex flex-col items-center gap-1 text-gray-600">
-                                        <Camera size={28} />
-                                        <span className="text-[8px] font-black uppercase">Change Photo</span>
+                                    <div className="flex flex-col items-center gap-1 text-slate-400">
+                                        <Camera size={24} />
+                                        <span className="text-[10px] font-bold">Change Photo</span>
                                     </div>
                                 )}
                             </div>
@@ -336,57 +459,64 @@ const ManageVolunteers: React.FC = () => {
                         {editPreviewUrl && (
                             <button 
                                 onClick={handleRemoveEditPhoto}
-                                className="absolute -top-1 -right-1 p-1.5 bg-red-600 text-white rounded-full shadow-lg hover:bg-red-500 transition-colors z-10"
+                                className="absolute -top-1.5 -right-1.5 p-1 bg-rose-600 text-white rounded-full shadow-md hover:bg-rose-700 transition-colors z-10"
+                                title="Remove photo"
                             >
                                 <Trash2 size={12} />
                             </button>
                         )}
                     </div>
-                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-600">Update Identity Photo</p>
                 </div>
 
-                <Input label="FULL NAME" value={editingVol.name} onChange={(e) => setEditingVol({...editingVol, name: e.target.value})} icon={<UserCircle size={16} />} />
-                <Input label="MOBILE IDENTITY" value={editingVol.mobile} onChange={(e) => setEditingVol({...editingVol, mobile: e.target.value})} maxLength={10} icon={<Phone size={16} />} />
-                <Input label="ACCESS EMAIL" value={editingVol.email} onChange={(e) => setEditingVol({...editingVol, email: e.target.value})} icon={<Mail size={16} />} />
-                
-                <div className="flex gap-4 pt-4">
-                    <Button variant="secondary" onClick={() => setIsEditModalOpen(false)} className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest">Abort</Button>
-                    <Button onClick={handleUpdateVolunteer} disabled={isSubmitting} className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest bg-blue-600 hover:bg-blue-500">
-                        {isSubmitting ? <Loader2 className="animate-spin mr-2" size={16} /> : <ShieldCheck size={16} className="mr-2" />}
-                        {isSubmitting ? "Syncing..." : "Sync Record"}
-                    </Button>
-                </div>
+                <Input label="Full Name" value={editingVol.name} onChange={(e) => setEditingVol({...editingVol, name: e.target.value})} icon={<UserCircle size={16} />} />
+                <Input label="Primary Mobile" value={editingVol.mobile} onChange={(e) => setEditingVol({...editingVol, mobile: e.target.value})} maxLength={10} icon={<Phone size={16} />} />
+                <Input label="Email Address" value={editingVol.email} onChange={(e) => setEditingVol({...editingVol, email: e.target.value})} icon={<Mail size={16} />} />
             </div>
           )}
       </Modal>
 
-      {/* SECURITY OVERRIDE MODAL */}
-      <Modal isOpen={isResetModalOpen} onClose={() => setIsResetModalOpen(false)} title="Security Override">
-          <div className="space-y-6">
-              <div className="p-4 bg-orange-500/10 border border-orange-500/20 rounded-2xl flex items-start gap-4 mb-2">
-                  <Lock className="text-orange-500 shrink-0 mt-1" size={20} />
+      {/* SECURITY PASSWORD RESET MODAL */}
+      <Modal 
+        isOpen={isResetModalOpen} 
+        onClose={() => setIsResetModalOpen(false)} 
+        title="Reset Access Key"
+      >
+          <div className="space-y-5">
+              <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+                  <Lock className="text-amber-600 shrink-0 mt-0.5" size={18} />
                   <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-orange-500 mb-1">Access Key Reset</p>
-                      <p className="text-[10px] text-gray-400 font-bold leading-relaxed uppercase tracking-wider">
-                          Forcing a new security key for <span className="text-white">{selectedVol?.name}</span>. The previous key will be invalidated immediately.
+                      <p className="text-xs font-bold text-amber-900">Security Override</p>
+                      <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                          Enter a new password for <strong className="text-amber-900">{selectedVol?.name}</strong>. Their previous password will immediately cease to function.
                       </p>
                   </div>
               </div>
-              <Input label="NEW ACCESS KEY" type="password" value={resetPassword} onChange={(e) => setResetPassword(e.target.value)} icon={<KeyRound size={16} />} />
-              <Button onClick={async () => {
+              <Input 
+                label="New Password" 
+                type="password" 
+                placeholder="Min 6 characters"
+                value={resetPassword} 
+                onChange={(e) => setResetPassword(e.target.value)} 
+                icon={<KeyRound size={16} />} 
+              />
+              <Button 
+                onClick={async () => {
                   setIsSubmitting(true);
                   const { error } = await supabase.rpc('admin_reset_password', { target_user_id: selectedVol?.id, new_password: resetPassword });
                   if (!error) { 
                     setIsResetModalOpen(false); 
                     setResetPassword('');
-                    addNotification('Access Key Synchronized.', 'success'); 
+                    addNotification('Password reset successfully.', 'success'); 
                   } else {
-                    addNotification(`Override Error: ${error.message}`, 'error');
+                    addNotification(`Override error: ${error.message}`, 'error');
                   }
                   setIsSubmitting(false);
-              }} disabled={isSubmitting || resetPassword.length < 6} className="w-full py-5 text-[11px] font-black uppercase tracking-[0.4em] bg-orange-600 hover:bg-orange-500">
-                {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <Zap size={20} />}
-                {isSubmitting ? 'ESTABLISHING...' : 'Synchronize Key'}
+                }} 
+                disabled={isSubmitting || resetPassword.length < 6} 
+                className="w-full py-3 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2"
+              >
+                {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : <Zap size={16} />}
+                <span>Set New Password</span>
               </Button>
           </div>
       </Modal>

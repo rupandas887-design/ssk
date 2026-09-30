@@ -1,14 +1,14 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import DashboardLayout from '../../components/layout/DashboardLayout';
-import Card from '../../components/ui/Card';
-import Input from '../../components/ui/Input';
-import Button from '../../components/ui/Button';
-import Select from '../../components/ui/Select';
-import Modal from '../../components/ui/Modal';
-import { Organisation, Role } from '../../types';
-import { supabase } from '../../supabase/client';
-import { useNotification } from '../../context/NotificationContext';
+import DashboardLayout from '../components/layout/DashboardLayout';
+import Card from '../components/ui/Card';
+import Input from '../components/ui/Input';
+import Button from '../components/ui/Button';
+import Select from '../components/ui/Select';
+import Modal from '../components/ui/Modal';
+import { Organisation, Role } from '../types';
+import { supabase } from '../supabase/client';
+import { useNotification } from '../context/NotificationContext';
 
 const ManageOrganisations: React.FC = () => {
   const [organisations, setOrganisations] = useState<Organisation[]>([]);
