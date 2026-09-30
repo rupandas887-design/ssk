@@ -1,0 +1,6 @@
+{
+  "name": "Final Project SSK",
+  "description": "SSK People - Live community dashboard and registry",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

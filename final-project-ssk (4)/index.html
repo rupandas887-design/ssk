@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SSK People - Live Community Registry</title>
+    <meta name="description" content="SSK People brings verified community information together in one place. Understand members, identify needs, and connect people with the right support." />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Rozha+One&family=Tiro+Devanagari+Sanskrit:ital@0;1&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            screens: {
+              'xs': '420px',
+            },
+            colors: {
+              navy: {
+                950: '#0B1020', // Deep Navy
+                900: '#111827', // Midnight Blue
+                800: '#1E293B',
+              },
+              saffron: {
+                50: '#FFFDF9',
+                100: '#FFF1DC', // Soft Saffron
+                200: '#FFE2B8',
+                300: '#FFCE85',
+                400: '#FFB347', // Light Saffron
+                500: '#FF8A00', // Primary Saffron
+                600: '#E87500', // Dark Saffron
+                700: '#C65E00',
+                800: '#9E4600',
+                900: '#753200',
+                950: '#421A00',
+              },
+              brand: {
+                bg: '#F5F7FB',
+                card: '#FFFFFF',
+                text: '#111827',
+                muted: '#64748B',
+                border: '#E2E8F0',
+                saffron: '#FF8A00',
+                softSaffron: '#FFF1DC',
+              }
+            },
+            fontFamily: {
+              sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+              cinzel: ['"Cinzel"', 'serif'],
+              display: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+            },
+            boxShadow: {
+              'card': '0 4px 20px -4px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04)',
+              'card-hover': '0 12px 28px -6px rgba(15, 23, 42, 0.1), 0 4px 10px -2px rgba(15, 23, 42, 0.05)',
+              'glow-saffron': '0 4px 20px rgba(255, 138, 0, 0.15)',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      body {
+        font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+        background-color: #F5F7FB;
+        color: #111827;
+        margin: 0;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      .font-cinzel {
+        font-family: 'Cinzel', serif;
+      }
+      #root {
+        min-height: 100vh;
+      }
+      
+      /* Marquee Animations */
+      @keyframes marquee {
+        0% { transform: translate3d(0, 0, 0); }
+        100% { transform: translate3d(-50%, 0, 0); }
+      }
+
+      @keyframes marquee-slow {
+        0% { transform: translate3d(0, 0, 0); }
+        100% { transform: translate3d(-50%, 0, 0); }
+      }
+
+      .animate-marquee {
+        display: flex !important;
+        width: max-content !important;
+        animation: marquee 30s linear infinite !important;
+        will-change: transform;
+      }
+
+      .animate-marquee-slow {
+        display: flex !important;
+        width: max-content !important;
+        animation: marquee-slow 60s linear infinite !important;
+        will-change: transform;
+      }
+
+      /* Custom scrollbar */
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: rgba(100, 116, 139, 0.08);
+        border-radius: 10px;
+      }
+
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(255, 138, 0, 0.25);
+        border-radius: 10px;
+      }
+
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 138, 0, 0.5);
+      }
+    </style>
+    <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react/": "https://esm.sh/react@18.3.1/",
+    "react-dom": "https://esm.sh/react-dom@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "react-router-dom": "https://esm.sh/react-router-dom@6.25.1?external=react,react-dom",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.45.0",
+    "lucide-react": "https://esm.sh/lucide-react@0.475.0?external=react",
+    "recharts": "https://esm.sh/recharts@2.12.7?external=react,react-dom",
+    "uuid": "https://esm.sh/uuid@9.0.1",
+    "react-is": "https://esm.sh/react-is@18.3.1",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "@google/genai": "https://esm.sh/@google/genai@^1.38.0"
+  }
+}
+</script>
+  </head>
+  <body class="bg-[#F5F7FB] text-[#111827]">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
