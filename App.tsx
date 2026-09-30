@@ -17,6 +17,7 @@ import OrganisationReports from './pages/organisation/OrganisationReports';
 import VolunteerDashboard from './pages/volunteer/VolunteerDashboard';
 import NewMemberForm from './pages/volunteer/NewMemberForm';
 import MemberUpdates from './pages/MemberUpdates';
+import SupabaseDiagnostics from './pages/SupabaseDiagnostics';
 
 const AUTH_ROUTE_STORAGE_KEY = 'ssk_last_authenticated_route';
 
@@ -158,6 +159,7 @@ const App: React.FC = () => {
           <Routes>
             <Route path="/" element={<PublicLandingRoute />} />
             <Route path="/login" element={<LoginRoute />} />
+            <Route path="/diagnostics" element={<SupabaseDiagnostics />} />
             
             {/* Master Admin Routes */}
             <Route path="/admin" element={<ProtectedRoute requiredRole={Role.MasterAdmin}><AdminDashboard /></ProtectedRoute>} />

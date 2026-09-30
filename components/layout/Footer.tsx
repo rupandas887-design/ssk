@@ -17,6 +17,12 @@ const Footer: React.FC = () => {
           
           <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-8 text-xs">
             <a 
+              href="#/diagnostics"
+              className="text-slate-400 hover:text-white transition-colors"
+            >
+              System Health
+            </a>
+            <a 
               href="tel:+918884449689" 
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-saffron-500/20 text-saffron-300 hover:text-white border border-saffron-500/20 transition-all font-semibold"
             >
