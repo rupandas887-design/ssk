@@ -11,15 +11,12 @@ import CulturalLoader from '../components/ui/CulturalLoader';
 import { 
   ShieldCheck, 
   AlertTriangle, 
-  Loader2,
-  Lock,
-  Mail,
-  Shield,
-  Eye,
-  EyeOff,
-  UserCheck,
-  Building2,
-  Activity
+  Loader2, 
+  Lock, 
+  Mail, 
+  Shield, 
+  Eye, 
+  EyeOff 
 } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
@@ -78,12 +75,6 @@ const LoginPage: React.FC = () => {
       setError(err.message || 'System connection failure. Please try again.');
       setIsSubmitting(false);
     }
-  };
-
-  const setPreset = (id: string, pass: string) => {
-    setIdentifier(id);
-    setPassword(pass);
-    setError('');
   };
 
   return (
@@ -163,47 +154,23 @@ const LoginPage: React.FC = () => {
 
               <Button 
                 type="submit" 
+                variant="primary"
                 disabled={isSubmitting} 
-                className="w-full py-3.5 text-sm font-bold flex items-center justify-center gap-2 mt-2 min-h-[44px] cursor-pointer"
+                className="w-full py-3.5 text-sm font-extrabold flex items-center justify-center gap-2 mt-2 min-h-[48px] cursor-pointer shadow-[0_4px_14px_rgba(255,138,0,0.3)] transition-all active:scale-[0.98]"
               >
                 {isSubmitting ? (
                   <>
                     <Loader2 className="animate-spin" size={18} />
-                    <span>Verifying Identity...</span>
+                    <span>Signing in...</span>
                   </>
                 ) : (
                   <>
                     <ShieldCheck size={18} />
-                    <span>Login</span>
+                    <span>Sign In</span>
                   </>
                 )}
               </Button>
             </form>
-
-            {/* Quick helper shortcuts for testing & quick access */}
-            <div className="mt-5 pt-4 border-t border-slate-100">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2 text-center">
-                Quick Role Credentials
-              </span>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setPreset('masteradmin', '123456')}
-                  className="p-2 rounded-xl bg-slate-50 hover:bg-saffron-50/70 border border-slate-200/80 hover:border-saffron-300 text-slate-700 hover:text-saffron-900 font-semibold text-left transition-colors flex items-center gap-1.5"
-                >
-                  <UserCheck size={14} className="text-saffron-600 shrink-0" />
-                  <span className="truncate">Master Admin</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreset('member121@gmail.com', 'Member2026@')}
-                  className="p-2 rounded-xl bg-slate-50 hover:bg-amber-50/70 border border-slate-200/80 hover:border-amber-300 text-slate-700 hover:text-amber-900 font-semibold text-left transition-colors flex items-center gap-1.5"
-                >
-                  <Activity size={14} className="text-amber-600 shrink-0" />
-                  <span className="truncate">Member Updates</span>
-                </button>
-              </div>
-            </div>
           </Card>
           
           <div className="flex items-center justify-center gap-2 text-xs text-slate-500 font-medium pt-1">

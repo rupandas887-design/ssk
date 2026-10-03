@@ -5,6 +5,7 @@ import { NotificationProvider } from './context/NotificationContext';
 import { Role } from './types';
 
 import LandingPage from './pages/LandingPage';
+import LoginPage from './pages/LoginPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import ManageOrganisations from './pages/admin/ManageOrganisations';
 import AdminReports from './pages/admin/AdminReports';
@@ -43,7 +44,7 @@ const RouteTracker: React.FC = () => {
   const { user } = useAuth();
 
   useEffect(() => {
-    if (user && location.pathname !== '/' && location.pathname !== '/diagnostics') {
+    if (user && location.pathname !== '/' && location.pathname !== '/login' && location.pathname !== '/diagnostics') {
       try {
         localStorage.setItem(AUTH_ROUTE_STORAGE_KEY, location.pathname);
       } catch (e) {
@@ -68,7 +69,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
   }
 
   if (!user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   const userRole = mapStringToRole(user.role);
@@ -87,6 +88,7 @@ const App: React.FC = () => {
           <RouteTracker />
           <Routes>
             <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<LoginPage />} />
             <Route path="/diagnostics" element={<SupabaseDiagnostics />} />
             
             {/* Master Admin Routes */}

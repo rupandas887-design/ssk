@@ -1,7 +1,7 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth, mapStringToRole } from '../../context/AuthContext';
-import { Menu, Activity, LogOut, User as UserIcon, Loader2 } from 'lucide-react';
+import { Menu, Activity, LogOut, User as UserIcon, Loader2, LogIn, ArrowLeft } from 'lucide-react';
 import BrandLogo from '../ui/BrandLogo';
 import { Role } from '../../types';
 
@@ -20,6 +20,7 @@ const Header: React.FC<HeaderProps> = ({
 }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
 
   const handleLogout = async (e: React.MouseEvent) => {
@@ -89,7 +90,7 @@ const Header: React.FC<HeaderProps> = ({
             <span className="text-[11px] font-semibold text-slate-700">Registry Active</span>
           </div>
 
-          {user && (
+          {user ? (
             <div className="flex items-center gap-3">
               <div className="hidden sm:flex items-center gap-2.5 pl-2">
                 <div className="w-8 h-8 rounded-full bg-saffron-50 border border-saffron-200/70 flex items-center justify-center text-saffron-600 font-bold text-xs shadow-inner">
@@ -114,6 +115,26 @@ const Header: React.FC<HeaderProps> = ({
                 {isLoggingOut ? <Loader2 size={14} className="animate-spin text-rose-500" /> : <LogOut size={14} />}
                 <span className="hidden sm:inline">{isLoggingOut ? 'Signing Out...' : 'Sign Out'}</span>
               </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              {location.pathname === '/login' ? (
+                <Link
+                  to="/"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-600 hover:text-saffron-700 bg-slate-100 hover:bg-saffron-50/80 rounded-xl transition-all border border-slate-200/80 hover:border-saffron-200 cursor-pointer"
+                >
+                  <ArrowLeft size={14} />
+                  <span>Home</span>
+                </Link>
+              ) : (
+                <Link
+                  to="/login"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#FF8A00] to-[#E87500] hover:from-[#E87500] hover:to-[#C65E00] text-white text-xs sm:text-sm font-bold rounded-xl shadow-[0_2px_10px_rgba(255,138,0,0.3)] hover:shadow-[0_4px_14px_rgba(255,138,0,0.4)] transition-all active:scale-95 cursor-pointer"
+                >
+                  <LogIn size={15} />
+                  <span>Sign In</span>
+                </Link>
+              )}
             </div>
           )}
         </div>
