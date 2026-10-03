@@ -5,6 +5,8 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Modal from '../../components/ui/Modal';
+import AadhaarImageDisplay from '../../components/ui/AadhaarImageDisplay';
+import { uploadMemberImage } from '../../services/storageService';
 import { useAuth } from '../../context/AuthContext';
 import { Member, MemberStatus, Gender, MaritalStatus, Qualification, Occupation, SupportNeed } from '../../types';
 import { useNavigate } from 'react-router-dom';
@@ -59,6 +61,7 @@ const VolunteerDashboard: React.FC = () => {
     const [editingMember, setEditingMember] = useState<MemberWithAttribution | null>(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isUpdatingMember, setIsUpdatingMember] = useState(false);
+    const [isUploadingAadhaar, setIsUploadingAadhaar] = useState(false);
 
     // Forced Password Reset State
     const [newPass, setNewPass] = useState('');
@@ -78,32 +81,15 @@ const VolunteerDashboard: React.FC = () => {
         }
         setLoading(true);
         try {
-            let { data, error } = await supabase
+            // Simplified query: No joins.
+            const { data, error } = await supabase
                 .from('members')
-                .select(`
-                    *,
-                    agent:profiles!volunteer_id (
-                        name,
-                        organisations (name)
-                    )
-                `)
+                .select('*')
                 .eq('volunteer_id', user.id)
                 .order('submission_date', { ascending: false });
                 
-            if (error) {
-                console.warn("Volunteer fetchSubmissions join error, trying simple query:", error);
-                const fallbackRes = await supabase
-                    .from('members')
-                    .select('*')
-                    .eq('volunteer_id', user.id)
-                    .order('submission_date', { ascending: false });
-
-                if (fallbackRes.error) {
-                    console.error("Volunteer fetchSubmissions fallback error:", fallbackRes.error);
-                    throw fallbackRes.error;
-                }
-                data = fallbackRes.data as any;
-            }
+            if (error) throw error;
+            
             if (data) setMySubmissions(data as MemberWithAttribution[]);
         } catch (err: any) {
             console.error("Volunteer submissions sync error:", err);
@@ -159,6 +145,25 @@ Status: ${member.status}
         setIsEditModalOpen(true);
     };
 
+    const handleUploadAadhaarInEdit = async (file: File) => {
+        if (!editingMember) return;
+        setIsUploadingAadhaar(true);
+        try {
+            const { publicUrl } = await uploadMemberImage(file, 'aadhaar');
+            setEditingMember(prev => prev ? ({
+                ...prev,
+                aadhaar_front_url: publicUrl,
+                aadhaar_back_url: publicUrl
+            }) : null);
+            addNotification("Aadhaar card image attached. Click 'Save Updates' to save changes.", "success");
+        } catch (err: any) {
+            console.error("Aadhaar upload in edit failed:", err);
+            addNotification(err.message || "Failed to upload Aadhaar card.", "error");
+        } finally {
+            setIsUploadingAadhaar(false);
+        }
+    };
+
     const handleUpdateMember = async () => {
         if (!editingMember) return;
         
@@ -183,7 +188,9 @@ Status: ${member.status}
                     pincode: editingMember.pincode,
                     address: editingMember.address,
                     occupation: editingMember.occupation,
-                    support_need: editingMember.support_need
+                    support_need: editingMember.support_need,
+                    aadhaar_front_url: editingMember.aadhaar_front_url || null,
+                    aadhaar_back_url: editingMember.aadhaar_back_url || null
                 })
                 .eq('id', editingMember.id);
 
@@ -220,16 +227,8 @@ Status: ${member.status}
                 )
                 .subscribe();
 
-            const handleFocus = () => {
-                fetchSubmissions();
-            };
-            window.addEventListener('focus', handleFocus);
-            window.addEventListener('online', handleFocus);
-
             return () => {
                 supabase.removeChannel(channel);
-                window.removeEventListener('focus', handleFocus);
-                window.removeEventListener('online', handleFocus);
             };
         }
     }, [user?.id]);
@@ -533,7 +532,7 @@ Status: ${member.status}
                   </div>
 
                   <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/90 shadow-sm">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <Input label="Full Name" disabled={isEditingVerified} value={editingMember.name} onChange={(e) => setEditingMember({...editingMember, name: e.target.value})} />
                     <Input label="Gharano (Surname)" disabled={isEditingVerified} value={editingMember.surname} onChange={(e) => setEditingMember({...editingMember, surname: e.target.value})} />
                     <Input label="Father / Husband Name" disabled={isEditingVerified} value={editingMember.father_name} onChange={(e) => setEditingMember({...editingMember, father_name: e.target.value})} />
@@ -559,6 +558,14 @@ Status: ${member.status}
                     <Select label="Support Needed" disabled={isEditingVerified} value={editingMember.support_need} onChange={(e) => setEditingMember({...editingMember, support_need: e.target.value as SupportNeed})}>
                       {Object.values(SupportNeed).map(s => <option key={s} value={s}>{s}</option>)}
                     </Select>
+                    <div className="sm:col-span-3 mt-4 pt-4 border-t border-slate-100">
+                      <AadhaarImageDisplay 
+                        imageUrl={editingMember.aadhaar_front_url || editingMember.aadhaar_back_url}
+                        onFileSelect={handleUploadAadhaarInEdit}
+                        isUploading={isUploadingAadhaar}
+                        disabled={isEditingVerified}
+                      />
+                    </div>
                   </div>
                   </div>
                 </div>

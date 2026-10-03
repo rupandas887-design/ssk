@@ -9,7 +9,7 @@ const AuthLoadingSplash: React.FC<AuthLoadingSplashProps> = ({ message = 'Restor
   const [showBypass, setShowBypass] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowBypass(true), 3200);
+    const timer = setTimeout(() => setShowBypass(true), 1500);
     return () => clearTimeout(timer);
   }, []);
 

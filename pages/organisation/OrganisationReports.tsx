@@ -3,6 +3,8 @@ import DashboardLayout from '../../components/layout/DashboardLayout';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
+import AadhaarImageDisplay from '../../components/ui/AadhaarImageDisplay';
+import { uploadMemberImage } from '../../services/storageService';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import { useAuth } from '../../context/AuthContext';
@@ -46,6 +48,7 @@ const OrganisationReports: React.FC = () => {
     const [editingMember, setEditingMember] = useState<MemberWithAgent | null>(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isUpdating, setIsUpdating] = useState(false);
+    const [isUploadingAadhaar, setIsUploadingAadhaar] = useState(false);
 
     const [filters, setFilters] = useState({ 
         startDate: '', 
@@ -241,6 +244,25 @@ Status: ${member.status}
         setIsEditModalOpen(true);
     };
 
+    const handleUploadAadhaarInEdit = async (file: File) => {
+        if (!editingMember) return;
+        setIsUploadingAadhaar(true);
+        try {
+            const { publicUrl } = await uploadMemberImage(file, 'aadhaar');
+            setEditingMember(prev => prev ? ({
+                ...prev,
+                aadhaar_front_url: publicUrl,
+                aadhaar_back_url: publicUrl
+            }) : null);
+            addNotification("Aadhaar card image attached. Click 'Save Changes' to update record.", "success");
+        } catch (err: any) {
+            console.error("Aadhaar upload in org edit failed:", err);
+            addNotification(err.message || "Failed to upload Aadhaar card.", "error");
+        } finally {
+            setIsUploadingAadhaar(false);
+        }
+    };
+
     const handleUpdateMember = async () => {
         if (!editingMember) return;
         
@@ -266,7 +288,9 @@ Status: ${member.status}
                     pincode: editingMember.pincode,
                     address: editingMember.address,
                     occupation: editingMember.occupation,
-                    support_need: editingMember.support_need
+                    support_need: editingMember.support_need,
+                    aadhaar_front_url: editingMember.aadhaar_front_url || null,
+                    aadhaar_back_url: editingMember.aadhaar_back_url || null
                 })
                 .eq('id', editingMember.id);
 
@@ -515,6 +539,14 @@ Status: ${member.status}
                             <Select label="Community Need" disabled={isVerified} value={editingMember.support_need} onChange={(e) => setEditingMember({...editingMember, support_need: e.target.value as SupportNeed})}>
                                 {Object.values(SupportNeed).map(s => <option key={s} value={s}>{s}</option>)}
                             </Select>
+                            <div className="sm:col-span-3 mt-4 pt-4 border-t border-slate-100">
+                                <AadhaarImageDisplay 
+                                    imageUrl={editingMember.aadhaar_front_url || editingMember.aadhaar_back_url}
+                                    onFileSelect={handleUploadAadhaarInEdit}
+                                    isUploading={isUploadingAadhaar}
+                                    disabled={isVerified}
+                                />
+                            </div>
                         </div>
                         </div>
                     </div>

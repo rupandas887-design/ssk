@@ -1,7 +1,7 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import { Menu, Activity, LogOut, User as UserIcon, Loader2 } from 'lucide-react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth, mapStringToRole } from '../../context/AuthContext';
+import { Menu, Activity, LogOut, User as UserIcon, Loader2, LogIn, ArrowLeft } from 'lucide-react';
 import BrandLogo from '../ui/BrandLogo';
 import { Role } from '../../types';
 
@@ -20,6 +20,7 @@ const Header: React.FC<HeaderProps> = ({
 }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
 
   const handleLogout = async (e: React.MouseEvent) => {
@@ -33,27 +34,21 @@ const Header: React.FC<HeaderProps> = ({
       console.error("Sign out error:", err);
     } finally {
       setIsLoggingOut(false);
-      navigate('/login', { replace: true });
+      navigate('/', { replace: true });
     }
   };
 
   const getRoleBadge = (role?: Role | string) => {
-    switch (role) {
+    if (!role) return { label: 'Member', color: 'bg-slate-50 text-slate-700 border-slate-200' };
+    const norm = mapStringToRole(role);
+    switch (norm) {
       case Role.MasterAdmin:
-      case 'masteradmin':
-      case 'MasterAdmin':
         return { label: 'Admin', color: 'bg-saffron-50 text-saffron-700 border-saffron-200' };
       case Role.Organisation:
-      case 'organisation':
-      case 'Organisation':
         return { label: 'Org Lead', color: 'bg-saffron-100 text-saffron-800 border-saffron-300' };
       case Role.Volunteer:
-      case 'volunteer':
-      case 'Volunteer':
         return { label: 'Volunteer', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
       case Role.MemberUpdates:
-      case 'memberupdates':
-      case 'MemberUpdates':
         return { label: 'Operator', color: 'bg-amber-50 text-amber-700 border-amber-200' };
       default:
         return { label: 'Member', color: 'bg-slate-50 text-slate-700 border-slate-200' };
@@ -122,12 +117,25 @@ const Header: React.FC<HeaderProps> = ({
               </button>
             </div>
           ) : (
-            <button 
-              onClick={() => navigate('/login')}
-              className="inline-flex items-center px-4 sm:px-5 py-2 bg-gradient-to-r from-[#FF8A00] to-[#E87500] hover:from-[#E87500] hover:to-[#C65E00] text-black text-xs sm:text-sm font-bold rounded-xl shadow-[0_4px_14px_rgba(255,138,0,0.25)] hover:shadow-[0_6px_20px_rgba(255,138,0,0.35)] transition-all active:scale-95"
-            >
-              Sign In
-            </button>
+            <div className="flex items-center gap-2">
+              {location.pathname === '/login' ? (
+                <Link
+                  to="/"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-600 hover:text-saffron-700 bg-slate-100 hover:bg-saffron-50/80 rounded-xl transition-all border border-slate-200/80 hover:border-saffron-200 cursor-pointer"
+                >
+                  <ArrowLeft size={14} />
+                  <span>Home</span>
+                </Link>
+              ) : (
+                <Link
+                  to="/login"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#FF8A00] to-[#E87500] hover:from-[#E87500] hover:to-[#C65E00] text-white text-xs sm:text-sm font-bold rounded-xl shadow-[0_2px_10px_rgba(255,138,0,0.3)] hover:shadow-[0_4px_14px_rgba(255,138,0,0.4)] transition-all active:scale-95 cursor-pointer"
+                >
+                  <LogIn size={15} />
+                  <span>Sign In</span>
+                </Link>
+              )}
+            </div>
           )}
         </div>
       </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import Header from './Header';
 import BrandLogo from '../ui/BrandLogo';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, mapStringToRole } from '../../context/AuthContext';
 import { Role } from '../../types';
 import { 
   Users, 
@@ -126,15 +126,17 @@ const DashboardLayout: React.FC<{ children: React.ReactNode; title: string; hide
     };
 
     const getNavItems = () => {
-        if (user?.role === Role.MasterAdmin) return adminNavItems;
-        if (user?.role === Role.Organisation) return organisationNavItems;
-        if (user?.role === Role.Volunteer) return volunteerNavItems;
-        if (user?.role === Role.MemberUpdates) return memberUpdatesNavItems;
+        const role = mapStringToRole(user?.role);
+        if (role === Role.MasterAdmin) return adminNavItems;
+        if (role === Role.Organisation) return organisationNavItems;
+        if (role === Role.Volunteer) return volunteerNavItems;
+        if (role === Role.MemberUpdates) return memberUpdatesNavItems;
         return [];
     };
 
     const getRoleConfig = () => {
-        switch (user?.role) {
+        const role = mapStringToRole(user?.role);
+        switch (role) {
             case Role.MasterAdmin:
                 return { label: 'Master Admin', shortLabel: 'Admin', badgeBg: 'bg-saffron-500/15 text-saffron-300 border-saffron-500/30' };
             case Role.Organisation:

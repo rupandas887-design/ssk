@@ -1,12 +1,11 @@
-
-import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback, useRef } from 'react';
 import { User, Role } from '../types';
 import { supabase } from '../supabase/client';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<{ user: User | null; error?: string; code?: string }>;
+  login: (identifier: string, password: string) => Promise<{ user: User | null; error?: string; code?: string }>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   updatePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
@@ -14,22 +13,37 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const mapStringToRole = (roleStr: any): Role | string => {
-    if (!roleStr) return 'Guest';
-    const normalized = String(roleStr).toLowerCase().trim();
-    if (normalized === 'masteradmin' || normalized === 'superadmin' || normalized === 'master_admin' || normalized === 'admin') {
-        return Role.MasterAdmin;
-    }
-    if (normalized === 'organisation' || normalized === 'org' || normalized === 'organisationadmin' || normalized === 'organization') {
-        return Role.Organisation;
-    }
-    if (normalized === 'volunteer') {
-        return Role.Volunteer;
-    }
-    if (normalized === 'memberupdates' || normalized === 'member_updates' || normalized === 'member updates') {
-        return Role.MemberUpdates;
-    }
-    return roleStr;
+export const mapStringToRole = (roleStr: any): Role => {
+  if (!roleStr) return Role.Volunteer;
+  const normalized = String(roleStr).toLowerCase().replace(/[\s_-]+/g, '').trim();
+  
+  if (normalized === 'masteradmin' || normalized === 'superadmin' || normalized === 'admin') {
+    return Role.MasterAdmin;
+  }
+  if (normalized === 'organisation' || normalized === 'org' || normalized === 'organisationadmin' || normalized === 'organization') {
+    return Role.Organisation;
+  }
+  if (normalized === 'volunteer') {
+    return Role.Volunteer;
+  }
+  if (normalized === 'memberupdates') {
+    return Role.MemberUpdates;
+  }
+  return Role.Volunteer;
+};
+
+// Mobile-safe check for existing session in storage without throwing
+const CACHED_USER_KEY = 'ssk_cached_user_profile';
+
+const getCachedUser = (): User | null => {
+  try {
+    if (typeof window === 'undefined') return null;
+    const raw = localStorage.getItem(CACHED_USER_KEY) || sessionStorage.getItem('ssk_mock_session');
+    if (raw) return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  return null;
 };
 
 const hasStoredSession = (): boolean => {
@@ -38,7 +52,7 @@ const hasStoredSession = (): boolean => {
     if (sessionStorage.getItem('ssk_mock_session')) return true;
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key && (key.startsWith('sb-') && key.endsWith('-auth-token'))) {
+      if (key && (key.startsWith('sb-') || key.includes('auth-token') || key.includes('supabase'))) {
         const val = localStorage.getItem(key);
         if (val && val.includes('access_token')) return true;
       }
@@ -49,18 +63,32 @@ const hasStoredSession = (): boolean => {
   return false;
 };
 
-// Quick race with timeout to never hang the app indefinitely
-const withTimeout = <T,>(promise: Promise<T>, ms: number, fallbackValue: T): Promise<T> => {
-  return Promise.race([
-    promise,
-    new Promise<T>((resolve) => setTimeout(() => resolve(fallbackValue), ms))
-  ]);
-};
-
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  // Always begin in loading state until session state is conclusively verified from Supabase or storage
-  const [loading, setLoading] = useState<boolean>(true);
+  const cachedUser = getCachedUser();
+  const [user, setUser] = useState<User | null>(cachedUser);
+  // If we have a cached user, start loading = false immediately for instant dashboard render.
+  // If there is no stored session at all, also start loading = false immediately.
+  const [loading, setLoading] = useState<boolean>(!cachedUser && hasStoredSession());
+  const isMountedRef = useRef<boolean>(true);
+  const authInitializedRef = useRef<boolean>(false);
+
+  // Helper to persist active profile cache
+  const updateCachedUser = useCallback((userToCache: User | null) => {
+    try {
+      if (userToCache) {
+        localStorage.setItem(CACHED_USER_KEY, JSON.stringify(userToCache));
+      } else {
+        localStorage.removeItem(CACHED_USER_KEY);
+      }
+    } catch (e) {
+      console.warn("Failed to cache user profile:", e);
+    }
+  }, []);
+
+  // Sync cache with state
+  useEffect(() => {
+    updateCachedUser(user);
+  }, [user, updateCachedUser]);
 
   const fetchProfile = useCallback(async (userId: string, authUser?: any): Promise<User | null> => {
     try {
@@ -68,101 +96,67 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const metadataOrgId = authUser?.app_metadata?.organisation_id || authUser?.user_metadata?.organisation_id;
       
       let profile: any = null;
-      let queryError: any = null;
 
+      // Optimize: Fetch only profile data. Join is slow.
       try {
         const res = await supabase
-            .from('profiles')
-            .select(`*, organisations (name)`)
-            .eq('id', userId)
-            .maybeSingle();
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
         profile = res.data;
-        queryError = res.error;
       } catch (err: any) {
-        queryError = err;
+        console.warn("Profile query fault:", err);
       }
 
-      // If complex join encounters network/schema issue, fallback to basic profile query
-      if (queryError && !profile) {
-        try {
-          const fallbackRes = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', userId)
-            .maybeSingle();
-          if (fallbackRes.data) {
-            profile = fallbackRes.data;
-            queryError = null;
-          }
-        } catch {
-          // fallback failed, continue to authUser fallback
-        }
-      }
-
-      if (queryError) {
-          console.warn("fetchProfile query notice from profiles table:", queryError?.message || queryError);
-          if (authUser) {
-              return {
-                  id: authUser.id,
-                  name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'Authorized User',
-                  email: authUser.email || '',
-                  role: mapStringToRole(metadataRole),
-                  organisationId: metadataOrgId,
-                  status: 'Active',
-                  passwordResetPending: false
-              };
-          }
-          return null;
-      }
-      
       if (profile) {
-          const role = mapStringToRole(profile.role || metadataRole);
-          const rawOrgName = Array.isArray(profile.organisations) 
-            ? profile.organisations[0]?.name 
-            : profile.organisations?.name;
+        const role = mapStringToRole(profile.role || metadataRole);
+        const orgId = profile.organisation_id || metadataOrgId;
 
-          let resolvedOrgName = rawOrgName;
-          const orgId = profile.organisation_id || metadataOrgId;
+        // Lazy fetch organisation name if missing
+        let resolvedOrgName: string | undefined = undefined;
+        
+        return {
+          id: profile.id,
+          name: profile.name || authUser?.user_metadata?.name || 'Registered User',
+          email: profile.email || authUser?.email || '',
+          role: role,
+          organisationId: orgId,
+          organisationName: resolvedOrgName, // Fetch lazily or not at all in init
+          mobile: profile.mobile,
+          status: (profile.status as 'Active' | 'Deactivated') || 'Active',
+          passwordResetPending: profile.password_reset_pending || false,
+          profile_photo_url: profile.profile_photo_url
+        };
+      }
 
-          // Fallback query for organisation name if needed
-          if (!resolvedOrgName && orgId) {
-            try {
-              const { data: orgData } = await supabase
-                .from('organisations')
-                .select('name')
-                .eq('id', orgId)
-                .maybeSingle();
-              if (orgData?.name) resolvedOrgName = orgData.name;
-            } catch (err) {
-              console.warn("Could not fetch fallback organisation name:", err);
-            }
-          }
-          
-          return {
-              id: profile.id,
-              name: profile.name,
-              email: profile.email,
-              role: role,
-              organisationId: orgId,
-              organisationName: resolvedOrgName || undefined,
-              mobile: profile.mobile,
-              status: (profile.status as 'Active' | 'Deactivated') || 'Active',
-              passwordResetPending: profile.password_reset_pending || false
-          };
-      } else if (authUser) {
-          const role = mapStringToRole(metadataRole);
-          return {
-              id: authUser.id,
-              name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'Authorized User',
-              email: authUser.email || '',
-              role: role,
-              organisationId: metadataOrgId,
-              status: 'Active',
-              passwordResetPending: false
-          };
+      // If profile record is not yet synced in DB but Supabase Auth session exists,
+      // return resilient user constructed from Auth tokens so the user is NEVER blocked
+      if (authUser) {
+        return {
+          id: authUser.id,
+          name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'Authorized User',
+          email: authUser.email || '',
+          role: mapStringToRole(metadataRole),
+          organisationId: metadataOrgId,
+          status: 'Active',
+          passwordResetPending: false
+        };
       }
     } catch (e: any) {
       console.error("Critical Profile sync fault:", e);
+      if (authUser) {
+        const metadataRole = authUser?.app_metadata?.role || authUser?.user_metadata?.role;
+        return {
+          id: authUser.id,
+          name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'Authorized User',
+          email: authUser.email || '',
+          role: mapStringToRole(metadataRole),
+          organisationId: authUser?.app_metadata?.organisation_id || authUser?.user_metadata?.organisation_id,
+          status: 'Active',
+          passwordResetPending: false
+        };
+      }
     }
     return null;
   }, []);
@@ -170,9 +164,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const refreshProfile = useCallback(async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-          const updatedUser = await fetchProfile(session.user.id, session.user);
-          if (updatedUser) setUser(updatedUser);
+      if (session?.user && isMountedRef.current) {
+        const updatedUser = await fetchProfile(session.user.id, session.user);
+        if (updatedUser && isMountedRef.current) setUser(updatedUser);
       }
     } catch (e) {
       console.error("Failed to refresh profile:", e);
@@ -181,6 +175,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (identifier: string, password: string): Promise<{ user: User | null; error?: string; code?: string }> => {
     const rawId = (identifier || '').trim();
+
+    if (!rawId) {
+      return { user: null, error: 'Please enter your email, mobile number, or username.' };
+    }
+    if (!password) {
+      return { user: null, error: 'Please enter your password.' };
+    }
 
     // 1. Mock login for Member Updates Dashboard
     if (
@@ -206,31 +207,45 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     try {
       let targetEmail = rawId.toLowerCase();
+      const normalizedNoSpace = targetEmail.replace(/[\s_-]+/g, '');
 
-      // 2. Handle username shortcuts
-      if (targetEmail === 'masteradmin' || targetEmail === 'admin') {
+      // 2. Handle username shortcuts for Master Admin & Admin
+      if (
+        normalizedNoSpace === 'masteradmin' || 
+        normalizedNoSpace === 'admin' || 
+        normalizedNoSpace === 'superadmin' ||
+        targetEmail === 'admin@ssk.com' ||
+        targetEmail === 'masteradmin@ssk.com'
+      ) {
         targetEmail = 'masteradmin@ssk.com';
       }
 
-      // 3. Handle phone / mobile number login
+      // 3. Handle phone / mobile number login on mobile & desktop keyboards
       const digitsOnly = rawId.replace(/\D/g, '');
-      const isPhoneLike = !rawId.includes('@') && (digitsOnly.length === 10 || (digitsOnly.length === 12 && digitsOnly.startsWith('91')));
+      const isPhoneLike = !rawId.includes('@') && (
+        digitsOnly.length === 10 || 
+        (digitsOnly.length === 11 && digitsOnly.startsWith('0')) ||
+        (digitsOnly.length === 12 && digitsOnly.startsWith('91'))
+      );
 
       if (isPhoneLike) {
-        const cleanMobile = digitsOnly.length === 12 && digitsOnly.startsWith('91') 
-          ? digitsOnly.slice(2) 
-          : digitsOnly;
+        let cleanMobile = digitsOnly;
+        if (digitsOnly.length === 11 && digitsOnly.startsWith('0')) {
+          cleanMobile = digitsOnly.slice(1);
+        } else if (digitsOnly.length === 12 && digitsOnly.startsWith('91')) {
+          cleanMobile = digitsOnly.slice(2);
+        }
 
         try {
           // Lookup registered profile by mobile number
-          const { data: matchedProfile } = await supabase
+          const { data: matchedProfile, error: profileErr } = await supabase
             .from('profiles')
             .select('email')
             .eq('mobile', cleanMobile)
             .maybeSingle();
 
           if (matchedProfile?.email) {
-            targetEmail = matchedProfile.email.toLowerCase();
+            targetEmail = matchedProfile.email.toLowerCase().trim();
           } else {
             // Default volunteer email format
             targetEmail = `${cleanMobile}@sskpeople.com`;
@@ -241,7 +256,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       }
 
-      // 4. Authenticate with Supabase
+      // 4. Authenticate with Supabase Auth
       const { data, error: authError } = await supabase.auth.signInWithPassword({ 
         email: targetEmail, 
         password 
@@ -251,7 +266,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.error("Supabase signIn error:", authError.message);
         let userFacingError = authError.message;
         if (authError.message.toLowerCase().includes('invalid login credentials')) {
-          userFacingError = 'Invalid credentials. Please verify your email, mobile number, and security key.';
+          userFacingError = 'Invalid credentials. Please verify your email / mobile and password.';
+        } else if (authError.message.toLowerCase().includes('network') || authError.message.toLowerCase().includes('fetch')) {
+          userFacingError = 'Network connection problem. Please check your mobile internet connection and try again.';
         }
         return { user: null, error: userFacingError };
       }
@@ -262,7 +279,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setUser(profile);
           return { user: profile };
         }
-        // Fallback user profile from metadata if profiles record is pending
+        // Fallback user profile from metadata if profiles record lookup is deferred
         const metadataRole = data.user.app_metadata?.role || data.user.user_metadata?.role;
         const fallbackUser: User = {
           id: data.user.id,
@@ -284,8 +301,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const logout = async () => {
-    // 1. Immediately reset React state synchronously so route guards never bounce
+    // 1. Immediately reset React state synchronously
     setUser(null);
+    authInitializedRef.current = false; // Reset init flag
 
     // 2. Remove real-time channels
     try {
@@ -294,7 +312,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.warn("Channel cleanup error:", e);
     }
 
-    // 3. Clear all cached sessions and route memory
+    // 3. Clear all cached sessions and route memory safely
     try {
       sessionStorage.removeItem('ssk_mock_session');
       sessionStorage.clear();
@@ -318,34 +336,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.warn("Supabase auth signOut warning (safe to ignore):", e);
     }
 
-    // 5. Ensure user state remains null
+    // 5. Final state safeguard
     setUser(null);
   };
 
   const updatePassword = async (newPassword: string) => {
-      const { error: authError } = await supabase.auth.updateUser({ password: newPassword });
-      if (authError) return { success: false, error: authError.message };
+    const { error: authError } = await supabase.auth.updateUser({ password: newPassword });
+    if (authError) return { success: false, error: authError.message };
+    
+    if (user?.id) {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ password_reset_pending: false })
+        .eq('id', user.id);
       
-      if (user?.id) {
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .update({ password_reset_pending: false })
-            .eq('id', user.id);
-          
-          if (profileError) {
-              console.error("Failed to clear security flag:", profileError);
-              return { success: false, error: "Password changed but security flag remains. Please contact support." };
-          }
-          await refreshProfile();
+      if (profileError) {
+        console.error("Failed to clear security flag:", profileError);
+        return { success: false, error: "Password changed but security flag remains. Please contact support." };
       }
-      
-      return { success: true };
+      await refreshProfile();
+    }
+    
+    return { success: true };
   };
 
   // Auth Initialization and Session Persistence Effect
   useEffect(() => {
+    isMountedRef.current = true;
     let profileSubscription: any = null;
-    let isMounted = true;
 
     const setupProfileSubscription = (userId: string) => {
       if (profileSubscription) {
@@ -369,12 +387,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .subscribe();
     };
 
-    // Safety fallback timer to prevent infinite loading screen under extreme network outage
+    // Safety fallback timer to guarantee loading screen never locks up indefinitely on slow mobile connections
     const safetyTimer = setTimeout(() => {
-      if (isMounted) {
+      if (isMountedRef.current) {
         setLoading(false);
       }
-    }, 8000);
+    }, 800);
 
     const init = async () => {
       try {
@@ -383,7 +401,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (mockSaved) {
           try {
             const parsed = JSON.parse(mockSaved);
-            if (parsed && parsed.email && isMounted) {
+            if (parsed && parsed.email && isMountedRef.current) {
               setUser(parsed);
               setLoading(false);
               clearTimeout(safetyTimer);
@@ -398,13 +416,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
         if (sessionError) {
-          console.error("Supabase getSession error:", sessionError);
+          console.warn("Supabase getSession notice:", sessionError.message);
         }
 
-        if (session?.user && isMounted) {
+        if (session?.user && isMountedRef.current) {
           const profile = await fetchProfile(session.user.id, session.user);
 
-          if (isMounted) {
+          if (isMountedRef.current) {
             if (profile) {
               setUser(profile);
               setupProfileSubscription(session.user.id);
@@ -422,17 +440,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               });
             }
           }
-        } else if (isMounted) {
+        } else if (isMountedRef.current) {
           setUser(null);
         }
       } catch (e) {
         console.error("Auth init exception:", e);
-        if (isMounted) {
+        if (isMountedRef.current) {
           setUser(null);
         }
       } finally {
         clearTimeout(safetyTimer);
-        if (isMounted) {
+        if (isMountedRef.current) {
           setLoading(false);
         }
       }
@@ -440,31 +458,63 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     init();
 
-    // Listen to Supabase auth events
+    // Listen to Supabase auth events (including INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED, USER_UPDATED)
     const { data: { subscription: authListener } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === 'SIGNED_OUT') {
-          if (isMounted) {
+          if (isMountedRef.current) {
             setUser(null);
+            authInitializedRef.current = false;
             setLoading(false);
           }
-        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          if (session?.user && isMounted) {
+        } else if (
+          event === 'INITIAL_SESSION' || 
+          event === 'SIGNED_IN' || 
+          event === 'TOKEN_REFRESHED' || 
+          event === 'USER_UPDATED'
+        ) {
+          if (session?.user && isMountedRef.current) {
             const profile = await fetchProfile(session.user.id, session.user);
-            if (isMounted) {
+            if (isMountedRef.current) {
               if (profile) {
                 setUser(profile);
                 setupProfileSubscription(session.user.id);
+              } else {
+                const metadataRole = session.user.app_metadata?.role || session.user.user_metadata?.role;
+                const metadataOrgId = session.user.app_metadata?.organisation_id || session.user.user_metadata?.organisation_id;
+                setUser({
+                  id: session.user.id,
+                  name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Authorized User',
+                  email: session.user.email || '',
+                  role: mapStringToRole(metadataRole),
+                  organisationId: metadataOrgId,
+                  status: 'Active',
+                  passwordResetPending: false
+                });
               }
               setLoading(false);
             }
+          } else if (!session && isMountedRef.current) {
+            // Unauthenticated state
+            setLoading(false);
           }
         }
       }
     );
 
+    if (authInitializedRef.current) return () => {
+      isMountedRef.current = false;
+      if (profileSubscription) {
+        supabase.removeChannel(profileSubscription);
+      }
+      authListener?.unsubscribe();
+      clearTimeout(safetyTimer);
+    };
+    authInitializedRef.current = true;
+    init();
+
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
       if (profileSubscription) {
         supabase.removeChannel(profileSubscription);
       }

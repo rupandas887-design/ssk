@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import GenderChart from '../components/charts/GenderChart';
@@ -31,7 +32,8 @@ import {
   User,
   Heart,
   Briefcase,
-  Award
+  Award,
+  LogIn
 } from 'lucide-react';
 
 const LandingPage: React.FC = () => {
@@ -240,6 +242,18 @@ const LandingPage: React.FC = () => {
                   Understand members, identify needs, and connect people with the right support.<br className="hidden sm:inline" />
                   Building a stronger, connected, and better-supported SSK Samaj.
                 </p>
+              </div>
+
+              {/* Direct Sign In CTA */}
+              <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3 w-full max-w-md mx-auto">
+                <Link
+                  to="/login"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3.5 bg-gradient-to-r from-[#FF8A00] to-[#E87500] hover:from-[#E87500] hover:to-[#C65E00] text-white text-sm font-extrabold rounded-xl shadow-[0_4px_16px_rgba(255,138,0,0.35)] hover:shadow-[0_6px_22px_rgba(255,138,0,0.45)] transition-all active:scale-95 cursor-pointer"
+                >
+                  <LogIn size={18} />
+                  <span>Sign In to Registry</span>
+                  <ArrowRight size={16} />
+                </Link>
               </div>
             </div>
 
