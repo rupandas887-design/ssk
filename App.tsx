@@ -1,12 +1,10 @@
 import React, { useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider, useAuth, mapStringToRole } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { Role } from './types';
-import AuthLoadingSplash from './components/ui/AuthLoadingSplash';
 
 import LandingPage from './pages/LandingPage';
-import LoginPage from './pages/LoginPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import ManageOrganisations from './pages/admin/ManageOrganisations';
 import AdminReports from './pages/admin/AdminReports';
@@ -18,10 +16,12 @@ import VolunteerDashboard from './pages/volunteer/VolunteerDashboard';
 import NewMemberForm from './pages/volunteer/NewMemberForm';
 import MemberUpdates from './pages/MemberUpdates';
 import SupabaseDiagnostics from './pages/SupabaseDiagnostics';
+import CulturalLoader from './components/ui/CulturalLoader';
 
 const AUTH_ROUTE_STORAGE_KEY = 'ssk_last_authenticated_route';
 
-const isRouteAllowedForRole = (route: string, role: Role | string): boolean => {
+const isRouteAllowedForRole = (route: string, rawRole: Role | string): boolean => {
+  const role = mapStringToRole(rawRole);
   if (role === Role.MasterAdmin && route.startsWith('/admin')) return true;
   if (role === Role.Organisation && route.startsWith('/organisation')) return true;
   if (role === Role.Volunteer && route.startsWith('/volunteer')) return true;
@@ -29,12 +29,13 @@ const isRouteAllowedForRole = (route: string, role: Role | string): boolean => {
   return false;
 };
 
-const getDefaultRouteForRole = (role: Role | string): string => {
+const getDefaultRouteForRole = (rawRole: Role | string): string => {
+  const role = mapStringToRole(rawRole);
   if (role === Role.MasterAdmin) return '/admin';
   if (role === Role.Organisation) return '/organisation';
   if (role === Role.Volunteer) return '/volunteer/new-member';
   if (role === Role.MemberUpdates) return '/member-updates';
-  return '/login';
+  return '/';
 };
 
 const RouteTracker: React.FC = () => {
@@ -42,7 +43,7 @@ const RouteTracker: React.FC = () => {
   const { user } = useAuth();
 
   useEffect(() => {
-    if (user && location.pathname !== '/' && location.pathname !== '/login') {
+    if (user && location.pathname !== '/' && location.pathname !== '/diagnostics') {
       try {
         localStorage.setItem(AUTH_ROUTE_STORAGE_KEY, location.pathname);
       } catch (e) {
@@ -54,61 +55,6 @@ const RouteTracker: React.FC = () => {
   return null;
 };
 
-const hasStoredAuthToken = (): boolean => {
-  try {
-    if (typeof window === 'undefined') return false;
-    if (sessionStorage.getItem('ssk_mock_session')) return true;
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
-        const val = localStorage.getItem(key);
-        if (val && val.includes('access_token')) return true;
-      }
-    }
-  } catch {
-    return false;
-  }
-  return false;
-};
-
-const PublicLandingRoute: React.FC = () => {
-  const { user, loading } = useAuth();
-
-  // If already authenticated, restore to their active route or role default
-  if (user) {
-    const savedRoute = localStorage.getItem(AUTH_ROUTE_STORAGE_KEY);
-    if (savedRoute && isRouteAllowedForRole(savedRoute, user.role)) {
-      return <Navigate to={savedRoute} replace />;
-    }
-    return <Navigate to={getDefaultRouteForRole(user.role)} replace />;
-  }
-
-  // Only display splash screen if loading AND an actual session token exists in local storage
-  if (loading && hasStoredAuthToken()) {
-    return <AuthLoadingSplash />;
-  }
-
-  return <LandingPage />;
-};
-
-const LoginRoute: React.FC = () => {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return <AuthLoadingSplash />;
-  }
-
-  if (user) {
-    const savedRoute = localStorage.getItem(AUTH_ROUTE_STORAGE_KEY);
-    if (savedRoute && isRouteAllowedForRole(savedRoute, user.role)) {
-      return <Navigate to={savedRoute} replace />;
-    }
-    return <Navigate to={getDefaultRouteForRole(user.role)} replace />;
-  }
-
-  return <LoginPage />;
-};
-
 interface ProtectedRouteProps {
   children: React.ReactElement;
   requiredRole: Role;
@@ -118,36 +64,19 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <AuthLoadingSplash />;
+    return <div className="min-h-screen"><CulturalLoader message="Authenticating..." overlay={true} /></div>;
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
-  if (user.role !== requiredRole) {
-    return <Navigate to={getDefaultRouteForRole(user.role)} replace />;
+  const userRole = mapStringToRole(user.role);
+  if (userRole !== requiredRole) {
+    return <Navigate to={getDefaultRouteForRole(userRole)} replace />;
   }
 
   return children;
-};
-
-const CatchAllRoute: React.FC = () => {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return <AuthLoadingSplash />;
-  }
-
-  if (user) {
-    const savedRoute = localStorage.getItem(AUTH_ROUTE_STORAGE_KEY);
-    if (savedRoute && isRouteAllowedForRole(savedRoute, user.role)) {
-      return <Navigate to={savedRoute} replace />;
-    }
-    return <Navigate to={getDefaultRouteForRole(user.role)} replace />;
-  }
-
-  return <Navigate to="/" replace />;
 };
 
 const App: React.FC = () => {
@@ -157,8 +86,7 @@ const App: React.FC = () => {
         <HashRouter>
           <RouteTracker />
           <Routes>
-            <Route path="/" element={<PublicLandingRoute />} />
-            <Route path="/login" element={<LoginRoute />} />
+            <Route path="/" element={<LandingPage />} />
             <Route path="/diagnostics" element={<SupabaseDiagnostics />} />
             
             {/* Master Admin Routes */}
@@ -178,7 +106,7 @@ const App: React.FC = () => {
             <Route path="/volunteer" element={<ProtectedRoute requiredRole={Role.Volunteer}><VolunteerDashboard /></ProtectedRoute>} />
             <Route path="/volunteer/new-member" element={<ProtectedRoute requiredRole={Role.Volunteer}><NewMemberForm /></ProtectedRoute>} />
 
-            <Route path="*" element={<CatchAllRoute />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </HashRouter>
       </NotificationProvider>
