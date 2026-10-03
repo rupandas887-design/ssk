@@ -17,7 +17,6 @@ import VolunteerDashboard from './pages/volunteer/VolunteerDashboard';
 import NewMemberForm from './pages/volunteer/NewMemberForm';
 import MemberUpdates from './pages/MemberUpdates';
 import SupabaseDiagnostics from './pages/SupabaseDiagnostics';
-import CulturalLoader from './components/ui/CulturalLoader';
 
 const AUTH_ROUTE_STORAGE_KEY = 'ssk_last_authenticated_route';
 
@@ -65,7 +64,12 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <div className="min-h-screen"><CulturalLoader message="Authenticating..." overlay={true} /></div>;
+    return (
+      <div className="min-h-screen bg-[#F5F7FB] flex flex-col items-center justify-center p-4">
+        <div className="w-8 h-8 border-2 border-saffron-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="mt-2.5 text-xs font-semibold text-slate-500">Checking credentials...</p>
+      </div>
+    );
   }
 
   if (!user) {

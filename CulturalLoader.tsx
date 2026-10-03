@@ -30,10 +30,10 @@ export const CulturalLoader: React.FC<CulturalLoaderProps> = ({
   const [isFinishing, setIsFinishing] = useState<boolean>(false);
 
   useEffect(() => {
-    // If compact mode, accelerate the timeline for snappy interactions
-    const t1Duration = compact ? 400 : 750;
-    const t2Duration = compact ? 1200 : 1600;
-    const t3Duration = compact ? 1200 : 1600;
+    // Ultra-snappy timeline for fast responsiveness
+    const t1Duration = 100;
+    const t2Duration = 200;
+    const t3Duration = 200;
 
     const timer1 = setTimeout(() => {
       setStep(2);
@@ -47,7 +47,7 @@ export const CulturalLoader: React.FC<CulturalLoaderProps> = ({
       setStep(4);
       setIsFinishing(true);
       if (onComplete) {
-        setTimeout(onComplete, 400);
+        setTimeout(onComplete, 100);
       }
     }, t1Duration + t2Duration + t3Duration);
 

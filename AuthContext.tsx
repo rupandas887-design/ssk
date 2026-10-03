@@ -33,6 +33,19 @@ export const mapStringToRole = (roleStr: any): Role => {
 };
 
 // Mobile-safe check for existing session in storage without throwing
+const CACHED_USER_KEY = 'ssk_cached_user_profile';
+
+const getCachedUser = (): User | null => {
+  try {
+    if (typeof window === 'undefined') return null;
+    const raw = localStorage.getItem(CACHED_USER_KEY) || sessionStorage.getItem('ssk_mock_session');
+    if (raw) return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  return null;
+};
+
 const hasStoredSession = (): boolean => {
   try {
     if (typeof window === 'undefined') return false;
@@ -51,11 +64,31 @@ const hasStoredSession = (): boolean => {
 };
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  // Begin in loading state to avoid flash of unauthenticated content while restoring session
-  const [loading, setLoading] = useState<boolean>(true);
+  const cachedUser = getCachedUser();
+  const [user, setUser] = useState<User | null>(cachedUser);
+  // If we have a cached user, start loading = false immediately for instant dashboard render.
+  // If there is no stored session at all, also start loading = false immediately.
+  const [loading, setLoading] = useState<boolean>(!cachedUser && hasStoredSession());
   const isMountedRef = useRef<boolean>(true);
   const authInitializedRef = useRef<boolean>(false);
+
+  // Helper to persist active profile cache
+  const updateCachedUser = useCallback((userToCache: User | null) => {
+    try {
+      if (userToCache) {
+        localStorage.setItem(CACHED_USER_KEY, JSON.stringify(userToCache));
+      } else {
+        localStorage.removeItem(CACHED_USER_KEY);
+      }
+    } catch (e) {
+      console.warn("Failed to cache user profile:", e);
+    }
+  }, []);
+
+  // Sync cache with state
+  useEffect(() => {
+    updateCachedUser(user);
+  }, [user, updateCachedUser]);
 
   const fetchProfile = useCallback(async (userId: string, authUser?: any): Promise<User | null> => {
     try {
@@ -359,7 +392,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (isMountedRef.current) {
         setLoading(false);
       }
-    }, 2000);
+    }, 800);
 
     const init = async () => {
       try {
