@@ -10,6 +10,7 @@ import { supabase } from '../../supabase/client';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import { syncToSheets, SheetType } from '../../services/googleSheets';
+import { uploadMemberImage } from '../../services/storageService';
 import CulturalLoader from '../../components/ui/CulturalLoader';
 import { 
   ShieldAlert, 
@@ -26,7 +27,10 @@ import {
   ArrowRight,
   ArrowLeft,
   Sparkles,
-  FileCheck
+  FileCheck,
+  Upload,
+  Image as ImageIcon,
+  X
 } from 'lucide-react';
 
 const initialFormData = {
@@ -300,6 +304,11 @@ const NewMemberForm: React.FC = () => {
       setValidationError('All fields including Gender, Marital Status, and Qualification are mandatory.');
       return;
     }
+
+    if (!formData.aadhaarPhoto) {
+      setValidationError('Please upload the citizen\'s Aadhaar Card image before continuing.');
+      return;
+    }
     
     if (!/^\d{10}$/.test(formData.emergencyContact)) {
       setValidationError('Emergency Contact must be exactly 10 digits.');
@@ -321,10 +330,8 @@ const NewMemberForm: React.FC = () => {
   };
 
   const uploadFile = async (file: File) => {
-    const fileName = `aadhaar_${uuidv4()}.jpg`;
-    const { data, error } = await supabase.storage.from('member-images').upload(fileName, file);
-    if (error) throw new Error(`Storage Error: ${error.message}`);
-    return supabase.storage.from('member-images').getPublicUrl(data.path).data.publicUrl;
+    const { publicUrl } = await uploadMemberImage(file, 'aadhaar');
+    return publicUrl;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -554,6 +561,72 @@ const NewMemberForm: React.FC = () => {
             className="border-slate-200/90 shadow-card p-6 sm:p-8"
           >
             <div className="space-y-6">
+              {/* Aadhaar Card Document Upload Section */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-saffron-50/70 via-amber-50/40 to-slate-50 border border-saffron-200/90 shadow-2xs space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-saffron-100/80 text-saffron-700 flex items-center justify-center shrink-0">
+                      <CreditCard size={18} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-900">Aadhaar Card Document Upload *</h4>
+                      <p className="text-[11px] text-slate-500">Upload a clear photo or scanned copy of the citizen's Aadhaar card</p>
+                    </div>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold self-start sm:self-auto">
+                    <CheckCircle2 size={13} />
+                    <span>Verified: {formData.aadhaar}</span>
+                  </span>
+                </div>
+
+                {formData.aadhaarPhoto ? (
+                  <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-saffron-200 shadow-2xs">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <div className="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
+                        <img 
+                          src={URL.createObjectURL(formData.aadhaarPhoto)} 
+                          alt="Aadhaar preview" 
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="overflow-hidden">
+                        <p className="text-xs font-bold text-slate-800 truncate">{formData.aadhaarPhoto.name}</p>
+                        <p className="text-[11px] text-slate-400">
+                          {(formData.aadhaarPhoto.size / (1024 * 1024)).toFixed(2)} MB • Ready for sync
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, aadhaarPhoto: null }))}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                      title="Remove file"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-saffron-300 hover:border-saffron-400 bg-white/80 hover:bg-white rounded-xl p-4 sm:p-5 transition-colors cursor-pointer group">
+                      <Upload size={22} className="text-saffron-500 group-hover:scale-110 transition-transform mb-1.5" />
+                      <span className="text-xs font-bold text-slate-700">Choose file or take photo *</span>
+                      <span className="text-[11px] text-slate-400 mt-0.5">Supports JPG, PNG, WEBP up to 10MB</span>
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            setFormData(prev => ({ ...prev, aadhaarPhoto: e.target.files![0] }));
+                            setValidationError('');
+                          }
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <Input label="Full Name *" name="name" value={formData.name} onChange={handleChange} placeholder="First Name" required />
                 <Input label="Gharano (Surname) *" name="surname" value={formData.surname} onChange={handleChange} placeholder="Gharano / Surname" required />
@@ -611,19 +684,57 @@ const NewMemberForm: React.FC = () => {
           >
             <div className="space-y-6">
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-bold text-[#0B1020] mb-1.5 transition-colors">Aadhaar Card Upload *</label>
-                  <input 
-                    type="file" 
-                    accept="image/*"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        setFormData(prev => ({ ...prev, aadhaarPhoto: e.target.files![0] }));
-                      }
-                    }}
-                    className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-saffron-50 file:text-saffron-700 hover:file:bg-saffron-100"
-                    required
-                  />
-                  <p className="mt-1 text-[10px] text-slate-500">Please upload a clear image of the Aadhaar card.</p>
+                  <label className="block text-xs font-bold text-[#0B1020] mb-1.5 transition-colors">Attached Aadhaar Card</label>
+                  {formData.aadhaarPhoto ? (
+                    <div className="flex items-center justify-between p-3.5 bg-saffron-50/50 rounded-xl border border-saffron-200">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-lg bg-white border border-saffron-100 overflow-hidden flex items-center justify-center">
+                          <img 
+                            src={URL.createObjectURL(formData.aadhaarPhoto)} 
+                            alt="Aadhaar preview" 
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-slate-800 truncate max-w-[220px]">{formData.aadhaarPhoto.name}</p>
+                          <p className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+                            <CheckCircle2 size={12} />
+                            Verified Document Attached
+                          </p>
+                        </div>
+                      </div>
+                      <label className="text-xs font-bold text-saffron-700 hover:text-saffron-800 cursor-pointer hover:underline px-2 py-1">
+                        Change
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              setFormData(prev => ({ ...prev, aadhaarPhoto: e.target.files![0] }));
+                            }
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between">
+                      <span className="text-xs text-amber-800 font-medium">No Aadhaar card image attached yet.</span>
+                      <label className="text-xs font-bold text-saffron-700 hover:text-saffron-800 cursor-pointer hover:underline">
+                        Upload Now
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              setFormData(prev => ({ ...prev, aadhaarPhoto: e.target.files![0] }));
+                            }
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  )}
                 </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <Select label="What is their primary occupation? *" name="occupation" value={formData.occupation} onChange={handleChange}>

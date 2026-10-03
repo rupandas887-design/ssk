@@ -6,6 +6,7 @@ import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import { Member, MemberStatus } from '../types';
 import { supabase } from '../supabase/client';
+import { uploadMemberImage } from '../services/storageService';
 import { useNotification } from '../context/NotificationContext';
 import CulturalLoader from '../components/ui/CulturalLoader';
 import { 
@@ -90,10 +91,8 @@ const MemberUpdates: React.FC = () => {
   };
 
   const uploadFile = async (file: File, prefix: string) => {
-    const fileName = `${prefix}_${uuidv4()}.jpg`;
-    const { data, error } = await supabase.storage.from('member-images').upload(fileName, file);
-    if (error) throw new Error(`Storage Error: ${error.message}`);
-    return supabase.storage.from('member-images').getPublicUrl(data.path).data.publicUrl;
+    const { publicUrl } = await uploadMemberImage(file, prefix);
+    return publicUrl;
   };
 
   const handleAddressUpdate = async () => {

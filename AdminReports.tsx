@@ -5,6 +5,8 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Modal from '../../components/ui/Modal';
+import AadhaarImageDisplay from '../../components/ui/AadhaarImageDisplay';
+import { uploadMemberImage } from '../../services/storageService';
 import { supabase } from '../../supabase/client';
 import { Member, Organisation, Role, User as VolunteerUser, Gender, Occupation, SupportNeed, MemberStatus, MaritalStatus, Qualification } from '../../types';
 import { useNotification } from '../../context/NotificationContext';
@@ -61,6 +63,7 @@ const AdminReports: React.FC = () => {
     const [memberToDelete, setMemberToDelete] = useState<MemberWithAgent | null>(null);
     const [isUpdating, setIsUpdating] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isUploadingAadhaar, setIsUploadingAadhaar] = useState(false);
 
     const formatDisplayName = (first: string, last: string) => {
         const f = (first || '').trim().toLowerCase();
@@ -169,6 +172,25 @@ const AdminReports: React.FC = () => {
         setIsEditModalOpen(true);
     };
 
+    const handleUploadAadhaarInEdit = async (file: File) => {
+        if (!editingMember) return;
+        setIsUploadingAadhaar(true);
+        try {
+            const { publicUrl } = await uploadMemberImage(file, 'aadhaar');
+            setEditingMember(prev => prev ? ({
+                ...prev,
+                aadhaar_front_url: publicUrl,
+                aadhaar_back_url: publicUrl
+            }) : null);
+            addNotification("Aadhaar card image attached. Click 'Save Updates' to save.", "success");
+        } catch (err: any) {
+            console.error("Aadhaar upload in admin edit failed:", err);
+            addNotification(err.message || "Failed to upload Aadhaar card.", "error");
+        } finally {
+            setIsUploadingAadhaar(false);
+        }
+    };
+
     const handleUpdateMember = async () => {
         if (!editingMember) return;
         setIsUpdating(true);
@@ -189,7 +211,9 @@ const AdminReports: React.FC = () => {
                     address: editingMember.address,
                     occupation: editingMember.occupation,
                     support_need: editingMember.support_need,
-                    status: editingMember.status
+                    status: editingMember.status,
+                    aadhaar_front_url: editingMember.aadhaar_front_url || null,
+                    aadhaar_back_url: editingMember.aadhaar_back_url || null
                 })
                 .eq('id', editingMember.id);
 
@@ -547,6 +571,14 @@ Status: ${member.status}
                             <Select label="Community Need" value={editingMember.support_need} onChange={(e) => setEditingMember({...editingMember, support_need: e.target.value as SupportNeed})}>
                                 {Object.values(SupportNeed).map(s => <option key={s} value={s}>{s}</option>)}
                             </Select>
+                            <div className="sm:col-span-3 mt-4 pt-4 border-t border-slate-100">
+                                <AadhaarImageDisplay 
+                                    imageUrl={editingMember.aadhaar_front_url || editingMember.aadhaar_back_url}
+                                    onFileSelect={handleUploadAadhaarInEdit}
+                                    isUploading={isUploadingAadhaar}
+                                    disabled={false}
+                                />
+                            </div>
                         </div>
                         </div>
                     </div>
